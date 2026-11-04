@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rule Forge λD₀ — a pixel game for the derivation rules of λD₀</title>
+<style>
+:root { color-scheme: light; --day:#eef7ff; --day2:#fff3c4; --sky:#dcefff; --paper:#fffaf0; --ink:#1d1a2a; --fire:#ff7b2e; --gold:#ffd23f; --steel:#8a95a8; --green:#3fa34d; --red:#d1495b; --blue:#3a6ea5; --muted:#6d6a7c; }
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--day); color: var(--ink); font: 15px/1.5 ui-monospace, "SFMono-Regular", Menlo, Consolas, "DejaVu Sans Mono", monospace; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; background: var(--day2); border-bottom: 4px solid #000; position: sticky; top: 0; z-index: 3; }
+header .logo { color: var(--fire); font-weight: bold; letter-spacing: 2px; text-shadow: 2px 2px 0 #fff; margin-right: 8px; cursor: pointer; }
+#sparks { margin-left: auto; color: #8a6200; font-weight: bold; font-size: 13px; }
+main { max-width: 1240px; margin: 0 auto; padding: 10px 12px 14px; }
+#app { background: var(--paper); border: 4px solid #000; box-shadow: 6px 6px 0 #000; padding: 14px 18px; }
+h1 { font-size: 22px; color: var(--red); margin: 6px 0; text-shadow: 2px 2px 0 #ffe7a8; }
+h2 { font-size: 17px; margin: 10px 0 4px; } h3 { font-size: 15px; margin: 8px 0 4px; }
+p { max-width: 82ch; margin: 6px 0; }
+.btn { font: inherit; cursor: pointer; border: 3px solid #000; background: #fffaf0; color: var(--ink); padding: 4px 10px; box-shadow: 3px 3px 0 #000; }
+.btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #000; }
+.btn:focus-visible, input:focus-visible, select:focus-visible { outline: 3px dashed var(--blue); outline-offset: 2px; }
+.btn.primary { background: var(--gold); }
+.btn.nav { background: #cfe0ff; color: var(--ink); }
+.btn.nav.cur { background: var(--fire); color: #000; }
+.btn.small { padding: 1px 6px; font-size: 13px; box-shadow: 2px 2px 0 #000; }
+.btn.good { background: #bfe8c4; } .btn.bad { background: #f4c0c7; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.small { font-size: 12px; color: var(--muted); }
+canvas.pix { image-rendering: pixelated; image-rendering: crisp-edges; display: block; border: 4px solid #000; background: var(--sky); max-width: 100%; height: auto; }
+.title canvas { width: 100%; max-width: 640px; height: auto; }
+.worlds { display: grid; gap: 14px; }
+.world { border: 3px solid #000; background: #fff6e0; padding: 8px 12px; }
+.world h2 { margin: 2px 0; color: var(--blue); }
+.tiles { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.tile { min-width: 150px; text-align: left; }
+.tile .k { font-size: 11px; color: var(--muted); display: block; }
+.tile.done { background: #d7f2d0; }
+.layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr); gap: 14px; }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+.panel { border: 3px solid #000; background: #fffdf6; padding: 8px 10px; }
+.panel h3 { margin-top: 0; }
+.env { font-size: 13px; background: #f0e6cc; border: 2px dashed #000; padding: 4px 8px; margin: 6px 0; }
+.env div { white-space: pre-wrap; }
+.tree { list-style: none; padding-left: 0; margin: 0; font-size: 14px; }
+.tree ul { list-style: none; padding-left: 18px; margin: 0; border-left: 2px dotted var(--steel); }
+.node { display: flex; gap: 6px; align-items: baseline; padding: 1px 4px; cursor: pointer; border: 2px solid transparent; }
+.node .st { width: 1.4em; flex: none; text-align: center; font-weight: bold; }
+.node .j { flex: 1; word-break: break-word; }
+.node .tag { flex: none; font-size: 12px; background: #e6e0f5; border: 1px solid #000; padding: 0 4px; }
+.node.open .st { color: var(--fire); }
+.node.closed .st { color: var(--green); }
+.node.reuse .tag { background: #d7f2d0; }
+.node.focus { border-color: var(--fire); background: #fff0d8; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.card { font: inherit; font-size: 11px; text-align: center; cursor: pointer; border: 3px solid #000; background: #fffaf0; box-shadow: 3px 3px 0 #000; padding: 4px; }
+.card .nm { font-weight: bold; font-size: 13px; color: var(--blue); }
+.card.hint { background: #fff1b8; }
+.card.derived { border-style: dashed; }
+.frac { display: inline-grid; grid-template-columns: auto auto auto; align-items: center; gap: 2px 10px; margin: 6px 0; }
+.frac .rl { grid-row: 1 / span 2; font-style: italic; color: var(--blue); }
+.frac .pr { display: flex; flex-wrap: wrap; gap: 6px 22px; justify-content: center; padding: 0 4px 2px; }
+.frac .cn { border-top: 2px solid #000; padding: 2px 4px 0; text-align: center; }
+.frac .sd { grid-row: 1 / span 2; grid-column: 3; font-size: 12px; color: var(--muted); }
+.frac.big { font-size: 16px; }
+.hole { background: var(--gold); border: 2px solid #000; padding: 0 6px; }
+.msg { border: 3px solid #000; padding: 6px 10px; margin: 8px 0; background: #fff; white-space: pre-wrap; }
+.msg.ok { background: #e3f6df; } .msg.no { background: #fde8ea; } .msg.info { background: #eef3fb; }
+table.match { border-collapse: collapse; font-size: 13px; margin: 4px 0; }
+table.match td { border: 1px solid #000; padding: 1px 6px; }
+table.match td:first-child { color: var(--blue); font-weight: bold; }
+.term { font-size: 18px; line-height: 2; word-break: break-word; }
+.cst { background: #ffe08a; border: 2px solid #000; cursor: pointer; padding: 0 2px; }
+.cst:hover { background: var(--fire); }
+.path { font-size: 14px; }
+ol.lin { font-size: 13px; }
+input[type=text] { font: inherit; border: 3px solid #000; padding: 3px 6px; width: 100%; }
+select { font: inherit; border: 3px solid #000; padding: 3px; }
+.sr { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+body.contrast #app { background: #fff; } body.contrast .node.focus { background: #ffd; border-color: #000; }
+</style>
+</head>
+<body>
+<header>
+  <span class="logo" id="logo">⚒ RULE FORGE λD₀</span>
+  <span id="nav"></span>
+  <span id="sparks"></span>
+</header>
+<main><div id="app"></div></main>
+<div id="live" class="sr" aria-live="polite"></div>
+<script>
+// Rule Forge λD₀ — engine: terms, substitution, βδ-conversion, type checking,
+// and the rule patterns of Figures 9.3 and 9.4 (Nederpelt & Geuvers,
+// "Type Theory and Formal Proof", chapter 9).
+var LD = (function () {
+  "use strict";
+
+  // ---------- terms ----------
+  var STAR = { k: "star" }, BOX = { k: "box" };
+  function V(n) { return { k: "var", n: n }; }
+  function App(f, a) { return { k: "app", f: f, a: a }; }
+  function Lam(x, ty, b) { return { k: "lam", x: x, ty: ty, b: b }; }
+  function Pi(x, ty, b) { return { k: "pi", x: x, ty: ty, b: b }; }
+  function C(a, args) { return { k: "const", a: a, args: args }; }
+  function isSort(t) { return t.k === "star" || t.k === "box"; }
+
+  function LDError(msg) { this.message = msg; }
+
+  // ---------- free variables / constants ----------
+  function fv(t, acc) {
+    acc = acc || new Set();
+    switch (t.k) {
+      case "var": acc.add(t.n); break;
+      case "app": fv(t.f, acc); fv(t.a, acc); break;
+      case "lam": case "pi": {
+        fv(t.ty, acc);
+        var inner = fv(t.b);
+        inner.delete(t.x);
+        inner.forEach(function (v) { acc.add(v); });
+        break;
+      }
+      case "const": t.args.forEach(function (u) { fv(u, acc); }); break;
+    }
+    return acc;
+  }
+  function occursFree(x, t) { return fv(t).has(x); }
+  function consts(t, acc) {
+    acc = acc || new Set();
+    switch (t.k) {
+      case "app": consts(t.f, acc); consts(t.a, acc); break;
+      case "lam": case "pi": consts(t.ty, acc); consts(t.b, acc); break;
+      case "const": acc.add(t.a); t.args.forEach(function (u) { consts(u, acc); }); break;
+    }
+    return acc;
+  }
+
+  function freshName(base, avoid) {
+    var root = base.replace(/['′]+$/, "");
+    var cand = root + "'";
+    while (avoid.has(cand)) cand += "'";
+    return cand;
+  }
+
+  // simultaneous capture-avoiding substitution; sigma: Map name -> term
+  function subst(t, sigma) {
+    if (sigma.size === 0) return t;
+    switch (t.k) {
+      case "star": case "box": return t;
+      case "var": return sigma.has(t.n) ? sigma.get(t.n) : t;
+      case "app": return App(subst(t.f, sigma), subst(t.a, sigma));
+      case "const": return C(t.a, t.args.map(function (u) { return subst(u, sigma); }));
+      case "lam": case "pi": {
+        var ty = subst(t.ty, sigma);
+        var s2 = new Map(sigma);
+        s2.delete(t.x);
+        var bodyFv = fv(t.b);
+        var danger = new Set();
+        bodyFv.forEach(function (y) { if (s2.has(y)) fv(s2.get(y), danger); });
+        var x = t.x;
+        if (danger.has(x)) {
+          var avoid = new Set(danger);
+          bodyFv.forEach(function (y) { avoid.add(y); });
+          s2.forEach(function (v, k) { avoid.add(k); });
+          x = freshName(t.x, avoid);
+          s2.set(t.x, V(x));
+        }
+        var b = subst(t.b, s2);
+        return t.k === "lam" ? Lam(x, ty, b) : Pi(x, ty, b);
+      }
+    }
+    throw new Error("subst: unknown term");
+  }
+  function subst1(t, x, u) { var m = new Map(); m.set(x, u); return subst(t, m); }
+
+  // ---------- α-equivalence ----------
+  function alphaEq(a, b, ea, eb, d) {
+    ea = ea || new Map(); eb = eb || new Map(); d = d || 0;
+    if (a.k !== b.k) return false;
+    switch (a.k) {
+      case "star": case "box": return true;
+      case "var": {
+        var ia = ea.has(a.n) ? ea.get(a.n) : null, ib = eb.has(b.n) ? eb.get(b.n) : null;
+        if (ia === null && ib === null) return a.n === b.n;
+        return ia === ib;
+      }
+      case "app": return alphaEq(a.f, b.f, ea, eb, d) && alphaEq(a.a, b.a, ea, eb, d);
+      case "const":
+        if (a.a !== b.a || a.args.length !== b.args.length) return false;
+        for (var i = 0; i < a.args.length; i++) if (!alphaEq(a.args[i], b.args[i], ea, eb, d)) return false;
+        return true;
+      case "lam": case "pi": {
+        if (!alphaEq(a.ty, b.ty, ea, eb, d)) return false;
+        var ea2 = new Map(ea), eb2 = new Map(eb);
+        ea2.set(a.x, d); eb2.set(b.x, d);
+        return alphaEq(a.b, b.b, ea2, eb2, d + 1);
+      }
+    }
+    return false;
+  }
+
+  // ---------- environments ----------
+  // a definition: { label, a, params: [{x, ty}], body, type }
+  function findDef(env, a) {
+    for (var i = env.length - 1; i >= 0; i--) if (env[i].a === a) return env[i];
+    return null;
+  }
+  function instSigma(d, args) {
+    var m = new Map();
+    d.params.forEach(function (p, i) { m.set(p.x, args[i]); });
+    return m;
+  }
+
+  // ---------- reduction ----------
+  var budget = { left: 0 };
+  function tick() { if (--budget.left < 0) throw new LDError("This needs too much computation (work limit reached)."); }
+  function withBudget(n, f) {
+    var old = budget.left; budget.left = n;
+    try { return f(); } finally { budget.left = old; }
+  }
+  function whnf(t, env) {
+    for (;;) {
+      tick();
+      if (t.k === "app") {
+        var f = whnf(t.f, env);
+        if (f.k === "lam") { t = subst1(f.b, f.x, t.a); continue; }
+        return f === t.f ? t : App(f, t.a);
+      }
+      if (t.k === "const") {
+        var d = findDef(env, t.a);
+        if (d && d.body) { t = subst(d.body, instSigma(d, t.args)); continue; }
+        return t;
+      }
+      return t;
+    }
+  }
+  function nf(t, env) {
+    t = whnf(t, env);
+    switch (t.k) {
+      case "app": return App(nf(t.f, env), nf(t.a, env));
+      case "lam": return Lam(t.x, nf(t.ty, env), nf(t.b, env));
+      case "pi": return Pi(t.x, nf(t.ty, env), nf(t.b, env));
+      case "const": return C(t.a, t.args.map(function (u) { return nf(u, env); }));
+    }
+    return t;
+  }
+  function convertible(a, b, env) {
+    if (alphaEq(a, b)) return true;
+    return withBudget(200000, function () { return alphaEq(nf(a, env), nf(b, env)); });
+  }
+
+  // one δ-step at a path (list of child keys), for the unfolding levels
+  function constPaths(t, env, path, acc) {
+    path = path || []; acc = acc || [];
+    switch (t.k) {
+      case "app": constPaths(t.f, env, path.concat(["f"]), acc); constPaths(t.a, env, path.concat(["a"]), acc); break;
+      case "lam": case "pi": constPaths(t.ty, env, path.concat(["ty"]), acc); constPaths(t.b, env, path.concat(["b"]), acc); break;
+      case "const": {
+        var d = findDef(env, t.a);
+        if (d && d.body) acc.push(path);
+        t.args.forEach(function (u, i) { constPaths(u, env, path.concat([i]), acc); });
+        break;
+      }
+    }
+    return acc;
+  }
+  function getAt(t, path) {
+    for (var i = 0; i < path.length; i++) {
+      var p = path[i];
+      t = typeof p === "number" ? t.args[p] : t[p];
+    }
+    return t;
+  }
+  function replaceAt(t, path, u) {
+    if (path.length === 0) return u;
+    var p = path[0], rest = path.slice(1);
+    if (typeof p === "number") {
+      var args = t.args.slice(); args[p] = replaceAt(t.args[p], rest, u);
+      return C(t.a, args);
+    }
+    var c = Object.assign({}, t); c[p] = replaceAt(t[p], rest, u);
+    return c;
+  }
+  function unfoldAt(t, path, env) {
+    var s = getAt(t, path);
+    if (!s || s.k !== "const") throw new LDError("There is no constant here.");
+    var d = findDef(env, s.a);
+    if (!d || !d.body) throw new LDError(s.a + " is not unfoldable.");
+    return replaceAt(t, path, subst(d.body, instSigma(d, s.args)));
+  }
+  function isDeltaNF(t, env) { return constPaths(t, env).length === 0; }
+
+  // ---------- type inference ----------
+  function lookup(ctx, x) {
+    for (var i = ctx.length - 1; i >= 0; i--) if (ctx[i].x === x) return ctx[i].ty;
+    return null;
+  }
+  function ctxNames(ctx) { var s = new Set(); ctx.forEach(function (e) { s.add(e.x); }); return s; }
+
+  function sortOf(env, ctx, t, what) {
+    var s = whnf(infer(env, ctx, t), env);
+    if (!isSort(s)) throw new LDError((what || pp(t)) + " is not a type: its type is " + pp(s) + ", not a sort.");
+    return s;
+  }
+
+  function infer(env, ctx, t) {
+    tick();
+    switch (t.k) {
+      case "star": return BOX;
+      case "box": throw new LDError("□ has no type: no rule has □ on the left of ':'.");
+      case "var": {
+        var ty = lookup(ctx, t.n);
+        if (!ty) throw new LDError("The variable " + t.n + " is not declared in the context.");
+        return ty;
+      }
+      case "app": {
+        var tf = infer(env, ctx, t.f);
+        var w = whnf(tf, env);
+        if (w.k !== "pi") throw new LDError(pp(t.f) + " has type " + pp(tf) + ", which is not a Π-type, so it cannot be applied.");
+        var ta = infer(env, ctx, t.a);
+        if (!convertible(ta, w.ty, env)) throw new LDError("The argument " + pp(t.a) + " has type " + pp(ta) + ", but " + pp(t.f) + " expects " + pp(w.ty) + ".");
+        return subst1(w.b, w.x, t.a);
+      }
+      case "lam": case "pi": {
+        var x = t.x, body = t.b;
+        sortOf(env, ctx, t.ty);
+        var names = ctxNames(ctx);
+        if (names.has(x)) {
+          var avoid = new Set(names); fv(body).forEach(function (v) { avoid.add(v); });
+          var x2 = freshName(x, avoid); body = subst1(body, x, V(x2)); x = x2;
+        }
+        var ctx2 = ctx.concat([{ x: x, ty: t.ty }]);
+        if (t.k === "pi") return sortOf(env, ctx2, body);
+        var tb = infer(env, ctx2, body);
+        if (tb.k === "box") throw new LDError("The body " + pp(body) + " has type □, and □ has no type, so this λ is not allowed.");
+        sortOf(env, ctx2, tb);
+        return Pi(x, t.ty, tb);
+      }
+      case "const": {
+        var d = findDef(env, t.a);
+        if (!d) throw new LDError("The constant " + t.a + " is not defined in the environment.");
+        if (d.params.length !== t.args.length) throw new LDError(t.a + " needs " + d.params.length + " parameter(s), but gets " + t.args.length + ".");
+        var sig = instSigma(d, t.args);
+        for (var i = 0; i < t.args.length; i++) {
+          var want = subst(d.params[i].ty, sig);
+          var got = infer(env, ctx, t.args[i]);
+          if (!convertible(got, want, env)) throw new LDError("Parameter " + (i + 1) + " of " + t.a + ": " + pp(t.args[i]) + " has type " + pp(got) + ", but " + pp(want) + " is needed.");
+        }
+        return subst(d.type, sig);
+      }
+    }
+    throw new Error("infer: unknown term");
+  }
+
+  // legality of Δ ; Γ (i.e. whether Δ ; Γ ⊢ * : □ is derivable)
+  var legalCache = new Map();
+  function legal(env, ctx) {
+    var key = envKey(env) + "|" + ctxKey(ctx);
+    if (legalCache.has(key)) return legalCache.get(key);
+    var r = withBudget(400000, function () {
+      try {
+        for (var i = 0; i < env.length; i++) {
+          var d = env[i], pre = env.slice(0, i);
+          if (findDef(pre, d.a)) return { ok: false, why: "The constant " + d.a + " is defined twice in the environment." };
+          var r0 = legal(pre, d.params);
+          if (!r0.ok) return { ok: false, why: "In the definition of " + d.a + ": " + r0.why };
+          var j = typed(pre, d.params, d.body, d.type);
+          if (!j.ok) return { ok: false, why: "The definition of " + d.a + " is not correct: " + j.why };
+        }
+        for (var k = 0; k < ctx.length; k++) {
+          var pre2 = ctx.slice(0, k);
+          if (lookup(pre2, ctx[k].x)) return { ok: false, why: "The variable " + ctx[k].x + " is declared twice in the context." };
+          sortOf(env, pre2, ctx[k].ty, "The declared type " + pp(ctx[k].ty) + " of " + ctx[k].x);
+        }
+        return { ok: true };
+      } catch (e) {
+        if (e instanceof LDError) return { ok: false, why: e.message };
+        throw e;
+      }
+    });
+    legalCache.set(key, r);
+    return r;
+  }
+  // Δ;Γ ⊢ M : N derivable, assuming Δ;Γ legal
+  function typed(env, ctx, M, N) {
+    try {
+      if (M.k === "box") return { ok: false, why: "□ has no type." };
+      var T = infer(env, ctx, M);
+      if (alphaEq(T, N)) return { ok: true };
+      if (N.k === "box") return { ok: false, why: pp(M) + " has type " + pp(T) + ", not □." };
+      sortOf(env, ctx, N);
+      if (convertible(T, N, env)) return { ok: true };
+      return { ok: false, why: pp(M) + " has type " + pp(T) + ", which is not βδ-convertible to " + pp(N) + "." };
+    } catch (e) {
+      if (e instanceof LDError) return { ok: false, why: e.message };
+      throw e;
+    }
+  }
+  function derivable(J) {
+    var l = legal(J.env, J.ctx);
+    if (!l.ok) return l;
+    return withBudget(400000, function () { return typed(J.env, J.ctx, J.M, J.N); });
+  }
+
+  // ---------- judgements ----------
+  function J(env, ctx, M, N) { return { env: env, ctx: ctx, M: M, N: N }; }
+  function envKey(env) { return env.map(function (d) { return d.a; }).join(","); }
+  function ctxKey(ctx) { return ctx.map(function (e) { return e.x + ":" + pp(e.ty); }).join(","); }
+  function jKey(j) { return envKey(j.env) + ";" + ctxKey(j.ctx) + "⊢" + pp(j.M) + ":" + pp(j.N); }
+  function ctxEq(a, b) {
+    if (a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) if (a[i].x !== b[i].x || !alphaEq(a[i].ty, b[i].ty)) return false;
+    return true;
+  }
+  function envEq(a, b) {
+    if (a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) if (a[i] !== b[i] && !defEq(a[i], b[i])) return false;
+    return true;
+  }
+  function defEq(d, e) {
+    return d.a === e.a && ctxEq(d.params, e.params) && alphaEq(d.body, e.body) && alphaEq(d.type, e.type);
+  }
+  function jEq(a, b) { return envEq(a.env, b.env) && ctxEq(a.ctx, b.ctx) && alphaEq(a.M, b.M) && alphaEq(a.N, b.N); }
+
+  // ---------- pretty printing ----------
+  var printOpts = { infix: {}, postfix: {} };
+  function setPrintOpts(o) { printOpts = o || { infix: {}, postfix: {} }; }
+  function ppPrec(t, prec) {
+    var s, io = printOpts;
+    switch (t.k) {
+      case "star": return "*";
+      case "box": return "□";
+      case "var": return t.n;
+      case "const":
+        if (t.args.length === 0) return t.a;
+        return t.a + "(" + t.args.map(function (u) { return ppPrec(u, 0); }).join(", ") + ")";
+      case "app": {
+        if (t.f.k === "app" && t.f.f.k === "var" && io.infix && io.infix[t.f.f.n]) {
+          s = ppPrec(t.f.a, 2) + " " + io.infix[t.f.f.n] + " " + ppPrec(t.a, 2);
+          return prec > 1 ? "(" + s + ")" : s;
+        }
+        if (t.f.k === "var" && io.postfix && io.postfix[t.f.n]) {
+          return ppPrec(t.a, 4) + io.postfix[t.f.n];
+        }
+        s = ppPrec(t.f, 3) + " " + ppPrec(t.a, 4);
+        return prec > 3 ? "(" + s + ")" : s;
+      }
+      case "lam":
+        s = "λ" + t.x + ":" + ppPrec(t.ty, 0) + ". " + ppPrec(t.b, 0);
+        return prec > 0 ? "(" + s + ")" : s;
+      case "pi":
+        if (!occursFree(t.x, t.b)) {
+          s = ppPrec(t.ty, 2) + " → " + ppPrec(t.b, 1);
+          return prec > 1 ? "(" + s + ")" : s;
+        }
+        s = "Π" + t.x + ":" + ppPrec(t.ty, 0) + ". " + ppPrec(t.b, 0);
+        return prec > 0 ? "(" + s + ")" : s;
+    }
+    return "?";
+  }
+
+  // like pp, but returns a tree of pieces; constant occurrences become {path, name, parts}
+  function ppSegs(t, prec, path) {
+    prec = prec || 0; path = path || [];
+    var io = printOpts;
+    function paren(b, xs) { return b ? ["("].concat(xs, [")"]) : xs; }
+    switch (t.k) {
+      case "star": return ["*"];
+      case "box": return ["□"];
+      case "var": return [t.n];
+      case "const": {
+        var parts = [];
+        if (t.args.length) {
+          parts.push("(");
+          t.args.forEach(function (u, i) { if (i) parts.push(", "); parts = parts.concat(ppSegs(u, 0, path.concat([i]))); });
+          parts.push(")");
+        }
+        return [{ path: path, name: t.a, parts: parts }];
+      }
+      case "app": {
+        if (t.f.k === "app" && t.f.f.k === "var" && io.infix && io.infix[t.f.f.n])
+          return paren(prec > 1, ppSegs(t.f.a, 2, path.concat(["f", "a"])).concat([" " + io.infix[t.f.f.n] + " "], ppSegs(t.a, 2, path.concat(["a"]))));
+        if (t.f.k === "var" && io.postfix && io.postfix[t.f.n])
+          return ppSegs(t.a, 4, path.concat(["a"])).concat([io.postfix[t.f.n]]);
+        return paren(prec > 3, ppSegs(t.f, 3, path.concat(["f"])).concat([" "], ppSegs(t.a, 4, path.concat(["a"]))));
+      }
+      case "lam":
+        return paren(prec > 0, ["λ" + t.x + ":"].concat(ppSegs(t.ty, 0, path.concat(["ty"])), [". "], ppSegs(t.b, 0, path.concat(["b"]))));
+      case "pi":
+        if (!occursFree(t.x, t.b))
+          return paren(prec > 1, ppSegs(t.ty, 2, path.concat(["ty"])).concat([" → "], ppSegs(t.b, 1, path.concat(["b"]))));
+        return paren(prec > 0, ["Π" + t.x + ":"].concat(ppSegs(t.ty, 0, path.concat(["ty"])), [". "], ppSegs(t.b, 0, path.concat(["b"]))));
+    }
+    return ["?"];
+  }
+  function segsText(xs) {
+    return xs.map(function (p) { return typeof p === "string" ? p : p.name + segsText(p.parts); }).join("");
+  }
+  function pp(t) { return ppPrec(t, 0); }
+  function ppCtx(ctx) { return ctx.length === 0 ? "∅" : ctx.map(function (e) { return e.x + ":" + pp(e.ty); }).join(", "); }
+  function ppEnv(env) { return env.length === 0 ? "∅" : env.map(function (d) { return d.label || d.a; }).join(", "); }
+  function ppJ(j) { return ppEnv(j.env) + " ; " + ppCtx(j.ctx) + " ⊢ " + pp(j.M) + " : " + pp(j.N); }
+  function ppDef(d) {
+    return (d.params.length ? d.params.map(function (p) { return p.x + ":" + pp(p.ty); }).join(", ") : "∅") +
+      " ▷ " + d.a + (d.params.length ? "(" + d.params.map(function (p) { return p.x; }).join(", ") + ")" : "") +
+      " := " + (d.body ? pp(d.body) : "⫫") + " : " + pp(d.type);
+  }
+
+  // ---------- parsing ----------
+  function tokenize(s) {
+    var toks = [], i = 0;
+    var idStart = /[A-Za-z0-9_⊥¬α-κμ-ωΑ-Ωℕℤ]/, idChar = /[A-Za-z0-9_'′⊥¬α-κμ-ωΑ-Ωℕℤ₀-₉]/;
+    while (i < s.length) {
+      var c = s[i];
+      if (/\s/.test(c)) { i++; continue; }
+      if (s.startsWith("->", i)) { toks.push("→"); i += 2; continue; }
+      if (s.startsWith("[]", i)) { toks.push("□"); i += 2; continue; }
+      if ("()*□:.,→λΠ\\".indexOf(c) >= 0) { toks.push(c === "\\" ? "λ" : c); i++; continue; }
+      if (idStart.test(c)) {
+        var j = i + 1;
+        while (j < s.length && idChar.test(s[j])) j++;
+        var w = s.slice(i, j);
+        if (w === "fun") toks.push("λ"); else if (w === "Pi") toks.push("Π"); else toks.push(w);
+        i = j; continue;
+      }
+      throw new LDError("Unexpected character '" + c + "'.");
+    }
+    return toks;
+  }
+  function parse(src, env) {
+    env = env || [];
+    var toks = tokenize(src), pos = 0;
+    function peek() { return toks[pos]; }
+    function eat(t) { if (toks[pos] !== t) throw new LDError("Expected '" + t + "' but found " + (toks[pos] ? "'" + toks[pos] + "'" : "the end") + "."); pos++; }
+    function isIdent(t) { return t && !/^[()*□:.,→λΠ]$/.test(t); }
+    function term() {
+      var t = peek();
+      if (t === "λ" || t === "Π") {
+        pos++;
+        var x = toks[pos++];
+        if (!isIdent(x)) throw new LDError("Expected a variable after " + t + ".");
+        eat(":"); var ty = term(); eat("."); var b = term();
+        return t === "λ" ? Lam(x, ty, b) : Pi(x, ty, b);
+      }
+      var l = app();
+      if (peek() === "→") {
+        pos++;
+        var r = term();
+        var avoid = fv(r); var x2 = null; var cands = ["x", "y", "z", "w", "v", "u"];
+        for (var i = 0; i < cands.length; i++) if (!avoid.has(cands[i])) { x2 = cands[i]; break; }
+        if (!x2) x2 = freshName("x", avoid);
+        return Pi(x2, l, r);
+      }
+      return l;
+    }
+    function startsAtom(t) { return t === "(" || t === "*" || t === "□" || isIdent(t); }
+    function app() {
+      var t = atom();
+      while (startsAtom(peek())) t = App(t, atom());
+      return t;
+    }
+    function atom() {
+      var t = peek();
+      if (t === "(") { pos++; var r = term(); eat(")"); return r; }
+      if (t === "*") { pos++; return STAR; }
+      if (t === "□") { pos++; return BOX; }
+      if (isIdent(t)) {
+        pos++;
+        var d = findDef(env, t);
+        if (d) {
+          var args = [];
+          if (peek() === "(" && d.params.length > 0) {
+            pos++;
+            args.push(term());
+            while (peek() === ",") { pos++; args.push(term()); }
+            eat(")");
+          } else if (peek() === "(" && d.params.length === 0 && toks[pos + 1] === ")") {
+            pos += 2;
+          }
+          return C(t, args);
+        }
+        return V(t);
+      }
+      throw new LDError("Unexpected " + (t ? "'" + t + "'" : "end of input") + ".");
+    }
+    var res = term();
+    if (pos < toks.length) throw new LDError("Unexpected '" + toks[pos] + "'.");
+    return res;
+  }
+  function splitTop(s) {
+    var parts = [], depth = 0, cur = "";
+    for (var i = 0; i < s.length; i++) {
+      var c = s[i];
+      if (c === "(") depth++; else if (c === ")") depth--;
+      if (c === "," && depth === 0) { parts.push(cur); cur = ""; } else cur += c;
+    }
+    if (cur.trim()) parts.push(cur);
+    return parts.map(function (p) { return p.trim(); }).filter(Boolean);
+  }
+  function parseCtx(src, env) {
+    if (!src || src.trim() === "" || src.trim() === "∅") return [];
+    var out = [];
+    splitTop(src).forEach(function (p) {
+      var k = p.indexOf(":");
+      if (k < 0) throw new LDError("A declaration needs the form x : A.");
+      out.push({ x: p.slice(0, k).trim(), ty: parse(p.slice(k + 1), env) });
+    });
+    return out;
+  }
+  // defs: [{label, a, params: "x:A, y:B", body: "...", type: "..."}]
+  function makeEnv(specs, base) {
+    var env = base || [];
+    specs.forEach(function (s) {
+      var params = parseCtx(s.params || "", env);
+      var d = { label: s.label || s.a, a: s.a, params: params, body: null, type: null };
+      d.body = s.body === null ? null : parse(s.body, env);
+      d.type = parse(s.type, env);
+      env = env.concat([d]);
+    });
+    return env;
+  }
+  function parseJ(env, ctxSrc, M, N) { return J(env, parseCtx(ctxSrc, env), parse(M, env), parse(N, env)); }
+
+  // ---------- the rules ----------
+  var RULES = ["sort", "var", "weak", "form", "appl", "abst", "conv", "def", "inst", "par"];
+  var RULE_INFO = {
+    sort: { key: "1", prem: [], concl: "∅ ; ∅ ⊢ * : □", side: "", keeps: false,
+      tip: "The only start: empty environment, empty context." },
+    var: { key: "2", prem: ["Δ ; Γ ⊢ A : s"], concl: "Δ ; Γ, x : A ⊢ x : A", side: "if x ∉ Γ", keeps: false,
+      tip: "The LAST declaration of the context can be used: x has type A." },
+    weak: { key: "3", prem: ["Δ ; Γ ⊢ A : B", "Δ ; Γ ⊢ C : s"], concl: "Δ ; Γ, x : C ⊢ A : B", side: "if x ∉ Γ", keeps: true,
+      tip: "Add one more declaration at the end of the context; the statement A : B stays." },
+    form: { key: "4", prem: ["Δ ; Γ ⊢ A : s₁", "Δ ; Γ, x : A ⊢ B : s₂"], concl: "Δ ; Γ ⊢ Πx : A . B : s₂", side: "", keeps: false,
+      tip: "A Π-type gets the sort of its body." },
+    appl: { key: "5", prem: ["Δ ; Γ ⊢ M : Πx : A . B", "Δ ; Γ ⊢ N : A"], concl: "Δ ; Γ ⊢ M N : B[x := N]", side: "", keeps: false,
+      tip: "Apply a function to an argument; the argument is substituted into the type." },
+    abst: { key: "6", prem: ["Δ ; Γ, x : A ⊢ M : B", "Δ ; Γ ⊢ Πx : A . B : s"], concl: "Δ ; Γ ⊢ λx : A . M : Πx : A . B", side: "", keeps: false,
+      tip: "Discharge the last declaration: λ in the term, Π in the type." },
+    conv: { key: "7", prem: ["Δ ; Γ ⊢ A : B", "Δ ; Γ ⊢ B′ : s"], concl: "Δ ; Γ ⊢ A : B′", side: "if B =βδ B′ (w.r.t. Δ)", keeps: true,
+      tip: "Change the type to a βδ-convertible one; the term stays." },
+    def: { key: "8", prem: ["Δ ; Γ ⊢ K : L", "Δ ; x̄ : Ā ⊢ M : N"], concl: "Δ, x̄ : Ā ▷ a(x̄) := M : N ; Γ ⊢ K : L", side: "if a ∉ Δ", keeps: true,
+      tip: "Add one more definition at the end of the environment; the statement K : L stays." },
+    inst: { key: "9", prem: ["Δ ; Γ ⊢ * : □", "Δ ; Γ ⊢ Ū : Ā[x̄ := Ū]"], concl: "Δ ; Γ ⊢ a(Ū) : N[x̄ := Ū]", side: "if x̄ : Ā ▷ a(x̄) := M : N ∈ Δ", keeps: false,
+      tip: "Use a definition of Δ with real parameters Ū; substitute them everywhere." },
+    par: { key: "0", prem: ["Δ ; x̄ : Ā ⊢ M : N"], concl: "Δ, 𝒟 ; x̄ : Ā ⊢ a(x̄) : N", side: "if 𝒟 ≡ x̄ : Ā ▷ a(x̄) := M : N and a ∉ Δ", keeps: false, derived: true,
+      tip: "Derived rule: right after defining a, a(x̄) has type N in the definition's own context." }
+  };
+
+  function fail(why, code) { return { ok: false, why: why, code: code || "nomatch" }; }
+
+  // Expand a (derivable) goal backwards by a rule. Returns
+  // { ok, premises: [J], match: [[meta, text]], side } or { ok:false, why, code }.
+  function expand(goal, rule) {
+    try {
+      return withBudget(400000, function () { return expand0(goal, rule); });
+    } catch (e) {
+      if (e instanceof LDError) return fail(e.message, "error");
+      throw e;
+    }
+  }
+  function sortOfJ(env, ctx, t) { return whnf(infer(env, ctx, t), env); }
+  function renameIfClash(ctx, x, body, alsoAvoid) {
+    var names = ctxNames(ctx);
+    if (!names.has(x)) return { x: x, body: body, renamed: false };
+    var avoid = new Set(names); fv(body).forEach(function (v) { avoid.add(v); });
+    (alsoAvoid || []).forEach(function (t) { fv(t).forEach(function (v) { avoid.add(v); }); });
+    var x2 = freshName(x, avoid);
+    return { x: x2, body: subst1(body, x, V(x2)), renamed: true, from: x };
+  }
+  function expand0(g, rule) {
+    var env = g.env, ctx = g.ctx, M = g.M, N = g.N, n = ctx.length;
+    var res;
+    switch (rule) {
+      case "sort":
+        if (env.length || n || M.k !== "star" || N.k !== "box")
+          return fail("(sort) only concludes ∅ ; ∅ ⊢ * : □ — empty environment, empty context, exactly * : □.");
+        return { ok: true, premises: [], match: [], side: "" };
+      case "var": {
+        if (!n) return fail("(var) needs a non-empty context Γ, x : A; this context is empty.");
+        var last = ctx[n - 1], pre = ctx.slice(0, n - 1);
+        if (M.k !== "var" || M.n !== last.x)
+          return fail("(var) concludes x : A where x is the LAST variable of the context (here " + last.x + "). The subject " + pp(M) + " is not " + last.x + ".");
+        if (!alphaEq(N, last.ty))
+          return fail("(var) gives " + last.x + " exactly its declared type " + pp(last.ty) + ", but the goal asks for " + pp(N) + ". Try (conv) first.");
+        if (lookup(pre, last.x)) return fail("Side condition x ∉ Γ fails: " + last.x + " is already declared earlier.", "side");
+        var s = sortOfJ(env, pre, last.ty);
+        res = { premises: [J(env, pre, last.ty, s)], match: [["Γ", ppCtx(pre)], ["x", last.x], ["A", pp(last.ty)], ["s", pp(s)]], side: last.x + " ∉ " + ppCtx(pre) };
+        break;
+      }
+      case "weak": {
+        if (!n) return fail("(weak) removes the last declaration of the context, but this context is empty.");
+        var lastw = ctx[n - 1], prew = ctx.slice(0, n - 1);
+        if (occursFree(lastw.x, M) || occursFree(lastw.x, N))
+          return fail("(weak) can't be the last step: the variable " + lastw.x + " occurs in " + pp(M) + " : " + pp(N) + ", so the statement needs the declaration " + lastw.x + " : " + pp(lastw.ty) + ".");
+        if (lookup(prew, lastw.x)) return fail("Side condition x ∉ Γ fails: " + lastw.x + " is already declared earlier.", "side");
+        var sw = sortOfJ(env, prew, lastw.ty);
+        res = { premises: [J(env, prew, M, N), J(env, prew, lastw.ty, sw)],
+          match: [["Γ", ppCtx(prew)], ["x", lastw.x], ["C", pp(lastw.ty)], ["A", pp(M)], ["B", pp(N)], ["s", pp(sw)]], side: lastw.x + " ∉ " + ppCtx(prew) };
+        break;
+      }
+      case "form": {
+        if (M.k !== "pi") return fail("(form) concludes Πx : A . B : s₂ — the subject must be a Π-type (or an arrow), but it is " + pp(M) + ".");
+        if (!isSort(N)) return fail("(form) concludes a sort s₂ as the type, but the goal's type is " + pp(N) + ". Try (conv) first.");
+        var r = renameIfClash(ctx, M.x, M.b);
+        var s1 = sortOfJ(env, ctx, M.ty);
+        var p2 = J(env, ctx.concat([{ x: r.x, ty: M.ty }]), r.body, N);
+        res = { premises: [J(env, ctx, M.ty, s1), p2],
+          match: [["x", r.x], ["A", pp(M.ty)], ["B", pp(r.body)], ["s₁", pp(s1)], ["s₂", pp(N)]], side: "", note: r.renamed ? "Bound variable " + r.from + " renamed to " + r.x + " (α-conversion)." : "" };
+        break;
+      }
+      case "appl": {
+        if (M.k !== "app") return fail("(appl) concludes M N : … — the subject must be an application, but it is " + pp(M) + ".");
+        var tf = infer(env, ctx, M.f);
+        var P = tf.k === "pi" ? tf : whnf(tf, env);
+        if (P.k !== "pi") return fail(pp(M.f) + " has no Π-type.");
+        var want = subst1(P.b, P.x, M.a);
+        if (!alphaEq(want, N))
+          return fail("(appl) would conclude " + pp(M) + " : " + pp(want) + " (that is B[" + P.x + " := " + pp(M.a) + "]), but the goal's type is " + pp(N) + ". They are not literally the same. Use (conv) first.");
+        res = { premises: [J(env, ctx, M.f, P), J(env, ctx, M.a, P.ty)],
+          match: [["M", pp(M.f)], ["N", pp(M.a)], ["x", P.x], ["A", pp(P.ty)], ["B", pp(P.b)], ["B[x:=N]", pp(want)]], side: "" };
+        break;
+      }
+      case "abst": {
+        if (M.k !== "lam") return fail("(abst) concludes λx : A . M : … — the subject must be a λ-abstraction, but it is " + pp(M) + ".");
+        if (N.k !== "pi") return fail("(abst) concludes the type Πx : A . B, but the goal's type " + pp(N) + " is not a Π-type. Try (conv) first.");
+        if (!alphaEq(M.ty, N.ty)) return fail("(abst) needs the same A in λx : A and Πx : A, but here they are " + pp(M.ty) + " and " + pp(N.ty) + ".");
+        var Bx = subst1(N.b, N.x, V(M.x));
+        var ra = renameIfClash(ctx, M.x, M.b, [Bx]);
+        var Bb = ra.renamed ? subst1(N.b, N.x, V(ra.x)) : Bx;
+        var sa = sortOfJ(env, ctx, N);
+        res = { premises: [J(env, ctx.concat([{ x: ra.x, ty: M.ty }]), ra.body, Bb), J(env, ctx, N, sa)],
+          match: [["x", ra.x], ["A", pp(M.ty)], ["M", pp(ra.body)], ["B", pp(Bb)], ["s", pp(sa)]], side: "", note: ra.renamed ? "Bound variable " + ra.from + " renamed to " + ra.x + " (α-conversion)." : "" };
+        break;
+      }
+      case "conv": {
+        if (N.k === "box") return fail("(conv) needs Δ ; Γ ⊢ B′ : s, but B′ = □ has no type.");
+        var T = infer(env, ctx, M);
+        if (alphaEq(T, N)) return fail("The type " + pp(N) + " already is the type the subject gets directly. (conv) would give back the same goal — choose the rule that builds " + pp(M) + ".");
+        var sc = sortOfJ(env, ctx, N);
+        res = { premises: [J(env, ctx, M, T), J(env, ctx, N, sc)],
+          match: [["A", pp(M)], ["B", pp(T)], ["B′", pp(N)], ["s", pp(sc)]], side: pp(T) + " =βδ " + pp(N) };
+        break;
+      }
+      case "def": {
+        if (!env.length) return fail("(def) removes the last definition of the environment, but the environment is empty.");
+        var d = env[env.length - 1], pred = env.slice(0, -1);
+        var used = new Set();
+        consts(M, used); consts(N, used); ctx.forEach(function (e) { consts(e.ty, used); });
+        if (used.has(d.a)) return fail("(def) can't be the last step: the constant " + d.a + " (of " + (d.label || d.a) + ") is used in the goal, so the goal needs its definition.");
+        if (findDef(pred, d.a)) return fail("Side condition a ∉ Δ fails: " + d.a + " is already defined earlier.", "side");
+        res = { premises: [J(pred, ctx, M, N), J(pred, d.params, d.body, d.type)],
+          match: [["Δ", ppEnv(pred)], ["x̄ : Ā", ppCtx(d.params)], ["a", d.a], ["M", pp(d.body)], ["N", pp(d.type)], ["K", pp(M)], ["L", pp(N)]], side: d.a + " ∉ " + ppEnv(pred) };
+        break;
+      }
+      case "inst": {
+        if (M.k !== "const") return fail("(inst) concludes a(Ū) : … — the subject must be a defined constant with its parameters, but it is " + pp(M) + ".");
+        var di = findDef(env, M.a);
+        if (!di) return fail(M.a + " is not defined in Δ.");
+        var sig = instSigma(di, M.args);
+        var wantT = subst(di.type, sig);
+        if (!alphaEq(wantT, N))
+          return fail("(inst) would conclude " + pp(M) + " : " + pp(wantT) + " (that is N[x̄ := Ū]), but the goal's type is " + pp(N) + ". Use (conv) first.");
+        var prems = [J(env, ctx, STAR, BOX)];
+        di.params.forEach(function (p, i) { prems.push(J(env, ctx, M.args[i], subst(p.ty, sig))); });
+        res = { premises: prems,
+          match: [["a", M.a], ["x̄ : Ā", ppCtx(di.params)], ["Ū", M.args.map(pp).join(", ") || "(none)"], ["N", pp(di.type)], ["N[x̄:=Ū]", pp(wantT)]],
+          side: (di.label || di.a) + " ∈ " + ppEnv(env) };
+        break;
+      }
+      case "par": {
+        if (!env.length) return fail("(par) needs a definition 𝒟 at the end of the environment; the environment is empty.");
+        var dp = env[env.length - 1], prep = env.slice(0, -1);
+        if (M.k !== "const" || M.a !== dp.a)
+          return fail("(par) concludes a(x̄) : N for the LAST definition of the environment (here " + dp.a + "). The subject " + pp(M) + " is not of that form.");
+        var pure = M.args.length === dp.params.length && M.args.every(function (u, i) { return u.k === "var" && u.n === dp.params[i].x; });
+        if (!pure) return fail("(par) needs the parameters to be exactly the variables " + (dp.params.map(function (p) { return p.x; }).join(", ") || "(none)") + " of the definition. Here they are " + (M.args.map(pp).join(", ") || "(none)") + ". Try (inst).");
+        if (!ctxEq(ctx, dp.params)) return fail("(par) needs the context to be exactly the definition's own context " + ppCtx(dp.params) + ", but it is " + ppCtx(ctx) + ". Try (inst).");
+        if (!alphaEq(N, dp.type)) return fail("(par) gives the type N = " + pp(dp.type) + " of the definition, not " + pp(N) + ". Try (conv) first.");
+        if (findDef(prep, dp.a)) return fail("Side condition a ∉ Δ fails.", "side");
+        res = { premises: [J(prep, dp.params, dp.body, dp.type)],
+          match: [["Δ", ppEnv(prep)], ["x̄ : Ā", ppCtx(dp.params)], ["a", dp.a], ["M", pp(dp.body)], ["N", pp(dp.type)]], side: dp.a + " ∉ " + ppEnv(prep) };
+        break;
+      }
+      default: return fail("Unknown rule " + rule + ".");
+    }
+    for (var i = 0; i < res.premises.length; i++) {
+      var dv = derivable(res.premises[i]);
+      if (!dv.ok) return fail("The rule fits the pattern, but premise " + (i + 1) + " (" + ppJ(res.premises[i]) + ") is not derivable: " + dv.why, "premise");
+    }
+    res.ok = true;
+    return res;
+  }
+
+  // ---------- forward check of a single rule instance ----------
+  // inst: { rule, prem: [J], concl: J }. Returns {ok} or {ok:false, why, code}.
+  // code: "shape" (not this rule's pattern), "side" (side condition fails),
+  // "subst" (a substitution is done wrong), "context" (wrong context / environment),
+  // "conv" (types not βδ-convertible), "sort" (s is not a sort)
+  function checkInstance(inst) {
+    try {
+      return withBudget(400000, function () { return check0(inst.rule, inst.prem, inst.concl); });
+    } catch (e) {
+      if (e instanceof LDError) return { ok: false, why: e.message, code: "error" };
+      throw e;
+    }
+  }
+  function bad(code, why) { return { ok: false, code: code, why: why }; }
+  // the premise context must be Γ, y : A for a variable y not in Γ (y is x up to α-renaming);
+  // returns y, or null
+  function extVar(p, c, A) {
+    if (!envEq(p.env, c.env) || p.ctx.length !== c.ctx.length + 1) return null;
+    if (!ctxEq(p.ctx.slice(0, -1), c.ctx)) return null;
+    var e = p.ctx[p.ctx.length - 1];
+    if (!alphaEq(e.ty, A) || lookup(c.ctx, e.x)) return null;
+    return e.x;
+  }
+  var OK = { ok: true };
+  function check0(rule, P, c) {
+    var info = RULE_INFO[rule];
+    var need = rule === "inst" ? null : info.prem.length;
+    if (need !== null && P.length !== need) return bad("shape", "(" + rule + ") has " + need + " premise(s), but this step has " + P.length + ".");
+    function sameDG(j) { return envEq(j.env, c.env) && ctxEq(j.ctx, c.ctx); }
+    switch (rule) {
+      case "sort":
+        return c.env.length === 0 && c.ctx.length === 0 && c.M.k === "star" && c.N.k === "box" ? OK : bad("shape", "(sort) only gives ∅ ; ∅ ⊢ * : □.");
+      case "var": {
+        var n = c.ctx.length;
+        if (!n) return bad("shape", "The conclusion of (var) has a non-empty context.");
+        var last = c.ctx[n - 1], pre = c.ctx.slice(0, n - 1);
+        if (!envEq(P[0].env, c.env) || !ctxEq(P[0].ctx, pre)) return bad("context", "The premise's context must be the conclusion's context without its last declaration.");
+        if (c.M.k !== "var" || c.M.n !== last.x) return bad("shape", "The subject must be the last declared variable " + last.x + ".");
+        if (!alphaEq(c.N, last.ty) || !alphaEq(P[0].M, last.ty)) return bad("shape", "x gets exactly its declared type A, and the premise is A : s.");
+        if (!isSort(P[0].N)) return bad("sort", "In the premise A : s, s must be a sort.");
+        if (lookup(pre, last.x)) return bad("side", "Side condition x ∉ Γ fails: " + last.x + " is already in Γ.");
+        return OK;
+      }
+      case "weak": {
+        var nw = c.ctx.length;
+        if (!nw) return bad("shape", "The conclusion of (weak) has a non-empty context.");
+        var lw = c.ctx[nw - 1], pw = c.ctx.slice(0, nw - 1);
+        if (!P.every(function (p) { return envEq(p.env, c.env) && ctxEq(p.ctx, pw); })) return bad("context", "Both premises live in the conclusion's context without its last declaration.");
+        if (!alphaEq(P[0].M, c.M) || !alphaEq(P[0].N, c.N)) return bad("shape", "(weak) keeps the statement A : B unchanged.");
+        if (!alphaEq(P[1].M, lw.ty)) return bad("shape", "The second premise must be C : s for the new declaration x : C.");
+        if (!isSort(P[1].N)) return bad("sort", "In C : s, s must be a sort.");
+        if (lookup(pw, lw.x)) return bad("side", "Side condition x ∉ Γ fails: " + lw.x + " is already in Γ.");
+        return OK;
+      }
+      case "form": {
+        if (c.M.k !== "pi") return bad("shape", "The subject of (form) is a Π-type.");
+        var yf = extVar(P[1], c, c.M.ty);
+        if (!sameDG(P[0]) || !yf) return bad("context", "The second premise's context is Γ, x : A.");
+        if (!alphaEq(P[0].M, c.M.ty) || !alphaEq(P[1].M, subst1(c.M.b, c.M.x, V(yf)))) return bad("shape", "Premises are A : s₁ and B : s₂.");
+        if (!isSort(P[0].N) || !isSort(P[1].N)) return bad("sort", "s₁ and s₂ must be sorts.");
+        if (!alphaEq(c.N, P[1].N)) return bad("shape", "The Π-type gets the sort s₂ of its body B, not s₁.");
+        return OK;
+      }
+      case "appl": {
+        if (c.M.k !== "app") return bad("shape", "The subject of (appl) is an application M N.");
+        if (!sameDG(P[0]) || !sameDG(P[1])) return bad("context", "All three judgements of (appl) share Δ and Γ.");
+        var pt = P[0].N;
+        if (pt.k !== "pi" || !alphaEq(P[0].M, c.M.f) || !alphaEq(P[1].M, c.M.a)) return bad("shape", "Premises are M : Πx : A . B and N : A.");
+        if (!alphaEq(P[1].N, pt.ty)) return bad("shape", "The argument's type must be exactly the domain A of the Π-type.");
+        if (!alphaEq(c.N, subst1(pt.b, pt.x, c.M.a))) return bad("subst", "The type must be B[x := N] = " + pp(subst1(pt.b, pt.x, c.M.a)) + ".");
+        return OK;
+      }
+      case "abst": {
+        if (c.M.k !== "lam" || c.N.k !== "pi") return bad("shape", "(abst) concludes λx : A . M : Πx : A . B.");
+        var ya = extVar(P[0], c, c.M.ty);
+        if (!sameDG(P[1]) || !ya) return bad("context", "The first premise's context is Γ, x : A.");
+        if (!alphaEq(c.M.ty, c.N.ty)) return bad("shape", "The same A appears in λx : A and Πx : A.");
+        if (!alphaEq(P[0].M, subst1(c.M.b, c.M.x, V(ya))) || !alphaEq(P[0].N, subst1(c.N.b, c.N.x, V(ya)))) return bad("shape", "The first premise is M : B.");
+        if (!alphaEq(P[1].M, c.N) || !isSort(P[1].N)) return bad("shape", "The second premise is Πx : A . B : s.");
+        return OK;
+      }
+      case "conv": {
+        if (!sameDG(P[0]) || !sameDG(P[1])) return bad("context", "All judgements of (conv) share Δ and Γ.");
+        if (!alphaEq(P[0].M, c.M) || !alphaEq(P[1].M, c.N)) return bad("shape", "Premises are A : B and B′ : s; the conclusion is A : B′.");
+        if (!isSort(P[1].N)) return bad("sort", "In B′ : s, s must be a sort.");
+        if (!convertible(P[0].N, c.N, c.env)) return bad("conv", "Side condition fails: " + pp(P[0].N) + " and " + pp(c.N) + " are not βδ-convertible.");
+        return OK;
+      }
+      case "def": {
+        if (!c.env.length) return bad("shape", "The conclusion of (def) has a non-empty environment.");
+        var d = c.env[c.env.length - 1], pd = c.env.slice(0, -1);
+        if (!envEq(P[0].env, pd) || !envEq(P[1].env, pd)) return bad("context", "Both premises use Δ, without the new definition.");
+        if (!ctxEq(P[0].ctx, c.ctx) || !alphaEq(P[0].M, c.M) || !alphaEq(P[0].N, c.N)) return bad("shape", "(def) keeps Γ ⊢ K : L unchanged.");
+        if (!ctxEq(P[1].ctx, d.params) || !alphaEq(P[1].M, d.body) || !alphaEq(P[1].N, d.type)) return bad("shape", "The second premise is x̄ : Ā ⊢ M : N for the new definition.");
+        if (findDef(pd, d.a)) return bad("side", "Side condition a ∉ Δ fails: " + d.a + " is already defined in Δ.");
+        return OK;
+      }
+      case "inst": {
+        if (c.M.k !== "const") return bad("shape", "The subject of (inst) is a(Ū).");
+        var di = findDef(c.env, c.M.a);
+        if (!di) return bad("side", "Side condition fails: " + c.M.a + " is not defined in Δ.");
+        if (P.length !== di.params.length + 1) return bad("shape", "(inst) has the premise * : □ and one premise per parameter: " + (di.params.length + 1) + " in all.");
+        if (!P.every(sameDG)) return bad("context", "All judgements of (inst) share Δ and Γ.");
+        if (P[0].M.k !== "star" || P[0].N.k !== "box") return bad("shape", "The first premise of (inst) is * : □.");
+        var sig = instSigma(di, c.M.args);
+        for (var i = 0; i < di.params.length; i++) {
+          if (!alphaEq(P[i + 1].M, c.M.args[i])) return bad("shape", "Premise " + (i + 2) + " must be about U" + (i + 1) + ".");
+          if (!alphaEq(P[i + 1].N, subst(di.params[i].ty, sig))) return bad("subst", "U" + (i + 1) + " must have type A" + (i + 1) + "[x̄ := Ū] = " + pp(subst(di.params[i].ty, sig)) + ".");
+        }
+        if (!alphaEq(c.N, subst(di.type, sig))) return bad("subst", "The type must be N[x̄ := Ū] = " + pp(subst(di.type, sig)) + ".");
+        return OK;
+      }
+      case "par": {
+        if (!c.env.length) return bad("shape", "(par) has a definition 𝒟 at the end of the environment.");
+        var dp = c.env[c.env.length - 1], pp0 = c.env.slice(0, -1);
+        if (!envEq(P[0].env, pp0)) return bad("context", "The premise uses Δ without 𝒟.");
+        if (!ctxEq(c.ctx, dp.params) || !ctxEq(P[0].ctx, dp.params)) return bad("context", "Premise and conclusion use exactly the definition's context x̄ : Ā.");
+        if (c.M.k !== "const" || c.M.a !== dp.a || c.M.args.length !== dp.params.length || !c.M.args.every(function (u, i) { return u.k === "var" && u.n === dp.params[i].x; })) return bad("shape", "The subject is a(x̄) with the definition's own variables.");
+        if (!alphaEq(P[0].M, dp.body) || !alphaEq(P[0].N, dp.type) || !alphaEq(c.N, dp.type)) return bad("shape", "Premise M : N, conclusion a(x̄) : N, as in 𝒟.");
+        if (findDef(pp0, dp.a)) return bad("side", "Side condition a ∉ Δ fails.");
+        return OK;
+      }
+    }
+    return bad("shape", "Unknown rule.");
+  }
+
+  // which rules could end a derivation of this goal, judging only by the goal's shape
+  function shapeHint(g) {
+    var out = [];
+    var M = g.M;
+    if (M.k === "star" && !g.env.length && !g.ctx.length && g.N.k === "box") out.push("sort");
+    if (M.k === "var" && g.ctx.length && g.ctx[g.ctx.length - 1].x === M.n) out.push("var");
+    if (M.k === "pi") out.push("form");
+    if (M.k === "app") out.push("appl");
+    if (M.k === "lam") out.push("abst");
+    if (M.k === "const") { out.push("inst"); if (g.env.length && g.env[g.env.length - 1].a === M.a) out.push("par"); }
+    if (g.ctx.length) out.push("weak");
+    if (g.env.length) out.push("def");
+    out.push("conv");
+    return out;
+  }
+
+  return {
+    STAR: STAR, BOX: BOX, V: V, App: App, Lam: Lam, Pi: Pi, C: C, isSort: isSort,
+    LDError: LDError, fv: fv, consts: consts, subst: subst, subst1: subst1, alphaEq: alphaEq,
+    whnf: function (t, env) { return withBudget(200000, function () { return whnf(t, env); }); },
+    nf: function (t, env) { return withBudget(200000, function () { return nf(t, env); }); },
+    convertible: convertible, constPaths: constPaths, getAt: getAt, unfoldAt: unfoldAt, isDeltaNF: isDeltaNF,
+    infer: function (env, ctx, t) { return withBudget(400000, function () { return infer(env, ctx, t); }); },
+    legal: legal, derivable: derivable, J: J, jKey: jKey, jEq: jEq, ctxEq: ctxEq, envEq: envEq, findDef: findDef,
+    pp: pp, ppSegs: function (t) { return ppSegs(t, 0, []); }, segsText: segsText, ppCtx: ppCtx, ppEnv: ppEnv, ppJ: ppJ, ppDef: ppDef, setPrintOpts: setPrintOpts,
+    parse: parse, parseCtx: parseCtx, makeEnv: makeEnv, parseJ: parseJ,
+    RULES: RULES, RULE_INFO: RULE_INFO, expand: expand, checkInstance: checkInstance, shapeHint: shapeHint
+  };
+})();
+if (typeof module !== "undefined") module.exports = LD;
+;
+// Rule Forge λD₀ — content: environments, worlds, levels, rounds.
+var CONTENT = (function () {
+  "use strict";
+  var mk = LD.makeEnv;
+
+  var ENVS = {};
+  ENVS.empty = [];
+  ENVS.id = mk([{ label: "D₁", a: "id", params: "A:*", body: "λx:A. x", type: "A → A" }]);
+  ENVS.neg = mk([
+    { label: "D₁", a: "⊥", params: "", body: "ΠA:*. A", type: "*" },
+    { label: "D₂", a: "¬", params: "A:*", body: "A → ⊥", type: "*" }
+  ]);
+  ENVS.twice = mk([
+    { label: "D₁", a: "endo", params: "A:*", body: "A → A", type: "*" },
+    { label: "D₂", a: "twice", params: "A:*, f:endo(A)", body: "λx:A. f (f x)", type: "endo(A)" }
+  ]);
+  // a second copy of id, used only in a broken (def) instance (a ∉ Δ fails)
+  ENVS.idid = ENVS.id.concat(mk([{ label: "D₂", a: "id", params: "B:*", body: "λy:B. y", type: "B → B" }]));
+  // Section 9.6 (only for unfolding; +, ·, ², = and 2 are taken as given)
+  ENVS.arith = mk([
+    { label: "D₁", a: "a", params: "x:Z, y:Z", body: "plus (sq x) (sq y)", type: "Z" },
+    { label: "D₂", a: "b", params: "x:Z, y:Z", body: "times 2 (times x y)", type: "Z" },
+    { label: "D₃", a: "c", params: "x:Z, y:Z", body: "plus (a(x, y)) (b(x, y))", type: "Z" },
+    { label: "D₄", a: "lemma", params: "x:Z, y:Z", body: "eq (c(x, y)) (sq (plus x y))", type: "*" }
+  ]);
+  var ARITH_PRINT = { infix: { plus: "+", times: "·", eq: "=" }, postfix: { sq: "²" } };
+
+  // ----- forge rounds -----
+  function F(env, ctx, M, N, note) { return { env: env, ctx: ctx, M: M, N: N, note: note || "" }; }
+
+  var WORLDS = [
+    {
+      id: "w1", title: "World 1 · First sparks", blurb: "(sort), (var), (weak): how every derivation starts.",
+      levels: [
+        { id: "1-1", title: "The first spark", kind: "forge",
+          intro: ["Every derivation in λD₀ starts with (sort): ∅ ; ∅ ⊢ * : □. It is the only rule without premises.",
+            "A goal sits at the bottom. Pick the rule whose CONCLUSION matches it. Its premises become new goals. When no goal is left, the derivation is forged.",
+            "Click a rule card or press its number key (1 = sort)."],
+          rounds: [F("empty", "", "*", "□")] },
+        { id: "1-2", title: "A variable is born", kind: "forge",
+          intro: ["(var): if A : s, then in the context extended with x : A we get x : A.",
+            "Only the LAST declaration of the context can be used by (var). The side condition x ∉ Γ says x must be new.",
+            "Here A : * says that A is a type. (Key 2 = var.)"],
+          rounds: [F("empty", "A:*", "A", "*"), F("empty", "A:*, x:A", "x", "A")] },
+        { id: "1-3", title: "Weakening", kind: "forge",
+          intro: ["(weak) adds one declaration at the END of the context and leaves the statement A : B as it is.",
+            "Read it backwards: to show something in Γ, x : C, it is enough to show it in Γ (and that C : s).",
+            "(weak) cannot drop x : C if x occurs in the statement. Repeated goals close by themselves (↺)."],
+          rounds: [F("empty", "A:*, B:*", "A", "*"), F("empty", "A:*, B:*", "*", "□")] },
+        { id: "1-4", title: "Exercise 9.9", kind: "forge",
+          intro: ["Exercise 9.9 of the book: let Γ ≡ A : *, B : *, C : *. Give full derivations in λD₀ of",
+            "(a) ∅ ; Γ ⊢ * : □   (b) ∅ ; Γ ⊢ A : *   (c) ∅ ; Γ ⊢ B : *   (d) ∅ ; Γ ⊢ C : *.",
+            "Watch how (weak) peels the context from the right."],
+          rounds: [F("empty", "A:*, B:*, C:*", "*", "□", "Exercise 9.9 (a)"), F("empty", "A:*, B:*, C:*", "A", "*", "Exercise 9.9 (b)"),
+            F("empty", "A:*, B:*, C:*", "B", "*", "Exercise 9.9 (c)"), F("empty", "A:*, B:*, C:*", "C", "*", "Exercise 9.9 (d)")] }
+      ]
+    },
+    {
+      id: "w2", title: "World 2 · The Π forge", blurb: "(form), (abst), (appl), (conv).",
+      levels: [
+        { id: "2-1", title: "Forming Π", kind: "forge",
+          intro: ["(form): if A : s₁ and, with x : A added, B : s₂, then Πx : A . B : s₂.",
+            "An arrow A → B is Πx : A . B where x does not occur in B.",
+            "The Π-type gets the sort s₂ of its BODY. In λC every pair (s₁, s₂) is allowed."],
+          rounds: [F("empty", "A:*", "A → A", "*"), F("empty", "", "ΠA:*. A → A", "*", "Here s₁ = □ and s₂ = *: a type that quantifies over all types.")] },
+        { id: "2-2", title: "Abstraction", kind: "forge",
+          intro: ["(abst): from Γ, x : A ⊢ M : B and Γ ⊢ Πx : A . B : s, conclude λx : A . M : Πx : A . B.",
+            "Backwards: a λ in the term and a Π in the type are both discharged together: x : A moves into the context."],
+          rounds: [F("empty", "A:*", "λx:A. x", "A → A"), F("empty", "A:*, B:*", "λx:A. λy:B. x", "A → B → A")] },
+        { id: "2-3", title: "Application", kind: "forge",
+          intro: ["(appl): from M : Πx : A . B and N : A, conclude M N : B[x := N].",
+            "The type of an application is the body of the Π-type with the argument substituted for x. For an arrow A → B the substitution does nothing."],
+          rounds: [F("empty", "A:*, B:*, f:A → B, x:A", "f x", "B"),
+            F("empty", "A:*, P:A → *, f:Πx:A. P x, a:A", "f a", "P a", "A dependent type: here B[x := N] really changes something.")] },
+        { id: "2-4", title: "The polymorphic identity", kind: "forge",
+          intro: ["λA : * . λx : A . x has type ΠA : * . A → A — the identity for every type at once (the system λ2 inside λC).",
+            "Uses all of (sort), (var), (weak), (form) and (abst)."],
+          rounds: [F("empty", "", "λA:*. λx:A. x", "ΠA:*. A → A")] },
+        { id: "2-5", title: "Conversion", kind: "forge",
+          intro: ["(conv): from A : B and B′ : s, conclude A : B′, provided B =βδ B′.",
+            "(conv) keeps the subject and changes only the type. Use it when the type of the goal is not literally the type that the subject's own rule produces.",
+            "Here (λB : * . B) A β-reduces to A."],
+          rounds: [F("empty", "A:*, x:A", "x", "(λB:*. B) A")] }
+      ]
+    },
+    {
+      id: "w3", title: "World 3 · Pattern eye", blurb: "Read single steps: which rule? what is missing? what is wrong?",
+      levels: [
+        { id: "3-1", title: "Name that rule (λC part)", kind: "name", from: ["w1", "w2"], count: 10,
+          intro: ["Each round shows ONE step of a real derivation: premises above the line, conclusion below.",
+            "Which rule of Figure 9.3 is it? Look at what changes between premises and conclusion: the subject? the context? the type?"] },
+        { id: "3-2", title: "Missing pieces", kind: "missing",
+          intro: ["One part of a step is hidden behind ▢. Choose the piece that makes it a correct instance of the rule."] },
+        { id: "3-3", title: "Broken patterns", kind: "broken",
+          intro: ["Some of these steps follow a rule of Figure 9.3 correctly; some are broken.",
+            "Name the rule, or say BROKEN — then say what went wrong."] }
+      ]
+    },
+    {
+      id: "w4", title: "World 4 · The book of definitions", blurb: "(def), (par), (inst), δ-unfolding, (conv) with δ.",
+      levels: [
+        { id: "4-1", title: "A correct definition", kind: "forge",
+          intro: ["A definition 𝒟 ≡ x̄ : Ā ▷ a(x̄) := M : N names the term M (of type N) in the context x̄ : Ā.",
+            "(def) adds a definition to the END of the environment Δ, if its statement M : N is derivable in its own context. The side condition a ∉ Δ says a is new.",
+            "Exercise 9.7: 𝒟 is correct in Δ if Δ, 𝒟 ; ∅ ⊢ * : □. Show that D₁ (the identity) is correct."],
+          env: "id", rounds: [F("id", "", "*", "□")] },
+        { id: "4-2", title: "The derived rule (par)", kind: "forge",
+          intro: ["Figure 9.4: (par) is a DERIVED rule. Right after defining a, a(x̄) has type N in the definition's own context x̄ : Ā.",
+            "Its premise is the statement of the definition: Δ ; x̄ : Ā ⊢ M : N. (Key 0 = par.)"],
+          env: "id", rounds: [F("id", "A:*", "id(A)", "A → A")] },
+        { id: "4-3", title: "Instantiation", kind: "forge",
+          intro: ["(inst): if x̄ : Ā ▷ a(x̄) := M : N is in Δ, then a(Ū) : N[x̄ := Ū], provided each Uᵢ : Aᵢ[x̄ := Ū] — and Δ ; Γ ⊢ * : □.",
+            "The premise * : □ makes sure that Δ and Γ are well-formed, even when a has no parameters (Section 9.4).",
+            "(inst) works in ANY context, with ANY fitting parameters. (Key 9 = inst.)"],
+          env: "id", rounds: [F("id", "B:*", "id(B)", "B → B"), F("id", "B:*, y:B", "id(B) y", "B", "id(B) is a function, so (appl) can use it.")] },
+        { id: "4-4", title: "Unfolding — Figure 9.1", kind: "unfold", env: "arith", print: "arith",
+          intro: ["Section 9.6: a(x, y) := x² + y², b(x, y) := 2 · (x · y), c(x, y) := a(x, y) + b(x, y), lemma(x, y) := c(x, y) = (x + y)².",
+            "One δ-step unfolds ONE occurrence of a constant: a(U, V) becomes (x² + y²)[x := U, y := V].",
+            "Click a highlighted constant to unfold it. Reach the δ-normal form: no unfoldable constant left. (+, ·, ², = and 2 are taken as given.)"],
+          rounds: [{ ctx: "x:Z, y:Z", term: "a(a(x, x), a(y, y))", note: "Figure 9.1: three possible first steps." },
+            { ctx: "u:Z, v:Z", term: "lemma(u, v)", note: "Figure 9.2: a reduction path for lemma(u, v)." },
+            { ctx: "u:Z, v:Z, w:Z", term: "c(a(u, v), b(w, w))", note: "Exercise 9.4." }] },
+        { id: "4-5", title: "δ-conversion at work", kind: "forge",
+          intro: ["Definitions: ⊥ := ΠA : * . A and ¬(A) := A → ⊥ (in context A : *).",
+            "v : ¬(A) is not literally a function type, but ¬(A) =βδ A → ⊥. (appl) needs v : A → ⊥ — use (conv) to get there.",
+            "Section 9.7: (conv) now allows β- AND δ-conversion."],
+          env: "neg", rounds: [F("neg", "A:*, u:A, v:¬(A)", "v u", "⊥")] },
+        { id: "4-6", title: "Name that rule (definitions)", kind: "name", from: ["w4"], rules: ["def", "par", "inst", "conv", "weak"], count: 8,
+          intro: ["Single steps from derivations with definitions. (def) and (weak) are both weakening rules: one for the environment Δ, one for the context Γ (Section 9.9)."] }
+      ]
+    },
+    {
+      id: "w5", title: "World 5 · Masterworks", blurb: "Bigger derivations. ↺ reuse helps.",
+      levels: [
+        { id: "5-1", title: "A → ¬¬A", kind: "forge",
+          intro: ["Prove A → ¬¬A: the term λu : A . λv : ¬(A) . v u.",
+            "Plan: (abst) twice, then (appl) with (conv) to unfold ¬. Repeated judgements close by themselves."],
+          env: "neg", rounds: [F("neg", "A:*", "λu:A. λv:¬(A). v u", "A → ¬(¬(A))")] },
+        { id: "5-2", title: "Twice", kind: "forge",
+          intro: ["endo(A) := A → A and twice(A, f) := λx : A . f (f x) : endo(A), in context A : *, f : endo(A).",
+            "First show that the definitions are correct, then use twice with (par) and (inst)."],
+          env: "twice", rounds: [F("twice", "", "*", "□", "Exercise 9.7 for D₁, D₂."),
+            F("twice", "A:*, f:endo(A)", "twice(A, f)", "endo(A)", "(par)"),
+            F("twice", "B:*, g:B → B, b:B", "twice(B, g) b", "B", "(inst), (appl) and (conv)")] }
+      ]
+    }
+  ];
+
+  // ----- missing-piece rounds -----
+  // a step: { rule, env, prem: [[env?, ctx, M, N]], concl: [env?, ctx, M, N] }
+  // hole: [which, part] with which = "c" or premise index, part = "env"|"ctx"|"M"|"N"
+  var MISSING = [
+    { rule: "appl", env: "empty", prem: [["A:*, P:A → *, f:Πx:A. P x, a:A", "f", "Πx:A. P x"], ["A:*, P:A → *, f:Πx:A. P x, a:A", "a", "A"]],
+      concl: ["A:*, P:A → *, f:Πx:A. P x, a:A", "f a", "P a"], hole: ["c", "N"], options: ["P a", "P x", "Πx:A. P x", "A"] },
+    { rule: "var", env: "empty", prem: [["A:*", "A", "*"]], concl: ["A:*, x:A", "x", "A"], hole: ["c", "ctx"],
+      options: ["A:*, x:A", "A:*", "x:A, A:*", "A:*, x:*"] },
+    { rule: "weak", env: "empty", prem: [["A:*", "A", "*"], ["A:*", "A", "*"]], concl: ["A:*, x:A", "A", "*"], hole: [1, "M"],
+      options: ["A", "x", "*", "A → A"] },
+    { rule: "form", env: "empty", prem: [["", "*", "□"], ["A:*", "A → A", "*"]], concl: ["", "ΠA:*. A → A", "*"], hole: ["c", "N"],
+      options: ["*", "□", "A → A", "ΠA:*. *"] },
+    { rule: "abst", env: "empty", prem: [["A:*, x:A", "x", "A"], ["A:*", "A → A", "*"]], concl: ["A:*", "λx:A. x", "A → A"], hole: [0, "ctx"],
+      options: ["A:*, x:A", "A:*", "x:A", "A:*, A:*"] },
+    { rule: "conv", env: "empty", prem: [["A:*, x:A", "x", "A"], ["A:*, x:A", "(λB:*. B) A", "*"]], concl: ["A:*, x:A", "x", "(λB:*. B) A"], hole: [0, "N"],
+      options: ["A", "*", "λB:*. B", "x"] },
+    { rule: "inst", env: "id", prem: [["B:*", "*", "□"], ["B:*", "B", "*"]], concl: ["B:*", "id(B)", "B → B"], hole: ["c", "N"],
+      options: ["B → B", "A → A", "B", "*"] },
+    { rule: "inst", env: "id", prem: [["B:*", "*", "□"], ["B:*", "B", "*"]], concl: ["B:*", "id(B)", "B → B"], hole: [0, "M"],
+      options: ["*", "B", "id(B)", "λx:B. x"] },
+    { rule: "def", env: "id", prem: [["empty", "", "*", "□"], ["empty", "A:*", "λx:A. x", "A → A"]], concl: ["id", "", "*", "□"], hole: [1, "ctx"],
+      options: ["A:*", "∅", "A:*, x:A", "x:A"] },
+    { rule: "par", env: "id", prem: [["empty", "A:*", "λx:A. x", "A → A"]], concl: ["id", "A:*", "id(A)", "A → A"], hole: [0, "M"],
+      options: ["λx:A. x", "id(A)", "A → A", "x"] },
+    { rule: "par", env: "id", prem: [["empty", "A:*", "λx:A. x", "A → A"]], concl: ["id", "A:*", "id(A)", "A → A"], hole: [0, "env"],
+      options: ["empty", "id"] },
+    { rule: "appl", env: "neg", prem: [["A:*, u:A, v:¬(A)", "v", "A → ⊥"], ["A:*, u:A, v:¬(A)", "u", "A"]], concl: ["A:*, u:A, v:¬(A)", "v u", "⊥"], hole: [0, "N"],
+      options: ["A → ⊥", "¬(A)", "⊥", "A"] }
+  ];
+
+  // ----- broken / correct steps -----
+  // code: "side" | "subst" | "context" | "conv" | "shape"; ok: true for correct steps
+  var BROKEN = [
+    { rule: "var", env: "empty", prem: [["A:*, x:A", "A", "*"]], concl: ["A:*, x:A, x:A", "x", "A"], code: "side" },
+    { rule: "appl", env: "empty", prem: [["A:*, P:A → *, f:Πx:A. P x, a:A", "f", "Πx:A. P x"], ["A:*, P:A → *, f:Πx:A. P x, a:A", "a", "A"]],
+      concl: ["A:*, P:A → *, f:Πx:A. P x, a:A", "f a", "P x"], code: "subst" },
+    { rule: "def", env: "idid", prem: [["id", "", "*", "□"], ["id", "B:*", "λy:B. y", "B → B"]], concl: ["idid", "", "*", "□"], code: "side" },
+    { rule: "inst", env: "id", prem: [["B:*", "*", "□"], ["B:*", "B", "*"]], concl: ["B:*", "id(B)", "A → A"], code: "subst" },
+    { rule: "conv", env: "empty", prem: [["A:*, B:*, x:A", "x", "A"], ["A:*, B:*, x:A", "B", "*"]], concl: ["A:*, B:*, x:A", "x", "B"], code: "conv" },
+    { rule: "abst", env: "empty", prem: [["A:*", "x", "A"], ["A:*", "A → A", "*"]], concl: ["A:*", "λx:A. x", "A → A"], code: "context" },
+    { rule: "form", env: "empty", prem: [["", "*", "□"], ["A:*", "A", "*"]], concl: ["", "ΠA:*. A", "□"], code: "shape" },
+    { rule: "par", env: "id", prem: [["empty", "B:*", "λx:B. x", "B → B"]], concl: ["id", "B:*", "id(B)", "B → B"], code: "context" },
+    { rule: "var", env: "empty", prem: [["A:*", "A", "*"]], concl: ["A:*, x:A", "x", "*"], code: "shape" },
+    { rule: "weak", env: "empty", prem: [["A:*", "A", "*"], ["A:*", "A", "*"]], concl: ["A:*, x:A", "A", "*"], ok: true },
+    { rule: "conv", env: "neg", prem: [["A:*, v:¬(A)", "v", "¬(A)"], ["A:*, v:¬(A)", "A → ⊥", "*"]], concl: ["A:*, v:¬(A)", "v", "A → ⊥"], ok: true },
+    { rule: "inst", env: "neg", prem: [["A:*", "*", "□"]], concl: ["A:*", "⊥", "*"], ok: true },
+    { rule: "weak", env: "empty", prem: [["A:*", "A", "*"], ["A:*", "A", "*"]], concl: ["A:*, A:A", "A", "*"], code: "side" },
+    { rule: "appl", env: "empty", prem: [["A:*, B:*, f:A → B, y:B", "f", "A → B"], ["A:*, B:*, f:A → B, y:B", "y", "B"]],
+      concl: ["A:*, B:*, f:A → B, y:B", "f y", "B"], code: "shape" }
+  ];
+
+  var WHY = [
+    ["side", "A side condition fails (x ∉ Γ or a ∉ Δ)"],
+    ["subst", "A substitution [x := N] / [x̄ := Ū] is done wrong"],
+    ["context", "A premise has the wrong context or environment"],
+    ["conv", "The two types are not βδ-convertible"],
+    ["shape", "The parts don't fit the rule's pattern (wrong term, type or sort)"]
+  ];
+
+  // turn a step spec into an engine instance
+  function stepInstance(s) {
+    function jj(t, dflt) {
+      var envKey = t.length === 4 ? t[0] : dflt;
+      var off = t.length === 4 ? 1 : 0;
+      var env = ENVS[envKey];
+      return LD.parseJ(env, t[off], t[off + 1], t[off + 2]);
+    }
+    return { rule: s.rule, prem: s.prem.map(function (p) { return jj(p, s.env); }), concl: jj(s.concl, s.env) };
+  }
+  // fill a hole of a missing-piece round with an option
+  function fillHole(s, opt) {
+    var c = JSON.parse(JSON.stringify(s));
+    var which = s.hole[0], part = s.hole[1];
+    var t = which === "c" ? c.concl : c.prem[which];
+    var has4 = t.length === 4;
+    var idx = { env: 0, ctx: has4 ? 1 : 0, M: has4 ? 2 : 1, N: has4 ? 3 : 2 }[part];
+    if (part === "env") { if (!has4) throw new Error("env hole needs explicit env"); t[0] = opt; }
+    else t[idx] = opt === "∅" ? "" : opt;
+    return c;
+  }
+
+  // the automatic solver (reference derivations, hints, tests)
+  var ORDER = ["sort", "par", "var", "form", "appl", "abst", "inst", "conv", "weak", "def"];
+  function firstRule(g) {
+    for (var i = 0; i < ORDER.length; i++) if (LD.expand(g, ORDER[i]).ok) return ORDER[i];
+    return null;
+  }
+  function solve(g, memo) {
+    memo = memo || new Map();
+    var k = LD.jKey(g);
+    if (memo.has(k)) return { J: g, reuse: true, kids: [] };
+    for (var i = 0; i < ORDER.length; i++) {
+      var e = LD.expand(g, ORDER[i]);
+      if (e.ok) {
+        var node = { J: g, rule: ORDER[i], kids: [] };
+        memo.set(k, node);
+        node.kids = e.premises.map(function (p) { return solve(p, memo); });
+        return node;
+      }
+    }
+    throw new Error("no rule fits: " + LD.ppJ(g));
+  }
+  function roundGoal(r) { return LD.parseJ(ENVS[r.env], r.ctx, r.M, r.N); }
+
+  // name-that-rule rounds, collected from the reference derivations of whole worlds
+  function nameRounds(level) {
+    var inst = [];
+    var seen = new Set();
+    WORLDS.forEach(function (w) {
+      if (level.from.indexOf(w.id) < 0) return;
+      w.levels.forEach(function (l) {
+        if (l.kind !== "forge") return;
+        l.rounds.forEach(function (r) {
+          (function walk(n) {
+            if (n.reuse) return;
+            var key = n.rule + "|" + LD.jKey(n.J);
+            if (!seen.has(key)) {
+              seen.add(key);
+              inst.push({ rule: n.rule, prem: n.kids.map(function (c) { return c.J; }), concl: n.J });
+            }
+            n.kids.forEach(walk);
+          })(solve(roundGoal(r)));
+        });
+      });
+    });
+    var rules = level.rules || LD.RULES;
+    var byRule = {};
+    inst.forEach(function (s) { if (rules.indexOf(s.rule) >= 0) (byRule[s.rule] = byRule[s.rule] || []).push(s); });
+    // prefer smaller, more readable steps
+    Object.keys(byRule).forEach(function (k) {
+      byRule[k].sort(function (a, b) { return size(a) - size(b); });
+    });
+    var out = [], round = 0;
+    while (out.length < level.count) {
+      var added = false;
+      for (var i = 0; i < rules.length && out.length < level.count; i++) {
+        var list = byRule[rules[i]] || [];
+        var pick = list[Math.min(list.length - 1, round * 3 + (i % 3))];
+        if (list.length > round && pick && out.indexOf(pick) < 0) { out.push(pick); added = true; }
+      }
+      round++;
+      if (!added) break;
+    }
+    // deterministic shuffle
+    return shuffle(out, level.id.length * 7 + 3);
+  }
+  function size(s) { return [s.concl].concat(s.prem).reduce(function (a, j) { return a + LD.ppJ(j).length; }, 0); }
+  function shuffle(a, seed) {
+    a = a.slice(); var x = seed || 1;
+    for (var i = a.length - 1; i > 0; i--) {
+      x = (x * 1103515245 + 12345) % 2147483648;
+      var j = x % (i + 1); var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  return { ENVS: ENVS, ARITH_PRINT: ARITH_PRINT, WORLDS: WORLDS, MISSING: MISSING, BROKEN: BROKEN, WHY: WHY,
+    stepInstance: stepInstance, fillHole: fillHole, solve: solve, firstRule: firstRule, roundGoal: roundGoal,
+    nameRounds: nameRounds, shuffle: shuffle, ORDER: ORDER };
+})();
+if (typeof module !== "undefined") module.exports = CONTENT;
+;
+// Rule Forge λD₀ — user interface (plain DOM, no libraries).
+var UI = (function () {
+  "use strict";
+  var doc = document;
+  var STORE = "ruleforge.v1";
+  var S = {
+    screen: "title", level: null, round: 0, run: null,
+    done: {}, sparks: 0, opts: { sound: true, reuse: true, contrast: false }
+  };
+  try {
+    var saved = JSON.parse(localStorage.getItem(STORE) || "null");
+    if (saved) { S.done = saved.done || {}; S.sparks = saved.sparks || 0; Object.assign(S.opts, saved.opts || {}); }
+  } catch (e) { /* ignore */ }
+  function save() {
+    try { localStorage.setItem(STORE, JSON.stringify({ done: S.done, sparks: S.sparks, opts: S.opts })); } catch (e) { /* ignore */ }
+  }
+
+  // ---------- DOM helpers ----------
+  function h(tag, attrs, kids) {
+    var el = doc.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v === undefined || v === null || v === false) return;
+      if (k === "class") el.className = v;
+      else if (k === "text") el.textContent = v;
+      else if (k.slice(0, 2) === "on") el[k] = v;
+      else el.setAttribute(k, v);
+    });
+    (kids || []).forEach(function (c) {
+      if (c === null || c === undefined || c === false) return;
+      el.appendChild(typeof c === "string" ? doc.createTextNode(c) : c);
+    });
+    return el;
+  }
+  function btn(label, act, cls, title) { return h("button", { class: "btn " + (cls || ""), onclick: act, "data-act": label, title: title }, [label]); }
+  function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+  function announce(s) { var l = doc.getElementById("live"); if (l) l.textContent = s; }
+
+  // ---------- sound ----------
+  var actx = null;
+  function beep(freqs, dur, type) {
+    if (!S.opts.sound) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      actx = actx || new AC();
+      freqs.forEach(function (f, i) {
+        var o = actx.createOscillator(), g = actx.createGain();
+        o.type = type || "square"; o.frequency.value = f;
+        g.gain.value = 0.05;
+        o.connect(g); g.connect(actx.destination);
+        var t0 = actx.currentTime + i * dur;
+        o.start(t0); o.stop(t0 + dur);
+      });
+    } catch (e) { /* no audio */ }
+  }
+  function clang() { beep([880, 1320], 0.06); }
+  function thud() { beep([140, 110], 0.08, "sawtooth"); }
+  function fanfare() { beep([523, 659, 784, 1046], 0.09); }
+
+  // ---------- pixel art ----------
+  var PAL = { "#": "#5b6478", "=": "#8a95a8", "o": "#ffd23f", "r": "#ff7b2e", "b": "#7a4a2a", "k": "#000000", "w": "#f6eedb", "s": "#d1495b", "g": "#3fa34d" };
+  var ANVIL = [
+    "..##############....",
+    ".################=..",
+    "######################",
+    "..##################..",
+    "......########........",
+    ".......######.........",
+    ".....##########.......",
+    "....############......"
+  ];
+  var HAMMER = [
+    ".======.",
+    ".======.",
+    "...bb...",
+    "...bb...",
+    "...bb...",
+    "...bb..."
+  ];
+  var SMITH = [
+    "...kkkk...",
+    "..kwwwwk..",
+    "..kwkwkk..",
+    "..kwwwwk..",
+    "...kssk...",
+    "..ssssss..",
+    ".ssssssss.",
+    ".ss.ss.ss.",
+    "....ss....",
+    "...k..k...",
+    "...k..k...",
+    "..kk..kk.."
+  ];
+  function drawSprite(ctx, rows, x, y, sc) {
+    rows.forEach(function (row, j) {
+      for (var i = 0; i < row.length; i++) {
+        var c = PAL[row[i]];
+        if (c) { ctx.fillStyle = c; ctx.fillRect((x + i) * sc, (y + j) * sc, sc, sc); }
+      }
+    });
+  }
+  var anim = { sparks: [], puff: 0, swing: 0, canvas: null, raf: false };
+  function forgeCanvas(w, hgt) {
+    var c = h("canvas", { class: "pix", width: String(w * 4), height: String(hgt * 4), "aria-hidden": "true" });
+    anim.canvas = c; anim.w = w; anim.h = hgt;
+    paint();
+    return c;
+  }
+  function paint() {
+    var c = anim.canvas; if (!c || !c.getContext) return;
+    var ctx = c.getContext("2d"); if (!ctx) return;
+    var sc = 4, W = anim.w, H = anim.h;
+    // daytime sky
+    ctx.fillStyle = "#dcefff"; ctx.fillRect(0, 0, W * sc, H * sc);
+    // sun (top right)
+    var sx = W - 12, sy = 3;
+    ctx.fillStyle = "#ffe98a"; ctx.fillRect((sx - 2) * sc, (sy + 2) * sc, 10 * sc, 3 * sc); ctx.fillRect((sx + 1) * sc, (sy - 1) * sc, 4 * sc, 9 * sc);
+    ctx.fillStyle = "#ffd23f"; ctx.fillRect(sx * sc, sy * sc, 6 * sc, 7 * sc);
+    // clouds
+    ctx.fillStyle = "#ffffff";
+    [[4, 4], [Math.floor(W / 2) - 4, 2], [W - 30, 10]].forEach(function (q) { ctx.fillRect(q[0] * sc, (q[1] + 2) * sc, 14 * sc, 3 * sc); ctx.fillRect((q[0] + 3) * sc, q[1] * sc, 7 * sc, 2 * sc); });
+    // grass floor
+    ctx.fillStyle = "#7ccf6b"; ctx.fillRect(0, (H - 4) * sc, W * sc, 4 * sc);
+    ctx.fillStyle = "#3fa34d"; ctx.fillRect(0, (H - 4) * sc, W * sc, sc);
+    var ax = Math.floor(W / 2) - 11, ay = H - 12;
+    drawSprite(ctx, ANVIL, ax, ay, sc);
+    drawSprite(ctx, SMITH, ax - 12, H - 16, sc);
+    var hx = ax + 3, hy = anim.swing > 0 ? ay - 6 : ay - 9;
+    drawSprite(ctx, HAMMER, hx, hy, sc);
+    // glowing piece on the anvil
+    ctx.fillStyle = anim.sparks.length ? "#ffd23f" : "#ff7b2e"; ctx.fillRect((ax + 10) * sc, (ay - 1) * sc, 5 * sc, sc);
+    anim.sparks.forEach(function (p) { ctx.fillStyle = p.c; ctx.fillRect(Math.round(p.x) * sc, Math.round(p.y) * sc, sc, sc); });
+    if (anim.puff > 0) { ctx.fillStyle = "#8a95a8"; for (var k = 0; k < 5; k++) ctx.fillRect((ax + 8 + k * 2) * sc, (ay - 3 - (anim.puff % 4) - k % 2) * sc, sc * 2, sc); }
+  }
+  function tickAnim() {
+    anim.raf = false;
+    anim.sparks.forEach(function (p) { p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life--; });
+    anim.sparks = anim.sparks.filter(function (p) { return p.life > 0; });
+    if (anim.puff > 0) anim.puff--;
+    if (anim.swing > 0) anim.swing--;
+    paint();
+    if (anim.sparks.length || anim.puff > 0 || anim.swing > 0) schedule();
+  }
+  function schedule() {
+    if (anim.raf || typeof requestAnimationFrame === "undefined") return;
+    anim.raf = true; requestAnimationFrame(tickAnim);
+  }
+  function burst(n) {
+    var ax = Math.floor(anim.w / 2) + 1, ay = anim.h - 13;
+    for (var i = 0; i < n; i++) anim.sparks.push({ x: ax, y: ay, vx: (Math.random() - 0.5) * 2.4, vy: -Math.random() * 2.2 - 0.4, life: 14 + Math.floor(Math.random() * 10), c: i % 3 ? "#ffd23f" : "#ff7b2e" });
+    anim.swing = 6; schedule();
+  }
+  function puff() { anim.puff = 12; schedule(); }
+
+  // ---------- rendering judgements and steps ----------
+  function jText(j) { return LD.ppJ(j); }
+  function fracEl(rule, premTexts, conclText, side, big) {
+    var info = LD.RULE_INFO[rule] || null;
+    return h("div", { class: "frac" + (big ? " big" : "") }, [
+      h("span", { class: "rl", text: rule ? "(" + rule + ")" : "( ? )" }),
+      h("div", { class: "pr" }, premTexts.length ? premTexts.map(function (p) { return typeof p === "string" ? h("span", { text: p }) : p; }) : [h("span", { class: "small", text: " " })]),
+      h("span", { class: "sd", text: side !== undefined ? side : (info ? info.side : "") }),
+      h("div", { class: "cn" }, [typeof conclText === "string" ? conclText : conclText])
+    ]);
+  }
+  function ruleFrac(rule) {
+    var i = LD.RULE_INFO[rule];
+    return fracEl(rule, i.prem, i.concl, i.side);
+  }
+  function instFrac(inst, big) {
+    return fracEl(null, inst.prem.map(jText), jText(inst.concl), "", big);
+  }
+  function envPanel(env) {
+    if (!env || !env.length) return null;
+    return h("div", { class: "env" }, [h("b", { text: "Environment Δ:" })].concat(env.map(function (d) {
+      return h("div", { text: (d.label || d.a) + " ≡ " + LD.ppDef(d) });
+    })));
+  }
+
+  // ---------- navigation ----------
+  function setNav() {
+    var nav = doc.getElementById("nav"); if (!nav) return;
+    clear(nav);
+    [["Map", "map"], ["Rulebook", "rules"], ["Studio", "studio"], ["Options", "options"]].forEach(function (p) {
+      nav.appendChild(btn(p[0], function () { go(p[1]); }, "nav small" + (S.screen === p[1] ? " cur" : "")));
+      nav.appendChild(doc.createTextNode(" "));
+    });
+    var sp = doc.getElementById("sparks");
+    if (sp) sp.textContent = "✦ sparks so far: " + S.sparks + "  (every mistake is a spark)";
+    if (doc.body && doc.body.classList) { if (S.opts.contrast) doc.body.classList.add("contrast"); else doc.body.classList.remove("contrast"); }
+  }
+  function go(screen, arg) {
+    S.screen = screen;
+    if (screen === "level") startLevel(arg);
+    render();
+  }
+  function app() { return doc.getElementById("app"); }
+  function render() {
+    setNav();
+    var a = app(); clear(a);
+    var f = { title: renderTitle, map: renderMap, rules: renderRules, studio: renderStudio, options: renderOptions, level: renderLevel }[S.screen];
+    f(a);
+  }
+
+  // ---------- title & map ----------
+  function renderTitle(a) {
+    a.appendChild(h("div", { class: "title" }, [
+      h("h1", { text: "RULE FORGE λD₀" }),
+      h("p", { text: "A pixel game for the derivation rules of λD₀ — Figure 9.3 and the derived rule (par) of Figure 9.4 in Nederpelt & Geuvers, Type Theory and Formal Proof." }),
+      forgeCanvas(96, 36),
+      h("p", { text: "Every rule is a pattern: premises above the line, a conclusion below. Forge derivations by matching goals against the patterns, read single steps, spot broken ones, and unfold definitions." }),
+      h("div", { class: "row" }, [btn("Start ▶", function () { go("map"); }, "primary"), btn("Rulebook", function () { go("rules"); })]),
+      h("p", { class: "small", text: "Keys in the forge: 1 sort · 2 var · 3 weak · 4 form · 5 appl · 6 abst · 7 conv · 8 def · 9 inst · 0 par · H hint · U undo · Esc map" })
+    ]));
+    burst(20);
+  }
+  function allLevels() {
+    var out = [];
+    CONTENT.WORLDS.forEach(function (w) { w.levels.forEach(function (l) { out.push(l); }); });
+    return out;
+  }
+  function findLevel(id) { return allLevels().filter(function (l) { return l.id === id; })[0]; }
+  function renderMap(a) {
+    a.appendChild(h("h1", { text: "Map" }));
+    a.appendChild(h("p", { text: "All levels are open. A ✓ marks a level you have finished. There is no timer and no score; mistakes are counted as sparks, and sparks are good." }));
+    var ws = h("div", { class: "worlds" });
+    CONTENT.WORLDS.forEach(function (w) {
+      ws.appendChild(h("div", { class: "world" }, [
+        h("h2", { text: w.title }), h("div", { class: "small", text: w.blurb }),
+        h("div", { class: "tiles" }, w.levels.map(function (l) {
+          var b = btn((S.done[l.id] ? "✓ " : "") + l.id + "  " + l.title, function () { go("level", l.id); }, "tile" + (S.done[l.id] ? " done" : ""));
+          b.appendChild(h("span", { class: "k", text: kindName(l.kind) }));
+          return b;
+        }))
+      ]));
+    });
+    a.appendChild(ws);
+  }
+  function kindName(k) {
+    return { forge: "forge a derivation", name: "name the rule", missing: "fill the gap", broken: "spot the broken step", unfold: "δ-unfolding" }[k];
+  }
+
+  // ---------- rulebook ----------
+  function renderRules(a) {
+    a.appendChild(h("h1", { text: "Rulebook — Figure 9.3 and Figure 9.4" }));
+    a.appendChild(h("p", { text: "s, s₁, s₂ range over the sorts * and □. Δ is the environment (a list of definitions), Γ the context (a list of declarations)." }));
+    var grid = h("div", { class: "cards" });
+    LD.RULES.forEach(function (r) {
+      var i = LD.RULE_INFO[r];
+      grid.appendChild(h("div", { class: "panel" + (i.derived ? " derived" : "") }, [
+        h("div", { class: "small", text: "key " + i.key + (i.derived ? " · derived rule (Figure 9.4)" : "") }),
+        ruleFrac(r), h("div", { class: "small", text: i.tip })
+      ]));
+    });
+    a.appendChild(grid);
+    a.appendChild(h("h2", { text: "The pattern lens" }));
+    a.appendChild(h("p", { text: "Read a goal Δ ; Γ ⊢ M : N backwards. The shape of the subject M tells you which rule builds it:" }));
+    var t = h("table", { class: "match" });
+    [["*  (with Δ, Γ empty)", "(sort)"], ["the last variable x of Γ", "(var)"], ["Πx : A . B", "(form)"], ["M N", "(appl)"], ["λx : A . M", "(abst)"], ["a(Ū)", "(inst), or (par) right after the definition of a"]].forEach(function (r) {
+      t.appendChild(h("tr", null, [h("td", { text: r[0] }), h("td", { text: r[1] })]));
+    });
+    a.appendChild(t);
+    a.appendChild(h("p", { text: "Three rules keep the subject and change something else: (weak) removes the last declaration from Γ, (def) removes the last definition from Δ, and (conv) changes the type to a βδ-convertible one. Section 9.9: (weak) and (def) are both weakening rules; (var) and (inst) both give types to the basic expressions." }));
+  }
+
+  // ---------- options ----------
+  function renderOptions(a) {
+    a.appendChild(h("h1", { text: "Options" }));
+    function tog(label, key, desc) {
+      return h("div", { class: "row" }, [btn((S.opts[key] ? "☑ " : "☐ ") + label, function () { S.opts[key] = !S.opts[key]; save(); render(); }), h("span", { class: "small", text: desc })]);
+    }
+    a.appendChild(tog("Sound", "sound", "Clang on a good step, thud on a spark."));
+    a.appendChild(tog("Reuse (↺)", "reuse", "A goal that is already derived elsewhere in the tree closes by itself, like reusing a line in a linear derivation."));
+    a.appendChild(tog("High contrast", "contrast", "Plain white background."));
+    a.appendChild(h("div", { class: "row" }, [btn("Forget my progress", function () { S.done = {}; S.sparks = 0; save(); render(); })]));
+  }
+
+  // ---------- levels ----------
+  function startLevel(id) {
+    var l = findLevel(id);
+    S.level = l; S.round = 0; S.run = null;
+    S.phase = "intro";
+  }
+  function renderLevel(a) {
+    var l = S.level;
+    a.appendChild(h("div", { class: "row" }, [btn("◀ Map", function () { go("map"); }, "small"), h("b", { text: l.id + " · " + l.title }), h("span", { class: "small", text: kindName(l.kind) })]));
+    if (S.phase === "intro") {
+      l.intro.forEach(function (p) { a.appendChild(h("p", { text: p })); });
+      var env = l.env ? CONTENT.ENVS[l.env] : null;
+      if (env && l.kind !== "unfold") a.appendChild(envPanel(env));
+      a.appendChild(h("div", { class: "row" }, [btn("Begin ▶", function () { S.phase = "play"; S.round = 0; S.run = null; render(); }, "primary")]));
+      return;
+    }
+    if (S.phase === "levelDone") {
+      a.appendChild(h("h1", { text: "Level " + l.id + " finished ✓" }));
+      a.appendChild(forgeCanvas(96, 30)); burst(40);
+      var next = nextLevel(l);
+      a.appendChild(h("div", { class: "row" }, [next ? btn("Next level: " + next.id + " " + next.title + " ▶", function () { go("level", next.id); }, "primary") : h("b", { text: "You have played every level. The Studio is open for your own judgements." }), btn("Map", function () { go("map"); })]));
+      return;
+    }
+    ({ forge: renderForge, name: renderQuiz, broken: renderQuiz, missing: renderQuiz, unfold: renderUnfold })[l.kind](a);
+  }
+  function nextLevel(l) {
+    var all = allLevels(), i = all.indexOf(l);
+    return i >= 0 && i + 1 < all.length ? all[i + 1] : null;
+  }
+  function roundsOf(l) {
+    if (l.kind === "forge" || l.kind === "unfold") return l.rounds;
+    if (l.kind === "name") return l._rounds || (l._rounds = CONTENT.nameRounds(l));
+    if (l.kind === "missing") return CONTENT.MISSING;
+    if (l.kind === "broken") return l._rounds || (l._rounds = CONTENT.shuffle(CONTENT.BROKEN, 11));
+    return [];
+  }
+  function finishRound() {
+    var l = S.level, rs = roundsOf(l);
+    if (S.round + 1 < rs.length) { S.round++; S.run = null; }
+    else { S.done[l.id] = true; save(); S.phase = "levelDone"; fanfare(); }
+    render();
+  }
+  function spark() { S.sparks++; save(); thud(); puff(); setNav(); }
+
+  // ----- forge -----
+  function newForge(goal) {
+    return { nodes: [{ id: 0, J: goal, key: LD.jKey(goal), parent: -1, rule: null, kids: [] }], focus: 0, hist: [], msg: null, last: null, hintOn: false };
+  }
+  function forgeGoal() {
+    var r = S.level.rounds ? S.level.rounds[S.round] : null;
+    return S.level.custom ? S.level.custom : CONTENT.roundGoal(r);
+  }
+  function provenSet(F) {
+    var proven = new Set(), keys = new Set(), changed = true;
+    while (changed) {
+      changed = false;
+      F.nodes.forEach(function (n) {
+        if (proven.has(n.id) || !n.rule || n.detached) return;
+        var ok = n.kids.every(function (k) { var c = F.nodes[k]; return proven.has(k) || (S.opts.reuse && !c.rule && keys.has(c.key)); });
+        if (ok) { proven.add(n.id); keys.add(n.key); changed = true; }
+      });
+    }
+    return { proven: proven, keys: keys };
+  }
+  function nodeState(F, n, P) {
+    if (P.proven.has(n.id)) return "closed";
+    if (!n.rule && S.opts.reuse && P.keys.has(n.key)) return "reuse";
+    if (!n.rule) return "open";
+    return "partial";
+  }
+  function openNodes(F, P) {
+    var out = [];
+    (function walk(id) {
+      var n = F.nodes[id];
+      var st = nodeState(F, n, P);
+      if (st === "open") out.push(n);
+      n.kids.forEach(walk);
+    })(0);
+    return out;
+  }
+  function pickFocus(F, P) {
+    var open = openNodes(F, P);
+    if (!open.length) return -1;
+    if (open.some(function (n) { return n.id === F.focus; })) return F.focus;
+    // prefer goals that are not waiting for an identical goal elsewhere
+    var pendingKeys = new Set();
+    F.nodes.forEach(function (n) { if (n.rule && !n.detached) pendingKeys.add(n.key); });
+    var free = open.filter(function (n) { return !(S.opts.reuse && pendingKeys.has(n.key)); });
+    return (free[0] || open[0]).id;
+  }
+  function applyRule(rule) {
+    var F = S.run; if (!F || F.finished) return;
+    var n = F.nodes[F.focus]; if (!n || n.rule) return;
+    var e = LD.expand(n.J, rule);
+    if (!e.ok) {
+      F.msg = { cls: "no", text: "(" + rule + ") doesn't fit here.\n" + e.why };
+      F.hintOn = true;
+      spark();
+      announce("Spark. " + e.why);
+      render();
+      return;
+    }
+    n.rule = rule; n.match = e.match; n.side = e.side; n.note = e.note;
+    e.premises.forEach(function (p) {
+      var id = F.nodes.length;
+      F.nodes.push({ id: id, J: p, key: LD.jKey(p), parent: n.id, rule: null, kids: [] });
+      n.kids.push(id);
+    });
+    F.hist.push(n.id);
+    F.last = n.id; F.hintOn = false;
+    F.msg = { cls: "ok", text: "(" + rule + ") fits." + (e.note ? " " + e.note : "") };
+    clang(); burst(14);
+    var P = provenSet(F);
+    if (P.proven.has(0)) {
+      F.finished = true;
+      F.msg = { cls: "ok", text: "Forged! Every goal is closed — this is a complete derivation in λD₀." };
+      fanfare(); burst(60);
+    } else {
+      F.focus = -1; F.focus = pickFocus(F, P);
+    }
+    announce(F.msg.text);
+    render();
+  }
+  function undo() {
+    var F = S.run; if (!F || !F.hist.length) return;
+    var id = F.hist.pop();
+    var n = F.nodes[id];
+    var drop = new Set();
+    (function walk(k) { drop.add(k); F.nodes[k].kids.forEach(walk); })(id);
+    drop.delete(id);
+    n.rule = null; n.kids = []; n.match = null;
+    // keep ids stable: mark dropped nodes as detached
+    drop.forEach(function (k) { F.nodes[k].detached = true; });
+    F.finished = false; F.focus = id; F.last = null;
+    F.msg = { cls: "info", text: "Undone." };
+    render();
+  }
+  function linear(F) {
+    var P = provenSet(F), num = {}, byKey = {}, lines = [];
+    (function walk(id) {
+      var n = F.nodes[id];
+      n.kids.forEach(walk);
+      if (n.rule) {
+        if (byKey[n.key] !== undefined) { num[id] = byKey[n.key]; return; }
+        var refs = n.kids.map(function (k) { var c = F.nodes[k]; return num[k] !== undefined ? num[k] : byKey[c.key]; });
+        lines.push({ j: n.J, why: "(" + n.rule + ")" + (refs.length ? " on " + refs.join(", ") : "") });
+        num[id] = lines.length; byKey[n.key] = lines.length;
+      }
+    })(0);
+    void P;
+    return lines;
+  }
+  function renderForge(a) {
+    var l = S.level;
+    if (!S.run) S.run = newForge(forgeGoal());
+    var F = S.run, P = provenSet(F);
+    if (!F.finished) F.focus = pickFocus(F, P);
+    var rounds = l.rounds || [null];
+    var r = rounds[S.round];
+    var left = h("div", null, []), right = h("div", null, []);
+    left.appendChild(h("div", { class: "small", text: "Round " + (S.round + 1) + " of " + rounds.length + (r && r.note ? " · " + r.note : "") }));
+    var env = F.nodes[0].J.env;
+    if (env.length) left.appendChild(envPanel(env));
+    left.appendChild(h("h3", { text: "Derivation (read upwards: each goal's premises are indented below it)" }));
+    left.appendChild(h("ul", { class: "tree" }, [treeEl(F, 0, P)]));
+    var open = openNodes(F, P);
+    left.appendChild(h("div", { class: "small", text: F.finished ? "No open goals." : open.length + " open goal(s). Click a goal to work on it." }));
+    left.appendChild(h("div", { class: "row" }, [
+      btn("Undo (U)", undo, "small"),
+      btn("Hint (H)", function () { hint(); }, "small"),
+      btn("Restart", function () { S.run = null; render(); }, "small")
+    ]));
+    // right side
+    right.appendChild(forgeCanvas(80, 26));
+    if (!F.finished) {
+      var g = F.nodes[F.focus];
+      right.appendChild(h("h3", { text: "Current goal" }));
+      right.appendChild(h("div", { class: "msg info", text: jText(g.J) }));
+      var hintRules = F.hintOn ? LD.shapeHint(g.J) : [];
+      right.appendChild(h("div", { class: "cards" }, LD.RULES.map(function (rule) {
+        var i = LD.RULE_INFO[rule];
+        return h("button", { class: "card" + (hintRules.indexOf(rule) >= 0 ? " hint" : "") + (i.derived ? " derived" : ""), onclick: function () { applyRule(rule); }, "data-act": "rule-" + rule, title: i.tip }, [
+          h("div", { class: "nm", text: i.key + " · " + rule }), h("div", { text: i.concl })
+        ]);
+      })));
+      if (F.hintOn) right.appendChild(h("div", { class: "small", text: "Highlighted: the rules whose conclusion has the right SHAPE for this goal (subject " + LD.pp(g.J.M) + "). Only one or two of them will really fit." }));
+    }
+    if (F.msg) right.appendChild(h("div", { class: "msg " + F.msg.cls, text: F.msg.text }));
+    if (F.last !== null && F.nodes[F.last] && F.nodes[F.last].rule) {
+      var n = F.nodes[F.last];
+      right.appendChild(h("h3", { text: "The step you just made" }));
+      right.appendChild(fracEl(n.rule, n.kids.map(function (k) { return jText(F.nodes[k].J); }), jText(n.J), n.side ? "if " + n.side : ""));
+      if (n.match && n.match.length) {
+        right.appendChild(h("div", { class: "small", text: "How the pattern matched:" }));
+        right.appendChild(h("table", { class: "match" }, n.match.map(function (m) { return h("tr", null, [h("td", { text: m[0] }), h("td", { text: m[1] })]); })));
+      }
+    }
+    if (F.finished) {
+      right.appendChild(h("h3", { text: "Your derivation as a list (as in Exercise 9.10)" }));
+      right.appendChild(h("ol", { class: "lin" }, linear(F).map(function (ln) { return h("li", { text: ln.j ? jText(ln.j) + "   " + ln.why : "" }); })));
+      right.appendChild(h("div", { class: "row" }, [S.level.custom ? btn("Back to the Studio", function () { go("studio"); }, "primary") : btn("Continue ▶ (Enter)", finishRound, "primary")]));
+    }
+    a.appendChild(h("div", { class: "layout" }, [h("div", { class: "panel" }, [left]), h("div", { class: "panel" }, [right])]));
+  }
+  function treeEl(F, id, P) {
+    var n = F.nodes[id];
+    var st = nodeState(F, n, P);
+    var icon = { closed: "✓", reuse: "↺", open: "?", partial: "…" }[st];
+    var tag = n.rule ? "(" + n.rule + ")" : st === "reuse" ? "↺ derived elsewhere" : "";
+    var row = h("div", { class: "node " + (st === "partial" ? "closed" : st) + (id === F.focus && !F.finished ? " focus" : ""), onclick: function () { if (st === "open") { S.run.focus = id; render(); } }, "data-node": String(id) }, [
+      h("span", { class: "st", text: icon }), h("span", { class: "j", text: jText(n.J) }), tag ? h("span", { class: "tag", text: tag }) : null
+    ]);
+    var li = h("li", null, [row]);
+    if (n.kids.length) li.appendChild(h("ul", null, n.kids.map(function (k) { return treeEl(F, k, P); })));
+    return li;
+  }
+  function hint() {
+    var F = S.run; if (!F || F.finished) return;
+    var g = F.nodes[F.focus];
+    if (!F.hintOn) { F.hintOn = true; F.msg = { cls: "info", text: "Look at the shape of the subject " + LD.pp(g.J.M) + " (see the pattern lens in the Rulebook). The highlighted cards have a matching conclusion." }; }
+    else { var r = CONTENT.firstRule(g.J); F.msg = { cls: "info", text: "Second hint: (" + r + ") works here." }; }
+    render();
+  }
+
+  // ----- quizzes: name / broken / missing -----
+  function renderQuiz(a) {
+    var l = S.level, rs = roundsOf(l), spec = rs[S.round];
+    var Q = S.run || (S.run = { phase: "ask", msg: null, tries: 0 });
+    a.appendChild(h("div", { class: "small", text: "Round " + (S.round + 1) + " of " + rs.length }));
+    var inst, envs = [];
+    if (l.kind === "name") inst = spec;
+    else if (l.kind === "broken") inst = CONTENT.stepInstance(spec);
+    if (inst) { [inst.concl].concat(inst.prem).forEach(function (j) { if (j.env.length > envs.length) envs = j.env; }); }
+    if (l.kind === "missing") {
+      var full = CONTENT.stepInstance(CONTENT.fillHole(spec, spec.options[0]));
+      envs = full.concl.env;
+      a.appendChild(envPanel(envs) || h("span"));
+      a.appendChild(h("p", { text: "Which piece makes this a correct (" + spec.rule + ") step?" }));
+      a.appendChild(holeFrac(spec));
+      var opts = h("div", { class: "row" }, spec.options.map(function (o, i) {
+        var lab = spec.hole[1] === "env" ? (o === "empty" ? "∅" : LD.ppEnv(CONTENT.ENVS[o])) : (o === "" ? "∅" : o);
+        return btn((i + 1) + ") " + lab, function () { answerMissing(spec, o); }, Q.phase === "done" && Q.right === o ? "good" : "");
+      }));
+      a.appendChild(opts);
+    } else {
+      a.appendChild(envPanel(envs) || h("span"));
+      a.appendChild(h("p", { text: l.kind === "broken" ? "Is this a correct step? Name its rule, or say BROKEN." : "Which rule is this step?" }));
+      a.appendChild(instFrac(inst, true));
+      if (Q.phase === "ask") {
+        var choices = LD.RULES.map(function (r) { return btn(LD.RULE_INFO[r].key + " " + r, function () { answerName(inst, spec, r); }, ""); });
+        if (l.kind === "broken") choices.push(btn("B  BROKEN", function () { answerName(inst, spec, "BROKEN"); }, "bad"));
+        a.appendChild(h("div", { class: "row" }, choices));
+      } else if (Q.phase === "why") {
+        a.appendChild(h("p", { text: "Right — it is broken. It was meant to be a (" + spec.rule + ") step. What went wrong?" }));
+        a.appendChild(h("div", { class: "row" }, CONTENT.WHY.map(function (w, i) { return btn((i + 1) + ") " + w[1], function () { answerWhy(inst, spec, w[0]); }); })));
+      }
+    }
+    if (Q.msg) a.appendChild(h("div", { class: "msg " + Q.msg.cls, text: Q.msg.text }));
+    if (Q.phase === "done") {
+      if (Q.showRule) a.appendChild(h("div", null, [h("div", { class: "small", text: "The pattern:" }), ruleFrac(Q.showRule)]));
+      a.appendChild(h("div", { class: "row" }, [btn("Continue ▶ (Enter)", finishRound, "primary")]));
+    }
+  }
+  function holeFrac(spec) {
+    var inst = CONTENT.stepInstance(CONTENT.fillHole(spec, spec.options[0]));
+    function render1(j, which) {
+      var parts = { env: LD.ppEnv(j.env), ctx: LD.ppCtx(j.ctx), M: LD.pp(j.M), N: LD.pp(j.N) };
+      var seg = function (p) { return spec.hole[0] === which && spec.hole[1] === p ? h("span", { class: "hole", text: "▢" }) : parts[p]; };
+      return h("span", null, [seg("env"), " ; ", seg("ctx"), " ⊢ ", seg("M"), " : ", seg("N")]);
+    }
+    return fracEl(spec.rule, inst.prem.map(function (j, i) { return render1(j, i); }), render1(inst.concl, "c"), LD.RULE_INFO[spec.rule].side, true);
+  }
+  function answerName(inst, spec, choice) {
+    var Q = S.run, l = S.level;
+    var res = LD.checkInstance(inst);
+    var correctRule = l.kind === "name" ? spec.rule : (res.ok ? spec.rule : "BROKEN");
+    if (choice === correctRule) {
+      if (choice === "BROKEN") { Q.phase = "why"; Q.msg = null; clang(); render(); return; }
+      Q.phase = "done"; Q.showRule = correctRule;
+      Q.msg = { cls: "ok", text: "Yes: (" + correctRule + "). " + LD.RULE_INFO[correctRule].tip };
+      clang(); burst(20);
+    } else {
+      spark();
+      var why = "";
+      if (choice === "BROKEN") why = "It is a correct (" + spec.rule + ") step after all. Compare it with the pattern piece by piece.";
+      else {
+        var r2 = LD.checkInstance({ rule: choice, prem: inst.prem, concl: inst.concl });
+        why = "Not (" + choice + "): " + (r2.why || "") ;
+      }
+      Q.msg = { cls: "no", text: why + "\nTry again." };
+    }
+    announce(Q.msg ? Q.msg.text : "");
+    render();
+  }
+  function answerWhy(inst, spec, code) {
+    var Q = S.run;
+    var res = LD.checkInstance(inst);
+    if (code === spec.code) {
+      Q.phase = "done"; Q.showRule = spec.rule;
+      Q.msg = { cls: "ok", text: "Exactly. " + res.why };
+      clang(); burst(20);
+    } else {
+      spark();
+      Q.msg = { cls: "no", text: "Look again — that part is fine. Compare with the (" + spec.rule + ") pattern." };
+    }
+    render();
+  }
+  function answerMissing(spec, opt) {
+    var Q = S.run;
+    if (Q.phase === "done") return;
+    var res = LD.checkInstance(CONTENT.stepInstance(CONTENT.fillHole(spec, opt)));
+    if (res.ok) {
+      Q.phase = "done"; Q.right = opt; Q.showRule = spec.rule;
+      Q.msg = { cls: "ok", text: "Yes — now it is a correct (" + spec.rule + ") step." };
+      clang(); burst(20);
+    } else {
+      spark();
+      Q.msg = { cls: "no", text: "With that piece: " + res.why + "\nTry another." };
+    }
+    render();
+  }
+
+  // ----- unfolding -----
+  function renderUnfold(a) {
+    var l = S.level, r = l.rounds[S.round], env = CONTENT.ENVS[l.env];
+    LD.setPrintOpts(CONTENT.ARITH_PRINT);
+    try {
+      var U = S.run || (S.run = { term: LD.parse(r.term, env), path: [], msg: null });
+      U.path.length || U.path.push(LD.pp(U.term));
+      a.appendChild(h("div", { class: "small", text: "Round " + (S.round + 1) + " of " + l.rounds.length + " · " + r.note }));
+      a.appendChild(envPanel(env));
+      a.appendChild(h("p", { text: "Context: " + r.ctx + ". Click a highlighted constant to unfold that one occurrence." }));
+      var nfNow = LD.isDeltaNF(U.term, env);
+      a.appendChild(h("div", { class: "msg info term" }, segEls(LD.ppSegs(U.term), env, !nfNow)));
+      a.appendChild(h("h3", { text: "Your reduction path" }));
+      a.appendChild(h("div", { class: "path" }, U.path.map(function (s, i) { return h("div", { text: (i ? "→Δ " : "    ") + s }); })));
+      if (U.msg) a.appendChild(h("div", { class: "msg " + U.msg.cls, text: U.msg.text }));
+      if (nfNow) {
+        a.appendChild(h("div", { class: "msg ok", text: "δ-normal form reached in " + (U.path.length - 1) + " step(s): no unfoldable constant is left. Other orders of unfolding reach the same normal form (the book shows this in Chapter 10)." }));
+        a.appendChild(h("div", { class: "row" }, [btn("Continue ▶ (Enter)", finishRound, "primary")]));
+      } else {
+        a.appendChild(h("div", { class: "row" }, [btn("Start over", function () { S.run = null; render(); }, "small")]));
+      }
+    } finally {
+      LD.setPrintOpts(null);
+    }
+  }
+  function segEls(segs, env, live) {
+    return segs.map(function (p) {
+      if (typeof p === "string") return doc.createTextNode(p);
+      var d = LD.findDef(env, p.name);
+      var kids = [doc.createTextNode(p.name)].concat(segEls(p.parts, env, live));
+      if (d && d.body && live) return h("span", { class: "cst", onclick: function (ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); unfold(p.path); }, "data-path": JSON.stringify(p.path), title: "unfold " + p.name }, kids);
+      return h("span", null, kids);
+    });
+  }
+  function unfold(path) {
+    var U = S.run, l = S.level, env = CONTENT.ENVS[l.env];
+    LD.setPrintOpts(CONTENT.ARITH_PRINT);
+    try {
+      var name = LD.getAt(U.term, path).a;
+      U.term = LD.unfoldAt(U.term, path, env);
+      U.path.push(LD.pp(U.term));
+      U.msg = { cls: "ok", text: "Unfolded one occurrence of " + name + "." };
+      clang(); announce(U.msg.text + " Now: " + LD.pp(U.term));
+    } finally { LD.setPrintOpts(null); }
+    render();
+  }
+
+  // ---------- studio ----------
+  var studio = { env: "empty", ctx: "A:*", M: "λx:A. x", N: "A → A", msg: null };
+  function renderStudio(a) {
+    a.appendChild(h("h1", { text: "Studio — forge your own judgement" }));
+    a.appendChild(h("p", { text: "Write a judgement Δ ; Γ ⊢ M : N and forge its derivation. Syntax: *  □  λx:A. M  Πx:A. B  A → B  M N  a(U, V). You can type \\ for λ and -> for →." }));
+    var sel = h("select", { "data-act": "env", onchange: function (ev) { studio.env = ev.target.value; render(); } }, Object.keys(CONTENT.ENVS).filter(function (k) { return ["empty", "id", "neg", "twice"].indexOf(k) >= 0; }).map(function (k) {
+      var o = h("option", { value: k, text: k === "empty" ? "∅" : LD.ppEnv(CONTENT.ENVS[k]) + " (" + CONTENT.ENVS[k].map(function (d) { return d.a; }).join(", ") + ")" });
+      if (k === studio.env) o.setAttribute("selected", "selected");
+      return o;
+    }));
+    a.appendChild(h("div", { class: "row" }, [h("b", { text: "Δ =" }), sel]));
+    a.appendChild(envPanel(CONTENT.ENVS[studio.env]) || h("span"));
+    function field(lbl, key) {
+      var inp = h("input", { type: "text", value: studio[key], "data-act": "in-" + key, "aria-label": lbl });
+      inp.oninput = function () { studio[key] = inp.value; };
+      return h("div", { class: "row" }, [h("b", { text: lbl }), inp]);
+    }
+    a.appendChild(field("Γ =", "ctx")); a.appendChild(field("M =", "M")); a.appendChild(field("N =", "N"));
+    a.appendChild(h("div", { class: "row" }, [btn("Forge it ⚒", studioGo, "primary")]));
+    if (studio.msg) a.appendChild(h("div", { class: "msg no", text: studio.msg }));
+  }
+  function studioGo() {
+    var env = CONTENT.ENVS[studio.env];
+    var g;
+    try { g = LD.parseJ(env, studio.ctx, studio.M, studio.N); }
+    catch (e) { studio.msg = "I can't read that: " + (e.message || e); render(); return; }
+    var d = LD.derivable(g);
+    if (!d.ok) { studio.msg = "This judgement is not derivable, so there is nothing to forge: " + d.why; spark(); render(); return; }
+    studio.msg = null;
+    S.level = { id: "studio", title: "Your judgement", kind: "forge", custom: g, intro: [] };
+    S.round = 0; S.run = null; S.phase = "play"; S.screen = "level";
+    render();
+  }
+
+  // ---------- keyboard ----------
+  function onKey(ev) {
+    var k = ev.key;
+    if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "SELECT")) { if (k === "Enter" && S.screen === "studio") studioGo(); return; }
+    if (k === "Escape") { go("map"); return; }
+    if (S.screen === "title" && (k === "Enter" || k === " ")) { go("map"); return; }
+    if (S.screen !== "level") return;
+    var l = S.level;
+    if (S.phase === "intro") { if (k === "Enter" || k === " ") { S.phase = "play"; S.run = null; render(); } return; }
+    if (S.phase === "levelDone") { if (k === "Enter") { var nx = nextLevel(l); go(nx ? "level" : "map", nx ? nx.id : undefined); } return; }
+    if (l.kind === "forge") {
+      var F = S.run;
+      if (F && F.finished) { if (k === "Enter") { if (l.custom) go("studio"); else finishRound(); } return; }
+      for (var i = 0; i < LD.RULES.length; i++) if (LD.RULE_INFO[LD.RULES[i]].key === k) { applyRule(LD.RULES[i]); return; }
+      if (k === "u" || k === "U") undo();
+      else if (k === "h" || k === "H") hint();
+      return;
+    }
+    var Q = S.run;
+    if (Q && Q.phase === "done" && k === "Enter") { finishRound(); return; }
+    if (l.kind === "unfold") { if (Q && LD.isDeltaNF(Q.term, CONTENT.ENVS[l.env]) && k === "Enter") finishRound(); return; }
+    var rs = roundsOf(l), spec = rs[S.round];
+    if (l.kind === "missing" && /^[1-9]$/.test(k)) { var o = spec.options[+k - 1]; if (o !== undefined) answerMissing(spec, o); return; }
+    if (l.kind === "name" || l.kind === "broken") {
+      var inst = l.kind === "name" ? spec : CONTENT.stepInstance(spec);
+      if (Q.phase === "why" && /^[1-5]$/.test(k)) { answerWhy(inst, spec, CONTENT.WHY[+k - 1][0]); return; }
+      if (Q.phase !== "ask") return;
+      if (l.kind === "broken" && (k === "b" || k === "B")) { answerName(inst, spec, "BROKEN"); return; }
+      for (var j = 0; j < LD.RULES.length; j++) if (LD.RULE_INFO[LD.RULES[j]].key === k) { answerName(inst, spec, LD.RULES[j]); return; }
+    }
+  }
+
+  function init() {
+    doc.addEventListener("keydown", onKey);
+    var logo = doc.getElementById("logo"); if (logo) logo.onclick = function () { go("title"); };
+    render();
+  }
+  if (!(typeof window !== "undefined" && window.__TEST__)) init();
+  return { S: S, init: init, go: go, render: render, applyRule: applyRule, undo: undo, hint: hint, onKey: onKey,
+    answerName: answerName, answerWhy: answerWhy, answerMissing: answerMissing, unfold: unfold, studio: studio, studioGo: studioGo,
+    provenSet: provenSet, linear: linear, roundsOf: roundsOf, finishRound: finishRound, findLevel: findLevel, allLevels: allLevels };
+})();
+</script>
+</body>
+</html>
