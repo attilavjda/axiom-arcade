@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>From If to Is — a pixel atlas of non-classical logics</title>
+<style>
+  :root { --bg: #eef7ff; --bg2: #fff3c4; --panel: #f4ecd8; --ink: #23203f; --dim: #6b6585;
+    --acc: #ffcc4d; --ok: #3fa34d; --when: #3b7dd8; --part: #b07d12; --bad: #c0563f; --edge: #23203f; }
+  body.contrast { --bg: #fff; --bg2: #fff; --panel: #fff; --ink: #000; --dim: #333; --acc: #ffd400;
+    --ok: #006b1b; --when: #003fbf; --part: #7a4f00; --edge: #000; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: bold 15px/1.45 "Courier New", ui-monospace, Menlo, Consolas, monospace; }
+  body.calm * { transition: none !important; animation: none !important; }
+  #app { max-width: 900px; margin: 0 auto; padding: 8px; }
+  #hud { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; color: var(--ink); background: var(--bg2);
+    padding: 6px 10px; box-shadow: 0 0 0 3px var(--edge), 0 0 0 6px #e0b84a; margin: 6px 6px 12px; }
+  #hud .title { color: #c0561a; letter-spacing: 2px; margin-right: auto; }
+  #hearts { color: #d23a4e; }
+  #scene { display: block; width: calc(100% - 12px); margin: 0 6px 12px; aspect-ratio: 16 / 9; max-height: 44vh;
+    image-rendering: pixelated; image-rendering: crisp-edges; background: #cfe9ff; box-shadow: 0 0 0 3px var(--edge), 0 0 0 6px #9cc4e8; }
+  #panel { background: var(--panel); margin: 0 6px; padding: 14px 16px 16px; min-height: 260px;
+    box-shadow: 0 0 0 3px var(--edge), 0 0 0 6px #b9ad8c, 0 6px 0 6px var(--edge); }
+  h1, h2 { margin: 0 0 8px; letter-spacing: 1px; } h1 { font-size: 21px; } h2 { font-size: 18px; }
+  .sub { color: var(--dim); font-size: 13px; margin: 6px 0; }
+  .q { font-size: 16px; margin: 8px 0; }
+  .formula { font-size: 20px; background: #fffaf0; border-left: 6px solid var(--acc); padding: 8px 12px; margin: 6px 0 12px; }
+  .formula.claim { font-size: 16px; font-style: italic; }
+  .ex { background: #fffaf0; border-left: 6px solid var(--acc); padding: 6px 10px; margin: 10px 0; }
+  .cards { display: grid; gap: 8px; }
+  .cards.places { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+  .card { text-align: left; font: inherit; color: var(--ink); background: #fff; border: 0; cursor: pointer; padding: 9px 12px;
+    box-shadow: 0 0 0 3px var(--ink), 0 4px 0 3px var(--ink); margin: 3px 3px 6px; }
+  .card:hover { background: #fff6d6; } .card.sel { background: #fff0b3; } .card.cross { background: #f3ecff; }
+  .card.struck { background: #e6eefb; color: #45618f; box-shadow: 0 0 0 3px var(--when); }
+  .card.right { background: #e3f4e5; box-shadow: 0 0 0 3px var(--ok); }
+  .toggles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+  .tog { font: inherit; font-size: 13px; text-align: left; background: #fff; border: 0; padding: 6px 8px; cursor: pointer; box-shadow: 0 0 0 2px var(--ink); }
+  .tog.on { background: #fff0b3; }
+  .note { margin: 10px 0 0; padding: 8px 10px; background: #fff; border-left: 6px solid var(--dim); }
+  .note.ok { border-color: var(--ok); } .note.when { border-color: var(--when); } .note.part { border-color: var(--part); } .note.trap { border-color: var(--bad); }
+  .note b.tag, .lensbox b.tag, .insight b.tag, .strip b.tag { display: block; font-size: 12px; letter-spacing: 1px; margin-bottom: 2px; }
+  .proof { background: #fffaf0; padding: 6px 10px; margin: 6px 0; box-shadow: inset 0 0 0 2px #d8cba6; white-space: pre-wrap; font-size: 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+  .btn { font: inherit; background: var(--ink); color: #fff; border: 0; padding: 8px 14px; cursor: pointer; box-shadow: 0 4px 0 var(--edge); }
+  .btn.alt { background: #6b6585; } .btn.gold { background: var(--acc); color: var(--ink); }
+  .rhead { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .chip { display: inline-block; background: #3b4a7a; color: #fff; padding: 2px 8px; font-size: 12px; }
+  .chip.logic { background: #6a4fc2; }
+  .lensbox { margin-top: 10px; padding: 8px 10px; background: #efe7ff; border-left: 6px solid #6a4fc2; }
+  .strip { grid-column: 1 / -1; margin-top: 4px; padding: 8px; background: #fff; box-shadow: inset 0 0 0 2px #d8cba6; }
+  .pill { display: inline-block; margin: 3px 6px 3px 0; padding: 2px 8px; font-size: 13px; }
+  .pill.yes { background: #e3f4e5; } .pill.no { background: #fbe4df; }
+  .insight { margin: 8px 0; padding: 8px 10px; background: #fff; border-left: 6px solid var(--dim); }
+  .insight.book { border-color: #b07d12; } .insight.mind { border-color: var(--ok); } .insight.cat { border-color: #6a4fc2; }
+  .insight.locked { color: var(--dim); }
+  button:focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud"><span class="title">FROM IF TO IS</span><span id="where">Atlas</span><span id="hearts">♥ ∞</span><span id="couldbe">could-bes 0</span><span id="ins">insights</span></div>
+  <canvas id="scene" width="320" height="180" aria-label="pixel map of the atlas of logics"></canvas>
+  <div id="panel" aria-live="polite"></div>
+</div>
+<script id="engine">
+"use strict";
+// ===================================================================================
+// From If to Is — engine: formulas, the logics of Priest's book, validity, models.
+// Pure JavaScript; no DOM. (Loaded by the game and by game/tests/iftois_test.js.)
+// ===================================================================================
+var IFI = (function () {
+  // ------------------------------------------------------------------ formulas
+  function tokenize(s) {
+    var out = [], i = 0;
+    while (i < s.length) {
+      var c = s[i];
+      if (c === " ") { i++; continue; }
+      if ("pqrs".indexOf(c) >= 0) { out.push({ t: "atom", v: c }); i++; continue; }
+      if (c === "¬" || c === "~") { out.push({ t: "not" }); i++; continue; }
+      if (c === "□") { out.push({ t: "box" }); i++; continue; }
+      if (c === "◇") { out.push({ t: "dia" }); i++; continue; }
+      if (c === "∧" || c === "&") { out.push({ t: "and" }); i++; continue; }
+      if (c === "∨" || c === "|") { out.push({ t: "or" }); i++; continue; }
+      if (c === "⊃") { out.push({ t: "bin", op: "imp", sym: "⊃" }); i++; continue; }
+      if (c === "→") { out.push({ t: "bin", op: "imp", sym: "→" }); i++; continue; }
+      if (c === "⥽") { out.push({ t: "bin", op: "strict", sym: "⥽" }); i++; continue; }
+      if (c === ">") { out.push({ t: "bin", op: "cond", sym: ">" }); i++; continue; }
+      if (c === "(" || c === ")") { out.push({ t: c }); i++; continue; }
+      throw new Error("bad character '" + c + "' in " + s);
+    }
+    return out;
+  }
+  function parse(s) {
+    var toks = tokenize(s), pos = 0;
+    function peek() { return toks[pos]; }
+    function unary() {
+      var t = toks[pos++];
+      if (!t) throw new Error("unexpected end in " + s);
+      if (t.t === "atom") return { op: "atom", name: t.v };
+      if (t.t === "not" || t.t === "box" || t.t === "dia") return { op: t.t, a: unary() };
+      if (t.t === "(") { var e = cond(); if (!toks[pos] || toks[pos].t !== ")") throw new Error("missing ) in " + s); pos++; return e; }
+      throw new Error("unexpected token in " + s);
+    }
+    function conj() { var a = unary(); while (peek() && peek().t === "and") { pos++; a = { op: "and", a: a, b: unary() }; } return a; }
+    function disj() { var a = conj(); while (peek() && peek().t === "or") { pos++; a = { op: "or", a: a, b: conj() }; } return a; }
+    function cond() {
+      var a = disj();
+      if (peek() && peek().t === "bin") { var t = toks[pos++]; return { op: t.op, sym: t.sym, a: a, b: cond() }; }
+      return a;
+    }
+    var e = cond();
+    if (pos !== toks.length) throw new Error("trailing input in " + s);
+    return e;
+  }
+  var BINSYM = { and: "∧", or: "∨" };
+  function show(f) {
+    if (typeof f === "string") f = parse(f);
+    function sub(g) { return (g.op === "atom" || g.op === "not" || g.op === "box" || g.op === "dia") ? show(g) : "(" + show(g) + ")"; }
+    switch (f.op) {
+      case "atom": return f.name;
+      case "not": return "¬" + sub(f.a);
+      case "box": return "□" + sub(f.a);
+      case "dia": return "◇" + sub(f.a);
+      case "and": case "or": return sub(f.a) + " " + BINSYM[f.op] + " " + sub(f.b);
+      default: return sub(f.a) + " " + f.sym + " " + sub(f.b);
+    }
+  }
+  function P(f) { return typeof f === "string" ? parse(f) : f; }
+  function atomsOf(fs) {
+    var set = {};
+    (function walk(list) { list.forEach(function (f) { f = P(f); if (f.op === "atom") set[f.name] = 1; else { if (f.a) walk([f.a]); if (f.b) walk([f.b]); } }); })(fs);
+    return Object.keys(set).sort();
+  }
+  function subformulas(f) {
+    f = P(f); var out = [], seen = {};
+    (function walk(g) { if (g.a) walk(g.a); if (g.b) walk(g.b); var k = show(g); if (!seen[k]) { seen[k] = 1; out.push(g); } })(f);
+    return out;
+  }
+  function condSubs(f, op) { return subformulas(f).filter(function (g) { return g.op === op; }); }
+
+  // ------------------------------------------------------------------ many-valued
+  function r3(x) { return Math.round(x * 1000) / 1000; }
+  var kimp = function (x, y) { return Math.max(1 - x, y); };
+  var limp = function (x, y) { return r3(Math.min(1, 1 - x + y)); };
+  var rmimp = function (x, y) { return x < y ? 1 : (y < x ? 0 : Math.max(x, 1 - x)); };
+  var FZGRID = []; for (var g = 0; g <= 20; g++) FZGRID.push(g / 20);
+
+  // the atlas of logics
+  var LOGICS = {
+    CL:  { name: "Classical", ch: 1, kind: "mv", vals: [1, 0], des: [1], imp: kimp },
+    K3:  { name: "K3", ch: 7, kind: "mv", vals: [1, 0.5, 0], des: [1], imp: kimp },
+    L3:  { name: "Ł3", ch: 7, kind: "mv", vals: [1, 0.5, 0], des: [1], imp: limp },
+    LP:  { name: "LP", ch: 7, kind: "mv", vals: [1, 0.5, 0], des: [1, 0.5], imp: kimp },
+    RM3: { name: "RM3", ch: 7, kind: "mv", vals: [1, 0.5, 0], des: [1, 0.5], imp: rmimp },
+    FDE: { name: "FDE", ch: 8, kind: "fde" },
+    FZ:  { name: "Łukasiewicz fuzzy L", ch: 11, kind: "fz", vals: FZGRID, imp: limp },
+    K:   { name: "K", ch: 2, kind: "modal", conds: [] },
+    KR:  { name: "Kρ (T)", ch: 3, kind: "modal", conds: ["refl"] },
+    KS:  { name: "Kσ", ch: 3, kind: "modal", conds: ["sym"] },
+    KT:  { name: "Kτ", ch: 3, kind: "modal", conds: ["trans"] },
+    KE:  { name: "Kη (D)", ch: 3, kind: "modal", conds: ["serial"] },
+    S4:  { name: "Kρτ (S4)", ch: 3, kind: "modal", conds: ["refl", "trans"] },
+    S5:  { name: "Kρστ (S5)", ch: 3, kind: "modal", conds: ["refl", "sym", "trans"] },
+    N:   { name: "N (non-normal)", ch: 4, kind: "modal", conds: [], nonnormal: true },
+    C:   { name: "C (conditional)", ch: 5, kind: "cond", conds: [] },
+    IL:  { name: "Intuitionist", ch: 6, kind: "int", conds: ["refl", "trans", "hered"] },
+    STAR:{ name: "FDE, star worlds", ch: 8, kind: "star", conds: ["star"] },
+    K4:  { name: "K4", ch: 9, kind: "k4", conds: [] },
+    N4:  { name: "N4", ch: 9, kind: "k4", conds: [], nonnormal: true },
+    B:   { name: "B (basic relevant)", ch: 10, kind: "B", conds: ["star"], nonnormal: true }
+  };
+  function L(id) { var l = LOGICS[id]; if (!l) throw new Error("no logic " + id); return l; }
+  function valName(v) { return v === 1 ? "1" : v === 0 ? "0" : v === 0.5 ? "i" : String(v); }
+  function fzName(v) { return String(r3(v)); }
+
+  function evalMV(id, f, nu) {
+    var lg = L(id); f = P(f);
+    switch (f.op) {
+      case "atom": if (!(f.name in nu)) throw new Error("no value for " + f.name); return nu[f.name];
+      case "not": return r3(1 - evalMV(id, f.a, nu));
+      case "and": return Math.min(evalMV(id, f.a, nu), evalMV(id, f.b, nu));
+      case "or": return Math.max(evalMV(id, f.a, nu), evalMV(id, f.b, nu));
+      case "imp": return lg.imp(evalMV(id, f.a, nu), evalMV(id, f.b, nu));
+      default: throw new Error(f.op + " is not truth-functional in " + lg.name);
+    }
+  }
+  function designated(id, v, eps) {
+    var lg = L(id);
+    if (lg.kind === "fz") return v >= (eps === undefined ? 1 : eps) - 1e-9;
+    return lg.des.indexOf(v) >= 0;
+  }
+  // ---- FDE (relational semantics 8.2.6): a value is [true?, false?]
+  var FDEV = { t: [true, false], f: [false, true], b: [true, true], n: [false, false] };
+  var FDENAME = { t: "true only", f: "false only", b: "both", n: "neither" };
+  function code4(v) { return v[0] ? (v[1] ? "b" : "t") : (v[1] ? "f" : "n"); }
+  function evalFDE4(f, rho) { // returns [T,F]
+    f = P(f);
+    switch (f.op) {
+      case "atom": return FDEV[rho[f.name]];
+      case "not": var a = evalFDE4(f.a, rho); return [a[1], a[0]];
+      case "and": var x = evalFDE4(f.a, rho), y = evalFDE4(f.b, rho); return [x[0] && y[0], x[1] || y[1]];
+      case "or": var u = evalFDE4(f.a, rho), w = evalFDE4(f.b, rho); return [u[0] || w[0], u[1] && w[1]];
+      case "imp": var m = evalFDE4(f.a, rho), k = evalFDE4(f.b, rho); return [m[1] || k[0], m[0] && k[1]]; // ¬A ∨ B (8.2.1)
+      default: throw new Error(f.op + " not in FDE");
+    }
+  }
+  function evalFDE(f, rho) { return code4(evalFDE4(f, rho)); }
+
+  function allAssignments(atoms, vals) {
+    var out = [{}];
+    atoms.forEach(function (a) {
+      var nx = []; out.forEach(function (o) { vals.forEach(function (v) { var c = Object.assign({}, o); c[a] = v; nx.push(c); }); }); out = nx;
+    });
+    return out;
+  }
+  // value of a formula in a truth-functional logic; returns comparable value
+  function evalTF(id, f, nu) { return L(id).kind === "fde" ? evalFDE(f, nu) : evalMV(id, f, nu); }
+  function desTF(id, v, eps) { return L(id).kind === "fde" ? FDEV[v][0] : designated(id, v, eps); }
+  function valsOf(id) { var lg = L(id); return lg.kind === "fde" ? ["t", "f", "b", "n"] : lg.vals; }
+  function isCounterTF(id, prem, concl, nu, eps) {
+    return prem.every(function (A) { return desTF(id, evalTF(id, A, nu), eps); }) && !desTF(id, evalTF(id, concl, nu), eps);
+  }
+  // returns a counter-model (assignment) or null; fuzzy: at threshold eps over the grid
+  function counterTF(id, prem, concl, eps) {
+    var atoms = atomsOf(prem.concat([concl]));
+    var all = allAssignments(atoms, valsOf(id));
+    for (var i = 0; i < all.length; i++) if (isCounterTF(id, prem, concl, all[i], eps)) return all[i];
+    return null;
+  }
+
+  // ------------------------------------------------------------------ world models
+  // model: { n, R:{ "i,j":1 }, val:{ atom:[bool..] } | val4:{ atom:[code..] }, normal:[bool], star:[int],
+  //          f:{ antecedentKey:[ [worlds], ... per world ] }, nn:{ "w|key": code }, R3:{ "w,x,y":1 } }
+  function hasR(m, i, j) { return !!m.R[i + "," + j]; }
+  function evalW(id, m, f, w) { // returns boolean truth (for k4/B: truth = relates to 1)
+    var lg = L(id); f = P(f);
+    if (lg.kind === "k4") return ev4w(id, m, f, w)[0];
+    var normal = !m.normal || m.normal[w];
+    switch (f.op) {
+      case "atom": return !!m.val[f.name][w];
+      case "not":
+        if (lg.kind === "int") { for (var j = 0; j < m.n; j++) if (hasR(m, w, j) && evalW(id, m, f.a, j)) return false; return true; }
+        if (lg.kind === "star" || lg.kind === "B") return !evalW(id, m, f.a, m.star[w]);
+        return !evalW(id, m, f.a, w);
+      case "and": return evalW(id, m, f.a, w) && evalW(id, m, f.b, w);
+      case "or": return evalW(id, m, f.a, w) || evalW(id, m, f.b, w);
+      case "imp":
+        if (lg.kind === "int") { for (var k = 0; k < m.n; k++) if (hasR(m, w, k) && evalW(id, m, f.a, k) && !evalW(id, m, f.b, k)) return false; return true; }
+        if (lg.kind === "B") {
+          if (normal) { for (var x = 0; x < m.n; x++) if (evalW(id, m, f.a, x) && !evalW(id, m, f.b, x)) return false; return true; }
+          for (var x2 = 0; x2 < m.n; x2++) for (var y2 = 0; y2 < m.n; y2++)
+            if (m.R3[w + "," + x2 + "," + y2] && evalW(id, m, f.a, x2) && !evalW(id, m, f.b, y2)) return false;
+          return true;
+        }
+        if (lg.kind === "star") throw new Error("no conditional in star FDE");
+        return !evalW(id, m, f.a, w) || evalW(id, m, f.b, w);
+      case "box":
+        if (!normal) return false;
+        for (var a = 0; a < m.n; a++) if (hasR(m, w, a) && !evalW(id, m, f.a, a)) return false; return true;
+      case "dia":
+        if (!normal) return true;
+        for (var b = 0; b < m.n; b++) if (hasR(m, w, b) && evalW(id, m, f.a, b)) return true; return false;
+      case "strict": // A ⥽ B is □(A ⊃ B)
+        return evalW(id, m, { op: "box", a: { op: "imp", sym: "⊃", a: f.a, b: f.b } }, w);
+      case "cond": // A > B: every world in f_A(w) makes B true (5.3.4)
+        var fa = (m.f[show(f.a)] || [])[w] || [];
+        return fa.every(function (x) { return evalW(id, m, f.b, x); });
+      default: throw new Error("unknown " + f.op);
+    }
+  }
+  function ev4w(id, m, f, w) { // K4 / N4: FDE at each world, → over all worlds (9.2.4, 9.4.7)
+    var normal = !m.normal || m.normal[w];
+    switch (f.op) {
+      case "atom": return FDEV[m.val4[f.name][w]];
+      case "not": var a = ev4w(id, m, f.a, w); return [a[1], a[0]];
+      case "and": var x = ev4w(id, m, f.a, w), y = ev4w(id, m, f.b, w); return [x[0] && y[0], x[1] || y[1]];
+      case "or": var u = ev4w(id, m, f.a, w), v = ev4w(id, m, f.b, w); return [u[0] || v[0], u[1] && v[1]];
+      case "imp":
+        if (!normal) return FDEV[(m.nn && m.nn[w + "|" + show(f)]) || "n"];
+        var tr = true, fa = false;
+        for (var k = 0; k < m.n; k++) {
+          var A = ev4w(id, m, f.a, k), B = ev4w(id, m, f.b, k);
+          if (A[0] && !B[0]) tr = false;
+          if (A[0] && B[1]) fa = true;
+        }
+        return [tr, fa];
+      default: throw new Error(f.op + " not in K4");
+    }
+  }
+  function frameReport(id, m) { // which required conditions hold
+    var lg = L(id), out = [];
+    lg.conds.forEach(function (c) { out.push({ cond: c, ok: checkCond(c, m) }); });
+    return out;
+  }
+  function checkCond(c, m) {
+    var n = m.n, i, j, k;
+    if (c === "refl") { for (i = 0; i < n; i++) if (!hasR(m, i, i)) return false; return true; }
+    if (c === "sym") { for (i = 0; i < n; i++) for (j = 0; j < n; j++) if (hasR(m, i, j) && !hasR(m, j, i)) return false; return true; }
+    if (c === "trans") { for (i = 0; i < n; i++) for (j = 0; j < n; j++) for (k = 0; k < n; k++) if (hasR(m, i, j) && hasR(m, j, k) && !hasR(m, i, k)) return false; return true; }
+    if (c === "serial") { for (i = 0; i < n; i++) { var any = false; for (j = 0; j < n; j++) if (hasR(m, i, j)) any = true; if (!any) return false; } return true; }
+    if (c === "hered") { // heredity (6.3.3) for every parameter
+      for (var a in m.val) for (i = 0; i < n; i++) for (j = 0; j < n; j++) if (hasR(m, i, j) && m.val[a][i] && !m.val[a][j]) return false;
+      return true;
+    }
+    if (c === "star") { for (i = 0; i < n; i++) if (m.star[m.star[i]] !== i) return false; return true; }
+    throw new Error("unknown condition " + c);
+  }
+  var CONDNAME = { refl: "ρ reflexive", sym: "σ symmetric", trans: "τ transitive", serial: "η extendable",
+    hered: "heredity", star: "w** = w" };
+  // is the model a counter-model at world `at` (default 0)?
+  function isCounterW(id, m, prem, concl, at) {
+    at = at || 0;
+    if (m.normal && !m.normal[at]) return false;
+    if (!L(id).conds.every(function (c) { return checkCond(c, m); })) return false;
+    return prem.every(function (A) { return evalW(id, m, A, at); }) && !evalW(id, m, concl, at);
+  }
+
+  // ---- exhaustive search for small counter-models (used by tests and the Shuffle Sea)
+  function subsets(list) { var out = [[]]; list.forEach(function (x) { out = out.concat(out.map(function (s) { return s.concat([x]); })); }); return out; }
+  function* models(id, n, fs) {
+    var lg = L(id), atoms = atomsOf(fs), pairs = [];
+    for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) pairs.push(i + "," + j);
+    var needsR = lg.kind === "modal" || lg.kind === "int";
+    var Rs = needsR ? subsets(pairs) : [[]];
+    var normals = lg.nonnormal ? subsets(range(n).slice(1)).map(function (nn) { return range(n).map(function (w) { return nn.indexOf(w) < 0; }); }) : [null];
+    var stars = (lg.kind === "star" || lg.kind === "B") ? involutions(n) : [null];
+    var vals = lg.kind === "k4" ? allAssignments(atoms, allTuples(["t", "f", "b", "n"], n)) : allAssignments(atoms, allTuples([false, true], n));
+    var ants = lg.kind === "cond" ? uniqKeys(fs.map(P).reduce(function (acc, f) { return acc.concat(condSubs(f, "cond").map(function (g) { return show(g.a); })); }, [])) : [];
+    var fChoices = ants.length ? allAssignments(ants, allTuples(subsets(range(n)), n)) : [null];
+    for (var r = 0; r < Rs.length; r++) for (var a = 0; a < normals.length; a++) for (var s = 0; s < stars.length; s++)
+      for (var fc = 0; fc < fChoices.length; fc++) {
+        var R = {}; Rs[r].forEach(function (p) { R[p] = 1; });
+        var base = { n: n, R: R, normal: normals[a], star: stars[s], f: fChoices[fc] || {} };
+        var nnKeys = [];
+        if (lg.kind === "k4" && normals[a]) {
+          var conds = uniqKeys(fs.map(P).reduce(function (acc, f) { return acc.concat(condSubs(f, "imp").map(show)); }, []));
+          range(n).forEach(function (w) { if (!normals[a][w]) conds.forEach(function (c) { nnKeys.push(w + "|" + c); }); });
+        }
+        var r3s = [null];
+        if (lg.kind === "B" && normals[a]) {
+          var triples = []; range(n).forEach(function (w) { if (!normals[a][w]) for (var x = 0; x < n; x++) for (var y = 0; y < n; y++) triples.push(w + "," + x + "," + y); });
+          r3s = subsets(triples);
+        }
+        var nnChoices = nnKeys.length ? allAssignments(nnKeys, ["t", "f", "b", "n"]) : [null];
+        for (var v = 0; v < vals.length; v++) for (var q = 0; q < nnChoices.length; q++) for (var t = 0; t < r3s.length; t++) {
+          var m = Object.assign({}, base);
+          if (lg.kind === "k4") m.val4 = vals[v]; else m.val = vals[v];
+          m.nn = nnChoices[q] || {};
+          var R3 = {}; (r3s[t] || []).forEach(function (p) { R3[p] = 1; }); m.R3 = R3;
+          yield m;
+        }
+      }
+  }
+  function range(n) { var a = []; for (var i = 0; i < n; i++) a.push(i); return a; }
+  function uniqKeys(a) { return a.filter(function (x, i) { return a.indexOf(x) === i; }); }
+  function allTuples(vals, n) { var out = [[]]; for (var i = 0; i < n; i++) { var nx = []; out.forEach(function (t) { vals.forEach(function (v) { nx.push(t.concat([v])); }); }); out = nx; } return out; }
+  function involutions(n) { return allTuples(range(n), n).filter(function (s) { return s.every(function (x, i) { return s[x] === i; }); }); }
+  function counterW(id, prem, concl, maxN) {
+    var fs = prem.concat([concl]).map(P);
+    for (var n = 1; n <= (maxN || 3); n++) {
+      var it = models(id, n, fs), x;
+      while (!(x = it.next()).done) if (isCounterW(id, x.value, fs.slice(0, -1), fs[fs.length - 1], 0)) return x.value;
+    }
+    return null;
+  }
+  // a single verdict for any logic: { valid, counter } (world logics: "no counter-model up to maxN worlds")
+  function verdict(id, prem, concl, opts) {
+    opts = opts || {};
+    var lg = L(id);
+    if (lg.kind === "mv" || lg.kind === "fde") { var c = counterTF(id, prem, concl); return { valid: !c, counter: c }; }
+    if (lg.kind === "fz") { // valid iff valid at every ε (11.4.8); checked on a grid of ε and values
+      var eps = opts.eps ? [opts.eps] : [0.05, 0.25, 0.5, 0.55, 0.75, 0.8, 0.9, 1];
+      for (var e = 0; e < eps.length; e++) { var cz = counterTF(id, prem, concl, eps[e]); if (cz) return { valid: false, counter: cz, eps: eps[e] }; }
+      return { valid: true, counter: null };
+    }
+    // world logics: search all models up to 3 worlds (2 for the FDE-based K4, N4, B, whose models are larger)
+    var cw = counterW(id, prem, concl, opts.maxN || (lg.kind === "k4" || lg.kind === "B" ? 2 : 3));
+    return { valid: !cw, counter: cw };
+  }
+  // human-readable description of a truth-functional counter-model
+  function describeTF(id, nu) {
+    return Object.keys(nu).sort().map(function (a) {
+      var v = nu[a]; var lg = L(id);
+      return "ν(" + a + ") = " + (lg.kind === "fde" ? FDENAME[v] : lg.kind === "fz" ? fzName(v) : valName(v));
+    }).join(", ");
+  }
+  function describeW(id, m) {
+    var lg = L(id), parts = [];
+    parts.push(m.n + " world" + (m.n > 1 ? "s" : ""));
+    if (lg.kind === "modal" || lg.kind === "int") {
+      var arrows = Object.keys(m.R).filter(function (k) { return m.R[k]; }).map(function (k) { var a = k.split(","); return "w" + a[0] + "→w" + a[1]; });
+      parts.push(arrows.length ? "arrows " + arrows.join(" ") : "no arrows");
+    }
+    if (m.normal && m.normal.some(function (x) { return !x; })) parts.push("non-normal: " + m.normal.map(function (x, i) { return x ? null : "w" + i; }).filter(Boolean).join(" "));
+    if (m.star) parts.push("star: " + m.star.map(function (s, i) { return "w" + i + "*=w" + s; }).join(" "));
+    if (m.val) Object.keys(m.val).sort().forEach(function (a) { var t = m.val[a].map(function (x, i) { return x ? "w" + i : null; }).filter(Boolean); parts.push(a + " true at " + (t.length ? t.join(",") : "no world")); });
+    if (m.val4) Object.keys(m.val4).sort().forEach(function (a) { parts.push(a + ": " + m.val4[a].map(function (x, i) { return "w" + i + " " + FDENAME[x]; }).join(", ")); });
+    Object.keys(m.f || {}).forEach(function (A) { (m.f[A] || []).forEach(function (s, w) { if (s.length) parts.push("f_" + (A.length > 1 ? "(" + A + ")" : A) + "(w" + w + ") = {" + s.map(function (x) { return "w" + x; }).join(",") + "}"); }); });
+    Object.keys(m.nn || {}).forEach(function (k) { var a = k.split("|"); parts.push(a[1] + " at w" + a[0] + ": " + FDENAME[m.nn[k]]); });
+    Object.keys(m.R3 || {}).forEach(function (k) { if (m.R3[k]) parts.push("R" + k.split(",").map(function (x) { return "w" + x; }).join("")); });
+    return parts.join("; ");
+  }
+  function describeCounter(id, v) { return v ? (v.n !== undefined ? describeW(id, v) : describeTF(id, v)) : ""; }
+
+  // evaluation trace (show the working) for truth-functional logics
+  function traceTF(id, f, nu) {
+    return subformulas(f).filter(function (g) { return g.op !== "atom"; }).map(function (g) {
+      var v = evalTF(id, g, nu); var lg = L(id);
+      return { f: show(g), v: v, name: lg.kind === "fde" ? FDENAME[v] : lg.kind === "fz" ? fzName(v) : valName(v) };
+    });
+  }
+  function seqText(prem, concl) { return (prem.length ? prem.map(show).join(", ") + " " : "") + "⊨ " + show(concl); }
+  // variable sharing (10.4a.15): a necessary condition for A → B being a logical truth of R and B
+  function sharesParameter(f) {
+    f = P(f); if (f.op !== "imp") return null;
+    var a = atomsOf([f.a]), b = atomsOf([f.b]);
+    return a.some(function (x) { return b.indexOf(x) >= 0; });
+  }
+  // Łukasiewicz t-norm and residuum (ch. 11 appendix / Lean: luk_residuation)
+  function lukAnd(x, y) { return r3(Math.max(0, x + y - 1)); }
+
+  return {
+    parse: parse, show: show, atomsOf: atomsOf, subformulas: subformulas, condSubs: condSubs,
+    LOGICS: LOGICS, L: L, evalMV: evalMV, evalFDE: evalFDE, evalTF: evalTF, desTF: desTF, valsOf: valsOf,
+    designated: designated, isCounterTF: isCounterTF, counterTF: counterTF, valName: valName, fzName: fzName,
+    FDENAME: FDENAME, FDEV: FDEV, evalW: evalW, ev4w: ev4w, checkCond: checkCond, frameReport: frameReport, CONDNAME: CONDNAME,
+    isCounterW: isCounterW, counterW: counterW, models: models, verdict: verdict, describeCounter: describeCounter,
+    describeTF: describeTF, describeW: describeW, traceTF: traceTF, seqText: seqText, sharesParameter: sharesParameter,
+    lukAnd: lukAnd, limp: limp, kimp: kimp, rmimp: rmimp, allAssignments: allAssignments, involutions: involutions, range: range, r3: r3
+  };
+})();
+if (typeof module !== "undefined" && module) module.exports = IFI;
+</script>
+<script id="content">
+"use strict";
+// ===================================================================================
+// From If to Is — content: insights, lands (chapters of Priest's book), crossroads, rounds.
+// Answers are not stored here: the engine computes them (values, verdicts, counter-models).
+// ===================================================================================
+var IFC = (function () {
+  // ---- insight cards: book = Priest (paraphrased, with sections), mind = Langer, The Power of
+  //      Mindful Learning (paraphrased), cat = category-theory patterns (lean: proved in RequestProject/IfToIs.lean)
+  var INSIGHTS = {
+    b1: { src: "book", title: "The material conditional (ch. 1)", text: "Classically, A ⊃ B is false only when A is true and B false. So q ⊨ p ⊃ q and ¬p ⊨ p ⊃ q are valid: the 'paradoxes' of 1.7 that motivate the rest of the book." },
+    b2: { src: "book", title: "Possible worlds (ch. 2)", text: "□A is true at w when A is true at every world w can 'see'; ◇A when at some such world. A world that sees nothing makes every □A true there (2.3)." },
+    b3: { src: "book", title: "Frame conditions (ch. 3)", text: "Constraints on accessibility give the normal logics: ρ reflexive, σ symmetric, τ transitive, η extendable. Kρ, Kη, Kρσ, Kρτ, Kρστ are T, D, B, S4, S5 (3.2.5)." },
+    b4: { src: "book", title: "Non-normal worlds (ch. 4)", text: "At a non-normal world nothing is necessary and everything is possible (4.2.3). Validity looks only at normal worlds. Strict implication A ⥽ B is □(A ⊃ B), with its own paradoxes (4.6)." },
+    b5: { src: "book", title: "Conditional logic C (ch. 5)", text: "A > B is true at w when B holds at every world in f_A(w): the worlds where A is true and which are, ceteris paribus, like w (5.3). Antecedent strengthening, transitivity and contraposition all fail." },
+    b6: { src: "book", title: "Intuitionist worlds (ch. 6)", text: "Frames are reflexive and transitive, and truth is hereditary: once proved, always proved (6.3.3). ¬A is in effect □¬A and A ⊃ B is □(A ⊃ B). Excluded middle fails." },
+    b7: { src: "book", title: "Many values (ch. 7)", text: "K3 and LP share their truth tables and differ only in what is designated: {1} versus {1, i}. Ł3 and RM3 change the conditional. In LP even modus ponens fails (7.4.5)." },
+    b8: { src: "book", title: "First Degree Entailment (ch. 8)", text: "In FDE a formula may relate to 1, to 0, to both or to neither (8.2.5). Explosion, excluded middle and the disjunctive syllogism all fail. Negation can also be read with a star world: ¬A is true at w iff A is false at w* (8.5)." },
+    b9: { src: "book", title: "Gaps, gluts and worlds (ch. 9)", text: "K4 adds → to FDE by quantifying over worlds (9.2.4). It still has ⊨ p → (q → q) (9.4.2). N4 adds non-normal worlds, where conditionals may take any value: worlds where laws of logic can fail (9.4.4–9.4.7)." },
+    b10: { src: "book", title: "Relevant logic B (ch. 10)", text: "At non-normal worlds, A → B is evaluated with a ternary relation Rxyz: roughly, if A → B holds at x and A at y, then B at z (10.2.2). In R and its sub-systems, a logically true A → B always has A and B sharing a parameter (10.4a.15)." },
+    b11: { src: "book", title: "Fuzzy logic (ch. 11)", text: "Values are all reals in [0, 1]; ¬x = 1 − x, ∧ = min, ∨ = max, and x → y = min(1, 1 − x + y). Context fixes an acceptability level ε; validity means valid for every ε (11.4.6–8). Modus ponens fails, which defuses sorites arguments (11.6)." },
+
+    m_could: { src: "mind", title: "'Could be', not 'is'", text: "Langer reports studies in which material taught conditionally ('this could be…', '1 plus 1 could be 2') was later used more flexibly and creatively than the same material taught as absolute fact. In this game every verdict is conditional: valid in a logic." },
+    m_novelty: { src: "mind", title: "Noticing new things", text: "In Langer's attention study, people told to notice different things about each shape remembered more, and found the task less effortful, than people told just to 'pay attention'. Each world model here is a shape to notice new things about." },
+    m_distinct: { src: "mind", title: "Drawing distinctions", text: "Langer argues that information swallowed whole, as a 'package', stays locked up, while drawing distinctions keeps it available for new contexts. ρ, σ, τ and η are distinctions: the same □ means different things in each frame." },
+    m_reverse: { src: "mind", title: "The reversed fact", text: "Langer describes presenting data with the figures reversed: students readily explain the 'fact', then learn it was the opposite, and see how easily one view becomes 'the' answer. The flip rounds do this with logic." },
+    m_context: { src: "mind", title: "Sensitivity to context", text: "Langer lists the facets of mindfulness as openness to novelty, alertness to distinction, sensitivity to different contexts, awareness of multiple perspectives and orientation in the present. A counterfactual 'if' is a context-sensitive 'if'." },
+    m_doubt: { src: "mind", title: "The value of doubt", text: "Teaching things conditionally, Langer writes, sets the stage for doubt and for noticing that different situations call for different responses. The intuitionist doubts excluded middle until there is a proof." },
+    m_basics: { src: "mind", title: "Whose basics?", text: "Langer suggests that for everyone there are certain basics, but no such thing as the basics. Classical logic is one land of the atlas, not its foundation stone." },
+    m_actor: { src: "mind", title: "Actor and observer", text: "Langer contrasts predictions made from an actor's changing experience with an observer's stable categories. A gap (neither) and a glut (both) are the same middle value seen from two sides." },
+    m_soft: { src: "mind", title: "Soft vigilance", text: "Langer contrasts a locked, tiring hypervigilance with a soft vigilance that stays open to new information. Here: keep the whole frame in view, not just the one arrow you think matters." },
+    m_right: { src: "mind", title: "The illusion of right answers", text: "In Langer's story the judge tells both quarrelling men 'That's right' — and the onlooker too. Viewing the same information from several perspectives makes us more open to it, not less steady." },
+    m_linear: { src: "mind", title: "Linear versus mindful problem solving", text: "Langer contrasts the direct path from problem to single resolution with staying open to several ways of viewing a situation. Fuzzy logic keeps the borderline open instead of forcing a cut-off." },
+    m_judge: { src: "mind", title: "When right becomes wrong", text: "A fact that is right from one perspective can be wrong from another; Langer argues that seeing this makes information more usable. K3 and LP are each other's mirror image." },
+    m_sideways: { src: "mind", title: "Sideways learning", text: "Instead of top-down lectures or bottom-up drill, Langer proposes sideways learning: varying the basics and attending to several ways of carving up the same domain. Same frames, two logics." },
+    m_play: { src: "mind", title: "Turning work into play", text: "Langer notes that a crossword is fun until it is graded for speed and accuracy, and that puzzles with several solutions are more fun than those with one. Hearts here never run out, and some rounds have several answers." },
+    m_rote: { src: "mind", title: "Locking up information", text: "Langer's example: 'Battle of Hastings/1066' learned as a package is hard to use anywhere else. '→ means if' is such a package; the rapids unpack it." },
+    m_present: { src: "mind", title: "Orientation in the present", text: "Mindfulness, for Langer, includes orientation in the present: basic skills guide what we do now rather than run us like a program. Every Shuffle Sea round is new." },
+
+    c_category: { src: "cat", title: "Entailment is a category", text: "Formulas are objects; A ⊨ B is an arrow. A ⊨ A is the identity and if A ⊨ B and B ⊨ C then A ⊨ C is composition. Every logic in the atlas gives such a category (a preorder)." },
+    c_dual: { src: "cat", title: "□ and ◇ are dual", text: "¬□¬A and ◇A always agree (2.3.9). Negation turns □ into ◇: a duality, the way reversing all arrows turns products into coproducts." },
+    c_comonad: { src: "cat", title: "□ in S4 is a comonad", text: "In reflexive transitive frames □A ⊨ A (the counit) and □A ⊨ □□A (the comultiplication), and □ is monotone (a functor). That is a comonad on the entailment preorder.", lean: "s4_counit, s4_comult, box_mono" },
+    c_functor_break: { src: "cat", title: "When □ stops being a functor", text: "In K, if A ⊨ B then □A ⊨ □B. In N, ◇(q ∧ ¬q) ⊨ r but □◇(q ∧ ¬q) ⊭ □r: a normal world can see a non-normal one, where validity never looked.", lean: "k_box_functor_instance, n_box_not_functor" },
+    c_indexed: { src: "cat", title: "A family of boxes", text: "Priest notes that each formula A gives its own necessity operator [A], and A > B is [A]B (5.3.4). A conditional is a box indexed by its antecedent." },
+    c_exponential: { src: "cat", title: "The intuitionist ⊃ is an exponential", text: "For hereditary propositions, X ∧ A ⊨ B exactly when X ⊨ A ⊃ B: conjunction with A is left adjoint to A ⊃ (−). This is the 'currying' law of a Heyting algebra.", lean: "heyting_adjunction" },
+    c_internal_hom: { src: "cat", title: "LP has no internal hom", text: "If ⊃ internalised ⊨ we would have A ∧ B ⊨ C exactly when A ⊨ B ⊃ C. In LP, p ⊃ q ⊨ p ⊃ q (an identity), yet (p ⊃ q) ∧ p ⊭ q. The adjunction fails, and so does modus ponens.", lean: "lp_no_adjunction" },
+    c_product: { src: "cat", title: "FDE values are a product", text: "An FDE value is a pair (true?, false?): the four values form Bool × Bool. K3 is FDE without the glut, LP is FDE without the gap, and both embeddings preserve the connectives — so FDE-valid implies K3- and LP-valid.", lean: "fde_to_k3, fde_to_lp" },
+    c_identity: { src: "cat", title: "Identity arrows and impossible worlds", text: "q → q is an identity arrow. K4 keeps it everywhere, so p → (q → q) holds. N4 lets identities fail at non-normal worlds, and a conditional at a normal world looks at every world." },
+    c_ternary: { src: "cat", title: "A three-place arrow", text: "The ternary relation Rxyz behaves like a 'combine x and y into z' operation: a conditional at x applied to its antecedent at y gives the consequent at z. It is an analogy with composition, not an identity." },
+    c_residuation: { src: "cat", title: "Residuation", text: "The Łukasiewicz t-norm x ⊗ y = max(0, x + y − 1) and the conditional satisfy x ⊗ y ≤ z ⟺ x ≤ (y → z) on [0, 1]: ⊗ y is left adjoint to y → (−).", lean: "luk_residuation" },
+    c_duality: { src: "cat", title: "A contravariant functor", text: "A ⊨ B in K3 exactly when ¬B ⊨ ¬A in LP. Negation reverses every arrow and swaps the two logics: K3 and LP are opposite categories of each other (for single premises).", lean: "k3_lp_duality" },
+    c_thin: { src: "cat", title: "Frames as thin categories", text: "A reflexive transitive frame is a preorder, a category with at most one arrow between worlds. Heredity says a proposition is an up-set: it is carried along every arrow." },
+    c_journey: { src: "cat", title: "Journeys compose", text: "The atlas paths are arrows between logics (add a value, drop a value, add worlds…). Walking two paths in a row is their composite; staying put is the identity." },
+    c_restrict: { src: "cat", title: "Restriction commutes", text: "On the values 0, ½, 1 the fuzzy conditional is exactly Ł3's, and on 0, 1 it is classical (11.4.5): restricting values and applying a connective can be done in either order.", lean: "lukImp_restricts_to_L3" }
+  };
+
+  // ---- world-model helper for authored models
+  function M(n, arrows, val, extra) {
+    var R = {}; arrows.forEach(function (a) { R[a[0] + "," + a[1]] = 1; });
+    return Object.assign({ n: n, R: R, val: val, f: {}, nn: {}, R3: {} }, extra || {});
+  }
+
+  var LANDS = [
+    { id: "ch1", key: "1", name: "Material Meadow", ch: "Ch. 1", logics: ["CL"], color: "#7ec850", x: 34, y: 92,
+      intro: "Classical logic and the material conditional ⊃. Everything here could be otherwise elsewhere.",
+      insights: ["b1", "m_could", "c_category"],
+      rounds: [
+        { type: "value", logic: "CL", f: "(p ⊃ q) ∨ (q ⊃ p)", nu: { p: 1, q: 0 }, ref: "1.3",
+          mind: "Could any classical valuation make this 0? Try it in your head: it is a tautology classically — but visit the Constructive Keep." },
+        { type: "verdict", logic: "CL", prem: ["q"], concl: "p ⊃ q", side: ["K3", "L3", "LP", "RM3"], ref: "1.7, 7.5.2",
+          mind: "Valid here. Could be invalid: look at the sideways strip." },
+        { type: "forge", logic: "CL", prem: ["p ⊃ q"], concl: "q ⊃ p", ref: "1.5",
+          q: "Build a counter-model: make the premise true and the conclusion false." },
+        { type: "verdict", logic: "CL", prem: ["p ⊃ r"], concl: "(p ∧ q) ⊃ r", side: ["K3", "LP", "RM3"], ref: "1.9, 5.2",
+          mind: "Antecedent strengthening: valid for ⊃ in every truth-functional land. Could 'if' fail it? In the Ceteris Paribus Cove (ch. 5) it does." },
+        { type: "pick", q: "Which of these is a 'paradox of the material conditional' (valid classically, but odd for 'if')?", ref: "1.7",
+          opts: [
+            { t: "¬p ⊨ p ⊃ q", kind: "ok", note: "Yes: a false antecedent makes any conditional true." },
+            { t: "p, p ⊃ q ⊨ q", kind: "when", note: "Modus ponens is no paradox — but it could fail: in LP it does (Three-Valued Isles)." },
+            { t: "p ⊃ q ⊨ q ⊃ p", kind: "when", note: "Not valid classically (it would be the converse fallacy). It would fit a question about invalid forms." }
+          ] },
+        { type: "pick", q: "Arrows compose. q ⊨ p ⊃ q, and p ⊃ q ⊨ ¬q ⊃ ¬p. Which arrow is their composite?", ref: "1.3", cat: "Composition of entailments is transitivity: A ⊨ B and B ⊨ C give A ⊨ C.",
+          opts: [
+            { t: "q ⊨ ¬q ⊃ ¬p", kind: "ok", note: "Yes: follow the first arrow, then the second." },
+            { t: "¬q ⊃ ¬p ⊨ q", kind: "when", note: "That would be the reverse arrow; it is not valid classically (take q false, p false)." },
+            { t: "p ⊃ q ⊨ q", kind: "when", note: "That would compose the arrows the wrong way round, and it is invalid (q false, p false)." }
+          ] }
+      ] },
+
+    { id: "ch2", key: "2", name: "Possible Worlds Port", ch: "Ch. 2", logics: ["K"], color: "#5ab4e6", x: 84, y: 40,
+      intro: "Basic modal logic K: □ is 'at every world I can see', ◇ is 'at some world I can see'.",
+      insights: ["b2", "m_novelty", "c_dual"],
+      rounds: [
+        { type: "wvalue", logic: "K", f: "◇p ∧ ¬□p", at: 0, model: M(3, [[0, 1], [0, 2]], { p: [false, true, false] }), ref: "2.3" },
+        { type: "wvalue", logic: "K", f: "□(p ∧ ¬p)", at: 2, model: M(3, [[0, 1], [0, 2]], { p: [false, true, false] }), ref: "2.3",
+          mind: "Notice something new about this world: it sees nothing at all." },
+        { type: "build", logic: "K", n: 2, prem: [], concl: "□p ⊃ p", ref: "2.4", cat: "In Kρ this would be impossible (Frame Forge): reflexivity forces □A ⊨ A." },
+        { type: "verdict", logic: "K", prem: ["□(p ⊃ q)", "□p"], concl: "□q", side: ["KR", "S5", "N"], ref: "2.4" },
+        { type: "verdict", logic: "K", prem: ["◇p", "◇q"], concl: "◇(p ∧ q)", side: ["KR", "S4", "S5"], ref: "2.4" },
+        { type: "pick", q: "Which formula always has the same value as ¬□¬p?", ref: "2.3.9", cat: "Negation turns □ into ◇ and back: a duality.",
+          opts: [
+            { t: "◇p", kind: "ok", note: "Yes: 'not at every seen world not-p' is 'at some seen world p'." },
+            { t: "□p", kind: "when", note: "They agree in some models (e.g. where w sees exactly one world), but not always." },
+            { t: "¬◇p", kind: "when", note: "That is □¬p, the dual of a different formula." }
+          ] }
+      ] },
+
+    { id: "ch3", key: "3", name: "Frame Forge", ch: "Ch. 3", logics: ["KR", "KS", "KT", "KE", "S4", "S5"], color: "#e0a050", x: 140, y: 22,
+      intro: "Normal modal logics: the same □, different shapes of frame (ρ, σ, τ, η).",
+      insights: ["b3", "m_distinct", "c_comonad"],
+      rounds: [
+        { type: "atlas", prem: ["□p"], concl: "◇p", logics: ["K", "KR", "KS", "KT", "KE"], ref: "3.2" },
+        { type: "build", logic: "KR", n: 3, prem: [], concl: "□p ⊃ □□p", ref: "3.2" },
+        { type: "build", logic: "KT", n: 2, prem: [], concl: "□p ⊃ p", ref: "3.2" },
+        { type: "verdict", logic: "KS", prem: ["p"], concl: "□◇p", side: ["K", "KR", "KT", "S5"], ref: "3.2" },
+        { type: "choose", q: "Find a frame logic in which □p ⊨ □□p is valid. (There is more than one.)", want: "valid",
+          opts: ["K", "KR", "KS", "KT", "S4", "S5"].map(function (l) { return { logic: l, prem: ["□p"], concl: "□□p" }; }), ref: "3.2" },
+        { type: "pick", q: "In S4, □A ⊨ A and □A ⊨ □□A for every A, and □ preserves ⊨. Which pattern is this?", ref: "3.2", lean: "s4_counit",
+          opts: [
+            { t: "A comonad (counit and comultiplication)", kind: "ok", note: "Yes: □ is a functor with ε: □A → A and δ: □A → □□A." },
+            { t: "A monad (unit and multiplication)", kind: "when", note: "A monad would have A ⊨ ◇A and ◇◇A ⊨ ◇A: that is the dual pattern, and ◇ in S4 has it." },
+            { t: "An isomorphism □A ≅ A", kind: "when", note: "In S4, A ⊭ □A, so it is not an isomorphism. It would be in a frame where every world sees only itself." }
+          ] }
+      ] },
+
+    { id: "ch4", key: "4", name: "Non-normal Nook", ch: "Ch. 4", logics: ["N", "K"], color: "#c070d0", x: 200, y: 40,
+      intro: "Non-normal worlds, where nothing is necessary and everything possible. And strict implication ⥽.",
+      insights: ["b4", "m_reverse", "c_functor_break"],
+      rounds: [
+        { type: "verdict", logic: "N", prem: [], concl: "□(p ∨ ¬p)", side: ["K", "KR"], ref: "4.4" },
+        { type: "build", logic: "N", n: 2, prem: [], concl: "□□(p ∨ ¬p)", ref: "4.4", mind: "Valid in K. Could be invalid — if some world is allowed to be strange." },
+        { type: "build", logic: "N", n: 2, prem: ["□◇(q ∧ ¬q)"], concl: "□r", ref: "4.2", lean: "n_box_not_functor",
+          cat: "◇(q ∧ ¬q) ⊨ r holds in N (only normal worlds count), but □ does not carry that arrow across: □ is not a functor in N." },
+        { type: "verdict", logic: "K", prem: ["□q"], concl: "p ⥽ q", side: ["KR", "S5", "N"], ref: "4.6" },
+        { type: "verdict", logic: "K", prem: ["q"], concl: "p ⥽ q", side: ["KR", "S4", "S5"], ref: "4.5" },
+        { type: "flip", claim: "'Strict implication removes all the paradoxes of the material conditional.'", ref: "4.6",
+          q: "Suppose that's true. Which reason explains it best?",
+          opts: [
+            { t: "Because q ⊨ p ⥽ q fails" }, { t: "Because ⥽ looks at all accessible worlds" }, { t: "Because ¬p ⊨ p ⥽ q fails" }
+          ],
+          reveal: "The 'fact' was reversed. Strict implication has paradoxes of its own (4.6): □q ⊨ p ⥽ q and ¬◇p ⊨ p ⥽ q are valid in K. Each reason you could give is true, and still the claim is false.",
+          check: [{ logic: "K", prem: ["□q"], concl: "p ⥽ q", valid: true }, { logic: "K", prem: ["¬◇p"], concl: "p ⥽ q", valid: true }, { logic: "K", prem: ["q"], concl: "p ⥽ q", valid: false }] }
+      ] },
+
+    { id: "ch5", key: "5", name: "Ceteris Paribus Cove", ch: "Ch. 5", logics: ["C"], color: "#50c8b4", x: 250, y: 74,
+      intro: "Conditional logic C: A > B looks only at the A-worlds that are otherwise like this one.",
+      insights: ["b5", "m_context", "c_indexed"],
+      rounds: [
+        { type: "build", logic: "C", n: 2, prem: ["p > r"], concl: "(p ∧ q) > r", ants: ["p", "p ∧ q"], ref: "5.3",
+          mind: "If I strike this match it will light. If I strike it and it is wet, it will light? Context changes which worlds count." },
+        { type: "build", logic: "C", n: 2, prem: ["p > q", "q > r"], concl: "p > r", ants: ["p", "q"], ref: "5.3" },
+        { type: "build", logic: "C", n: 2, prem: ["p > q"], concl: "¬q > ¬p", ants: ["p", "¬q"], ref: "5.3" },
+        { type: "verdict", logic: "C", prem: ["p > q"], concl: "p > (q ∨ r)", ref: "5.4",
+          mind: "Valid: f_p(w) ⊆ [q] ⊆ [q ∨ r]. Notice which conditional inferences survive the cove and which don't." },
+        { type: "pick", q: "Priest observes that each formula A gives rise to its own necessity operator. What is A > B then?", ref: "5.3.4",
+          opts: [
+            { t: "[A]B: the box indexed by A, applied to B", kind: "ok", note: "Yes (5.3.4). A family of modalities, one per antecedent." },
+            { t: "□(A ⊃ B)", kind: "when", note: "That is the strict conditional A ⥽ B of ch. 4, a single box for every antecedent." },
+            { t: "¬A ∨ B", kind: "when", note: "That is the material conditional of ch. 1." }
+          ] }
+      ] },
+
+    { id: "ch6", key: "6", name: "Constructive Keep", ch: "Ch. 6", logics: ["IL"], color: "#d05050", x: 270, y: 128,
+      intro: "Intuitionist logic: worlds are stages of proof; what is proved stays proved.",
+      insights: ["b6", "m_doubt", "c_exponential"],
+      rounds: [
+        { type: "build", logic: "IL", n: 2, prem: [], concl: "p ∨ ¬p", ref: "6.3", mind: "Reflexive loops are drawn for you; arrows must be transitive and truth hereditary." },
+        { type: "build", logic: "IL", n: 2, prem: ["¬¬p"], concl: "p", ref: "6.3" },
+        { type: "verdict", logic: "IL", prem: ["p"], concl: "¬¬p", side: ["CL", "K3", "LP"], ref: "6.4" },
+        { type: "build", logic: "IL", n: 3, prem: [], concl: "(p ⊃ q) ∨ (q ⊃ p)", ref: "6.4" },
+        { type: "verdict", logic: "IL", prem: ["¬(p ∧ q)"], concl: "¬p ∨ ¬q", side: ["CL", "K3", "FDE"], ref: "6.4" },
+        { type: "pick", q: "For hereditary propositions X, A, B: X ∧ A ⊨ B exactly when X ⊨ A ⊃ B. What is this?", ref: "6.3.4", lean: "heyting_adjunction",
+          opts: [
+            { t: "An adjunction: (− ∧ A) ⊣ (A ⊃ −); ⊃ is an exponential", kind: "ok", note: "Yes: the defining law of a Heyting algebra (proved in Lean)." },
+            { t: "A duality between ∧ and ∨", kind: "when", note: "De Morgan dualities link ∧ and ∨ via ¬; this law links ∧ and ⊃ instead." },
+            { t: "Excluded middle in disguise", kind: "when", note: "No: it holds intuitionistically, where excluded middle fails." }
+          ] }
+      ] },
+
+    { id: "ch7", key: "7", name: "Three-Valued Isles", ch: "Ch. 7", logics: ["K3", "L3", "LP", "RM3"], color: "#f0d050", x: 200, y: 150,
+      intro: "K3, Ł3, LP, RM3: three values 1, i, 0, different conditionals, different designated values.",
+      insights: ["b7", "m_basics", "c_internal_hom"],
+      rounds: [
+        { type: "value", logic: "L3", f: "p ⊃ p", nu: { p: 0.5 }, ref: "7.3.8" },
+        { type: "forge", logic: "K3", prem: [], concl: "p ∨ ¬p", ref: "7.3.7" },
+        { type: "forge", logic: "LP", prem: ["p", "p ⊃ q"], concl: "q", ref: "7.4.5" },
+        { type: "atlas", prem: ["p ⊃ q", "q ⊃ r"], concl: "p ⊃ r", logics: ["CL", "K3", "L3", "LP", "RM3"], ref: "7.5.2 (7)" },
+        { type: "atlas", prem: ["q"], concl: "p ⊃ q", logics: ["CL", "K3", "L3", "LP", "RM3"], ref: "7.5.2 (1)" },
+        { type: "choose", q: "Find a logic in which explosion, p ∧ ¬p ⊨ q, fails. (More than one answer.)", want: "invalid",
+          opts: ["CL", "K3", "L3", "LP", "RM3"].map(function (l) { return { logic: l, prem: ["p ∧ ¬p"], concl: "q" }; }), ref: "7.4.4" },
+        { type: "pick", q: "In LP, p ⊃ q ⊨ p ⊃ q, but (p ⊃ q) ∧ p ⊭ q. What breaks?", ref: "7.4.5", lean: "lp_no_adjunction",
+          opts: [
+            { t: "The adjunction A ∧ B ⊨ C ⟺ A ⊨ B ⊃ C: ⊃ is not an internal hom", kind: "ok", note: "Yes (proved in Lean). That failure is exactly the failure of modus ponens." },
+            { t: "Identity: A ⊨ A fails", kind: "when", note: "No: A ⊨ A holds in every logic here. Identity breaks only for → at non-normal worlds (Impossible Worlds Gate)." },
+            { t: "Composition: ⊨ is not transitive", kind: "when", note: "⊨ is transitive in LP; it is the conditional ⊃ that fails to chain (7.5.2 (7))." }
+          ] }
+      ] },
+
+    { id: "ch8", key: "8", name: "Glut & Gap Delta", ch: "Ch. 8", logics: ["FDE", "STAR"], color: "#f08cb4", x: 140, y: 160,
+      intro: "First Degree Entailment: true, false, both, or neither.",
+      insights: ["b8", "m_actor", "c_product"],
+      rounds: [
+        { type: "value", logic: "FDE", f: "¬p ∧ (q ∨ r)", nu: { p: "b", q: "t", r: "f" }, ref: "8.2.7" },
+        { type: "forge", logic: "FDE", prem: ["p ∧ ¬p"], concl: "q", ref: "8.4" },
+        { type: "forge", logic: "FDE", prem: [], concl: "p ∨ ¬p", ref: "8.4" },
+        { type: "forge", logic: "FDE", prem: ["p", "¬p ∨ q"], concl: "q", ref: "8.6" },
+        { type: "verdict", logic: "FDE", prem: ["¬(p ∧ q)"], concl: "¬p ∨ ¬q", side: ["K3", "LP", "CL", "IL"], ref: "8.4" },
+        { type: "build", logic: "STAR", n: 2, prem: ["p ∧ ¬p"], concl: "q", ref: "8.5", mind: "The star world: ¬A is true here when A is false there." },
+        { type: "pick", q: "An FDE value is a pair (relates to 1?, relates to 0?). What structure do the four values form?", ref: "8.2.5", lean: "fde_to_k3",
+          opts: [
+            { t: "The product Bool × Bool; K3 drops 'both', LP drops 'neither'", kind: "ok", note: "Yes. Both embeddings preserve the connectives, so FDE-valid implies K3- and LP-valid (proved in Lean)." },
+            { t: "A chain of four values", kind: "when", note: "Ordered by truth they form a diamond, not a chain: 'both' and 'neither' are incomparable." },
+            { t: "The coproduct Bool + Bool", kind: "when", note: "That would have four values too, but no componentwise ∧ and ∨." }
+          ] }
+      ] },
+
+    { id: "ch9", key: "9", name: "Impossible Worlds Gate", ch: "Ch. 9", logics: ["K4", "N4"], color: "#a0a0ff", x: 84, y: 150,
+      intro: "Gaps, gluts and worlds: FDE at every world, plus a conditional → that looks at all worlds.",
+      insights: ["b9", "m_soft", "c_identity"],
+      rounds: [
+        { type: "build", logic: "K4", n: 1, prem: [], concl: "(p ∧ ¬p) → q", ref: "9.4.1" },
+        { type: "build", logic: "K4", n: 1, prem: [], concl: "p → (q ∨ ¬q)", ref: "9.4.1" },
+        { type: "verdict", logic: "K4", prem: [], concl: "p → (q → q)", side: ["N4"], ref: "9.4.2" },
+        { type: "build", logic: "N4", n: 2, prem: [], concl: "p → (q → q)", ref: "9.4.7", mind: "Keep the whole model in view: the conditional at w0 looks at every world, including the strange one." },
+        { type: "pick", q: "Why add non-normal worlds to K4?", ref: "9.4.3–9.4.5",
+          opts: [
+            { t: "To have worlds where laws of logic, like q → q, may fail", kind: "ok", note: "Yes (9.4.4): then p → (q → q) is no longer valid." },
+            { t: "To make explosion valid again", kind: "when", note: "No — K4 and N4 are paraconsistent. Explosion is valid in K3 and Ł3." },
+            { t: "To make → transitive", kind: "when", note: "That is not the motivation given; the target is the law of identity." }
+          ] }
+      ] },
+
+    { id: "ch10", key: "0", name: "Relevance Ridge", ch: "Ch. 10", logics: ["B"], color: "#60d060", x: 34, y: 136,
+      intro: "Relevant logics: the antecedent must be relevant to the consequent.",
+      insights: ["b10", "m_right", "c_ternary"],
+      rounds: [
+        { type: "sieve", q: "Mark every conditional that the variable-sharing test rules out as a logical truth of a relevant logic like B or R.", ref: "10.4a.15",
+          items: ["p → (q → q)", "p → (p ∨ q)", "(p ∧ ¬p) → q", "(p ∧ q) → p", "p → (q ∨ ¬q)", "(p ∧ ¬p) → ¬(q ∧ ¬q)"] },
+        { type: "build", logic: "B", n: 2, prem: [], concl: "q → (p → p)", ref: "10.2.5", cat: "At the non-normal world, p → p is judged by the three-place relation." },
+        { type: "verdict", logic: "B", prem: [], concl: "p → p", side: ["K4", "N4"], ref: "10.2" },
+        { type: "verdict", logic: "B", prem: ["p", "p → q"], concl: "q", side: ["K4", "N4"], ref: "10.2" },
+        { type: "pick", q: "Intuitively, what does Rxyz say?", ref: "10.2.2",
+          opts: [
+            { t: "If A → B is true at x and A at y, then B is true at z", kind: "ok", note: "Yes (10.2.2)." },
+            { t: "x, y and z all see each other", kind: "when", note: "That would be a symmetric binary relation; a binary relation would make p → p true everywhere and lose relevance." },
+            { t: "x is the star of y and z", kind: "when", note: "The star is a separate one-place operation, used for negation." }
+          ] },
+        { type: "flip", claim: "'Every logic with a ternary-relation semantics is a relevant logic.'", ref: "10.4a.15",
+          q: "Suppose that's true. Which reason explains it best?",
+          opts: [{ t: "The relation ties antecedent to consequent" }, { t: "Non-normal worlds block q → (p → p)" }, { t: "Variable sharing is built in" }],
+          reveal: "Reversed. Priest notes that CK has ternary-relation semantics but is not relevant: it proves q → (p → p) (10.4a.15). A reason feeling right does not make the claim right." }
+      ] },
+
+    { id: "ch11", key: "A", name: "Sorites Slope", ch: "Ch. 11", logics: ["FZ"], color: "#ffffff", x: 34, y: 40,
+      intro: "Fuzzy logic: every value in [0, 1]; context sets the acceptability level ε.",
+      insights: ["b11", "m_linear", "c_residuation"],
+      rounds: [
+        { type: "value", logic: "FZ", f: "p → q", nu: { p: 0.7, q: 0.4 }, opts: [0.3, 0.4, 0.7, 1], ref: "11.4.2" },
+        { type: "value", logic: "FZ", f: "p ∨ ¬p", nu: { p: 0.5 }, opts: [0, 0.5, 1], ref: "11.4.2" },
+        { type: "forge", logic: "FZ", eps: 0.8, prem: ["p", "p → q", "q → r"], concl: "r", ref: "11.6.2",
+          q: "A tiny sorites: at acceptability ε = 0.8, make both steps acceptable and the conclusion not." },
+        { type: "forge", logic: "FZ", eps: 0.5, prem: ["p ∧ ¬p"], concl: "q", ref: "11.6.4" },
+        { type: "choose", q: "At which acceptability level ε is p, p → q ⊨ q valid?", want: "valid", ref: "11.6.1",
+          opts: [0.25, 0.5, 0.8, 1].map(function (e) { return { logic: "FZ", eps: e, prem: ["p", "p → q"], concl: "q", label: "ε = " + e }; }) },
+        { type: "pick", q: "x ⊗ y = max(0, x + y − 1). For y = 0.7 and z = 0.4, what is the largest x with x ⊗ y ≤ z?", ref: "11.7a", lean: "luk_residuation",
+          opts: [
+            { t: "0.7, which is y → z = min(1, 1 − 0.7 + 0.4)", kind: "ok", note: "Yes: x ⊗ y ≤ z ⟺ x ≤ y → z (residuation, proved in Lean)." },
+            { t: "0.4", kind: "when", note: "0.4 works but is not the largest: 0.7 ⊗ 0.7 = 0.4 ≤ 0.4 too." },
+            { t: "1", kind: "when", note: "1 ⊗ 0.7 = 0.7 > 0.4. It would be right if z were 0.7 or more." }
+          ] }
+      ] }
+  ];
+
+  var CROSS = [
+    { id: "x1", key: "B", name: "Mirror Bridge", ch: "Ch. 7 ⇄ 8", logics: ["K3", "LP", "FDE"], color: "#ff9050", x: 170, y: 104, cross: true,
+      intro: "K3 and LP are mirror images: a gap seen from one side is a glut from the other.",
+      insights: ["m_judge", "c_duality"],
+      rounds: [
+        { type: "verdict", logic: "K3", prem: ["p ∧ ¬p"], concl: "q", side: ["LP", "FDE"], ref: "7.4.4" },
+        { type: "verdict", logic: "LP", prem: ["¬q"], concl: "¬(p ∧ ¬p)", side: ["K3", "FDE"], lean: "k3_lp_duality",
+          cat: "This is the mirror of the last round: A ⊨K3 B ⟺ ¬B ⊨LP ¬A." },
+        { type: "forge", logic: "K3", prem: ["p"], concl: "q ∨ ¬q", ref: "7.3" },
+        { type: "forge", logic: "FDE", prem: ["p"], concl: "q ∨ ¬q", ref: "8.4", lean: "fde_to_k3",
+          cat: "K3 sits inside FDE (i becomes 'neither'), so a K3 counter-model is also an FDE counter-model." },
+        { type: "forge", logic: "LP", prem: ["¬(q ∨ ¬q)"], concl: "¬p", ref: "7.4", mind: "Try the counter-model from the last round. Same valuation, other side of the mirror." },
+        { type: "pick", q: "Negation sends every K3-arrow A ⊨ B to an LP-arrow ¬B ⊨ ¬A. What kind of map is that?", lean: "k3_lp_duality",
+          opts: [
+            { t: "A contravariant functor (it reverses arrows)", kind: "ok", note: "Yes, and it is invertible: K3 and LP are opposite categories for single-premise entailment." },
+            { t: "A covariant functor", kind: "when", note: "Covariant maps keep the direction of arrows; this one flips it." },
+            { t: "A natural transformation", kind: "when", note: "A natural transformation goes between two functors; here we map one category to another." }
+          ] }
+      ] },
+    { id: "x2", key: "C", name: "Heyting Hall", ch: "Ch. 3 ⇄ 6", logics: ["S4", "IL"], color: "#b05030", x: 230, y: 110, cross: true,
+      intro: "Same reflexive, transitive frames; two logics. Intuitionist ¬A behaves like □¬A.",
+      insights: ["m_sideways", "c_thin"],
+      rounds: [
+        { type: "build", logic: "S4", n: 2, prem: [], concl: "□p ∨ □¬p", ref: "3.2, 6.3.4" },
+        { type: "build", logic: "IL", n: 2, prem: [], concl: "p ∨ ¬p", ref: "6.3" },
+        { type: "verdict", logic: "IL", prem: ["p ⊃ (q ⊃ r)"], concl: "(p ∧ q) ⊃ r", side: ["CL", "LP"], lean: "heyting_adjunction",
+          cat: "Currying: one direction of the exponential law." },
+        { type: "verdict", logic: "IL", prem: ["(p ∧ q) ⊃ r"], concl: "p ⊃ (q ⊃ r)", side: ["CL", "LP"] },
+        { type: "pick", q: "In an intuitionist frame (a preorder), heredity says: if p is true at w and w R w′, p is true at w′. In category terms:",
+          opts: [
+            { t: "Propositions are up-sets: carried along every arrow of a thin category", kind: "ok", note: "Yes. Equivalently, monotone maps from the frame to {0 ≤ 1}." },
+            { t: "Propositions are isomorphisms", kind: "when", note: "In a preorder only w ≅ w′ when each sees the other; truth needn't flow backwards." },
+            { t: "Every arrow is invertible", kind: "when", note: "That would be an S5 frame (an equivalence relation), where intuitionist logic collapses to classical." }
+          ] }
+      ] },
+    { id: "x3", key: "D", name: "The If Bazaar", ch: "Ch. 1 ⇄ 4 ⇄ 5 ⇄ 7 ⇄ 11", logics: ["CL", "K", "C", "RM3", "FZ"], color: "#e070a0", x: 140, y: 74, cross: true,
+      intro: "One English 'if', five readings: ⊃, ⥽, >, RM3's ⊃, fuzzy →.",
+      insights: ["m_play", "c_journey"],
+      rounds: [
+        { type: "choose", q: "q, therefore 'if p then q'. Under which readings is this valid? (Find them all.)", want: "valid", all: true,
+          opts: [
+            { logic: "CL", prem: ["q"], concl: "p ⊃ q", label: "Classical ⊃" },
+            { logic: "K", prem: ["q"], concl: "p ⥽ q", label: "Strict ⥽ (K)" },
+            { logic: "C", prem: ["q"], concl: "p > q", label: "Conditional > (C)" },
+            { logic: "RM3", prem: ["q"], concl: "p ⊃ q", label: "RM3 ⊃" },
+            { logic: "FZ", prem: ["q"], concl: "p → q", label: "Fuzzy →" }
+          ] },
+        { type: "choose", q: "'If p then r', therefore 'if p and q then r'. Under which readings does this fail? (Find them all.)", want: "invalid", all: true,
+          opts: [
+            { logic: "CL", prem: ["p ⊃ r"], concl: "(p ∧ q) ⊃ r", label: "Classical ⊃" },
+            { logic: "K", prem: ["p ⥽ r"], concl: "(p ∧ q) ⥽ r", label: "Strict ⥽ (K)" },
+            { logic: "C", prem: ["p > r"], concl: "(p ∧ q) > r", label: "Conditional > (C)" },
+            { logic: "RM3", prem: ["p ⊃ r"], concl: "(p ∧ q) ⊃ r", label: "RM3 ⊃" },
+            { logic: "FZ", prem: ["p → r"], concl: "(p ∧ q) → r", label: "Fuzzy →" }
+          ] },
+        { type: "choose", q: "Modus ponens: p, 'if p then q', therefore q. Under which readings does it fail? (Find them all.)", want: "invalid", all: true,
+          opts: [
+            { logic: "CL", prem: ["p", "p ⊃ q"], concl: "q", label: "Classical ⊃" },
+            { logic: "LP", prem: ["p", "p ⊃ q"], concl: "q", label: "LP ⊃" },
+            { logic: "RM3", prem: ["p", "p ⊃ q"], concl: "q", label: "RM3 ⊃" },
+            { logic: "KR", prem: ["p", "p ⥽ q"], concl: "q", label: "Strict ⥽ (Kρ)" },
+            { logic: "FZ", prem: ["p", "p → q"], concl: "q", label: "Fuzzy →" }
+          ] },
+        { type: "pick", q: "You walked Material Meadow → Non-normal Nook → Ceteris Paribus Cove. What is the composite of the journey?",
+          opts: [
+            { t: "A single arrow Material Meadow → Ceteris Paribus Cove", kind: "ok", note: "Yes: arrows compose; the route is one composite arrow." },
+            { t: "Nothing: journeys don't compose", kind: "when", note: "In a category every pair of end-to-end arrows has a composite." },
+            { t: "An arrow back to Material Meadow", kind: "when", note: "That would need a return path: an inverse, which the walk didn't take." }
+          ] }
+      ] },
+    { id: "x4", key: "E", name: "Residue Rapids", ch: "Ch. 1 ⇄ 7 ⇄ 11", logics: ["CL", "L3", "FZ"], color: "#90e0ff", x: 84, y: 104, cross: true,
+      intro: "2 values ⊂ 3 values ⊂ the continuum. The connectives agree where they overlap.",
+      insights: ["m_rote", "c_restrict"],
+      rounds: [
+        { type: "value", logic: "FZ", f: "p → q", nu: { p: 0.5, q: 0 }, opts: [0, 0.5, 1], ref: "11.4.5" },
+        { type: "value", logic: "L3", f: "p → q", nu: { p: 0.5, q: 0 }, ref: "7.3.8", cat: "Same answer as the fuzzy round: restriction commutes with the connective." },
+        { type: "verdict", logic: "FZ", prem: ["p", "p → q"], concl: "q", side: ["L3", "CL"], ref: "11.6.1" },
+        { type: "pick", q: "On 0, ½, 1 the fuzzy conditional equals Ł3's; on 0, 1 it equals the classical one. Which pattern?", lean: "lukImp_restricts_to_L3",
+          opts: [
+            { t: "Restricting values commutes with applying the connective", kind: "ok", note: "Yes: restrict then compute, or compute then restrict — same answer (11.4.5)." },
+            { t: "The logics have the same valid inferences", kind: "when", note: "No: modus ponens is valid in Ł3 and CL but not in fuzzy L." },
+            { t: "Fuzzy L is classical", kind: "when", note: "Only on the values 0 and 1." }
+          ] }
+      ] }
+  ];
+
+  var SHUFFLE = { id: "sea", key: "F", name: "Shuffle Sea", ch: "every chapter", logics: [], color: "#4060c0", x: 290, y: 20, cross: true, shuffle: true,
+    intro: "Endless: every visit deals new rounds from random chapters and logics.", insights: ["m_present"], rounds: [] };
+
+  // paths between places on the map: arrows between logics (labels are the construction)
+  var PATHS = [
+    ["ch1", "ch2", "add worlds"], ["ch2", "ch3", "add frame conditions"], ["ch2", "ch4", "add non-normal worlds"],
+    ["ch4", "ch5", "a box per antecedent"], ["ch3", "ch6", "ρτ + heredity"], ["ch1", "ch7", "add a third value"],
+    ["ch7", "ch8", "add a fourth value"], ["ch8", "ch9", "add worlds and →"], ["ch9", "ch10", "add a ternary R"],
+    ["ch7", "ch11", "add the continuum"], ["ch1", "ch11", "restrict to 0,1"], ["ch7", "x1", "K3 ⇄ LP"], ["x1", "ch8", "embed in FDE"],
+    ["ch3", "x2", "S4"], ["x2", "ch6", "□ in disguise"], ["ch1", "x3", "one 'if'"], ["x3", "ch5", "read 'if' as >"],
+    ["ch11", "x4", "restrict"], ["x4", "ch7", "Ł3"], ["ch6", "sea", "shuffle"]
+  ];
+
+  // pools for the Shuffle Sea
+  var POOL = {
+    tf: [["p ∧ ¬p", "q"], ["", "p ∨ ¬p"], ["p, p ⊃ q", "q"], ["q", "p ⊃ q"], ["¬p", "p ⊃ q"], ["p ⊃ q, q ⊃ r", "p ⊃ r"],
+      ["p, ¬p ∨ q", "q"], ["¬(p ∧ q)", "¬p ∨ ¬q"], ["p ⊃ q", "¬q ⊃ ¬p"], ["¬(p ⊃ q)", "p"], ["p ∨ q", "q ∨ p"], ["", "p ⊃ p"],
+      ["p ⊃ (q ⊃ r)", "(p ∧ q) ⊃ r"], ["¬¬p", "p"], ["p", "q ∨ ¬q"], ["p ∧ q", "p"]],
+    tfLogics: ["CL", "K3", "L3", "LP", "RM3", "FDE"],
+    modal: [["□p", "p"], ["□p", "□□p"], ["p", "□◇p"], ["□p", "◇p"], ["◇p", "□◇p"], ["□(p ⊃ q), □p", "□q"], ["◇(p ∨ q)", "◇p ∨ ◇q"]],
+    modalLogics: ["K", "KR", "KS", "KT", "KE", "S4", "S5"],
+    il: [["", "p ∨ ¬p"], ["¬¬p", "p"], ["p", "¬¬p"], ["¬(p ∧ q)", "¬p ∨ ¬q"], ["¬(p ∨ q)", "¬p ∧ ¬q"], ["", "¬¬(p ∨ ¬p)"]]
+  };
+
+  return { INSIGHTS: INSIGHTS, LANDS: LANDS, CROSS: CROSS, SHUFFLE: SHUFFLE, PATHS: PATHS, POOL: POOL, M: M };
+})();
+if (typeof module !== "undefined" && module) module.exports = IFC;
+</script>
+<script id="ui">
+"use strict";
+// ===================================================================================
+// From If to Is — user interface (DOM panel + pixel canvas). Uses window.IFI and window.IFC.
+// ===================================================================================
+(function () {
+  var I = window.IFI, C = window.IFC, doc = window.document;
+  var panel = doc.getElementById("panel"), canvas = doc.getElementById("scene");
+  var ctx = canvas && canvas.getContext ? canvas.getContext("2d") : null;
+  var PLACES = C.LANDS.concat(C.CROSS).concat([C.SHUFFLE]);
+  var KEYS = "ABCDEFGHJKMNOPQRSTUVWXYZ"; // builder toggles (I and L are kept for insights / lens)
+  var SAVEKEY = "iftois.v1";
+
+  // ------------------------------------------------------------------ state & saving
+  var st = {
+    screen: "map", place: null, rounds: null, ri: 0, rs: null, sel: 0, lens: 0, here: "ch1", walk: null,
+    save: { done: {}, insights: {}, couldbe: 0, rounds: 0, visits: 0, calm: false, contrast: false, seed: 1 }
+  };
+  try { var raw = window.localStorage && window.localStorage.getItem(SAVEKEY); if (raw) Object.assign(st.save, JSON.parse(raw)); } catch (e) { /* fresh start */ }
+  function persist() { try { window.localStorage.setItem(SAVEKEY, JSON.stringify(st.save)); } catch (e) { /* ignore */ } }
+  function applyBodyClasses() {
+    var cls = []; if (st.save.contrast) cls.push("contrast"); if (st.save.calm) cls.push("calm");
+    doc.body.className = cls.join(" ");
+  }
+
+  // ------------------------------------------------------------------ tiny DOM helpers
+  function h(tag, cls, text) { var e = doc.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+  function btn(label, cls, fn, key) {
+    var b = h("button", cls || "btn"); b.textContent = (key ? "[" + key + "] " : "") + label; b.onclick = fn;
+    if (b.setAttribute) b.setAttribute("type", "button"); return b;
+  }
+  function clear(e) { while (e.firstChild) e.removeChild(e.firstChild); }
+  function note(kind, tag, text) { var n = h("div", "note " + kind); n.appendChild(h("b", "tag", tag)); n.appendChild(h("span", "", text)); return n; }
+  function lname(id) { return I.L(id).name; }
+  function vname(id, v) { var lg = I.L(id); return lg.kind === "fde" ? I.FDENAME[v] : lg.kind === "fz" ? I.fzName(v) : I.valName(v); }
+
+  // ------------------------------------------------------------------ verdict cache
+  var vcache = {};
+  function verdict(id, prem, concl, eps) {
+    var k = id + "|" + prem.join(";") + "|" + concl + "|" + (eps || "");
+    if (!(k in vcache)) vcache[k] = I.verdict(id, prem, concl, { eps: eps });
+    return vcache[k];
+  }
+  function counterText(id, v) {
+    if (!v.counter) return "";
+    var s = "Counter-model: " + I.describeCounter(id, v.counter);
+    if (v.eps !== undefined) s += " (at ε = " + v.eps + ")";
+    return s + ".";
+  }
+
+  // ------------------------------------------------------------------ rounds
+  function startPlace(p) {
+    st.place = p; st.ri = 0; st.lens = 0;
+    st.rounds = p.shuffle ? makeShuffle(st.save.seed++) : p.rounds;
+    st.save.visits++; persist();
+    st.screen = "round"; newRoundState(); render();
+  }
+  function round() { return st.rounds[st.ri]; }
+  function newRoundState() {
+    var r = round(), rs = { done: false, struck: {}, ok: {}, notes: [] };
+    if (r.type === "forge") {
+      rs.nu = {}; I.atomsOf(r.prem.concat([r.concl])).forEach(function (a) { var vs = I.valsOf(r.logic); rs.nu[a] = vs[0]; });
+      if (I.L(r.logic).kind === "fz") Object.keys(rs.nu).forEach(function (a) { rs.nu[a] = 1; });
+    }
+    if (r.type === "atlas") { rs.marks = r.logics.map(function () { return null; }); rs.locked = r.logics.map(function () { return false; }); }
+    if (r.type === "sieve") rs.marks = r.items.map(function () { return false; });
+    if (r.type === "build") rs.model = startModel(r);
+    if (r.type === "choose") rs.found = 0;
+    st.rs = rs;
+  }
+  function finishRound(extra) {
+    var rs = st.rs; rs.done = true; st.save.rounds++; persist();
+    if (extra) rs.notes.push(extra);
+  }
+  function couldBe() { st.save.couldbe++; persist(); }
+  function nextRound() {
+    if (!st.rs.done) return;
+    if (st.ri + 1 < st.rounds.length) { st.ri++; newRoundState(); render(); return; }
+    st.save.done[st.place.id] = true;
+    st.place.insights.forEach(function (k) { st.save.insights[k] = true; });
+    persist(); st.screen = "done"; render();
+  }
+
+  // ---- value rounds (truth-functional)
+  function valueOptions(r) { return r.opts || I.valsOf(r.logic); }
+  function chooseValue(i) {
+    var r = round(), rs = st.rs; if (rs.done || rs.struck[i]) return;
+    var opts = valueOptions(r), v = opts[i], ans = I.evalTF(r.logic, r.f, r.nu);
+    if (v === ans) { rs.ok[i] = true; finishRound(note("ok", "FITS", "Yes: " + I.show(r.f) + " has value " + vname(r.logic, ans) + " in " + lname(r.logic) + ".")); }
+    else {
+      rs.struck[i] = true; couldBe();
+      rs.notes.push(note("when", "COULD BE", couldBeValue(r, v)));
+    }
+    render();
+  }
+  function couldBeValue(r, v) {
+    var lg = I.L(r.logic), where = [];
+    if (lg.kind === "mv" || lg.kind === "fz") {
+      ["CL", "K3", "L3", "LP", "RM3", "FZ"].forEach(function (id) {
+        if (id === r.logic) return;
+        var okVals = Object.keys(r.nu).every(function (a) { return I.valsOf(id).indexOf(r.nu[a]) >= 0; });
+        if (okVals && I.evalMV(id, r.f, r.nu) === v) where.push(lname(id));
+      });
+    }
+    var subs = I.traceTF(r.logic, r.f, r.nu).filter(function (t) { return t.v === v && t.f !== I.show(r.f); }).map(function (t) { return t.f; });
+    var s = vname(r.logic, v) + " is not the value here. ";
+    if (where.length) s += "Could be: with the same values, " + where.join(" and ") + " give" + (where.length === 1 ? "s" : "") + " exactly " + vname(r.logic, v) + ". ";
+    if (subs.length) s += "And " + subs[0] + " has that value: one step of the working.";
+    if (!where.length && !subs.length) s += "Try evaluating from the inside out.";
+    return s;
+  }
+  // ---- value rounds (worlds)
+  function chooseWValue(i) {
+    var r = round(), rs = st.rs; if (rs.done || rs.struck[i]) return;
+    var v = i === 0, ans = I.evalW(r.logic, r.model, r.f, r.at);
+    if (v === ans) { rs.ok[i] = true; finishRound(note("ok", "FITS", "Yes: " + I.show(r.f) + " is " + (ans ? "true" : "false") + " at w" + r.at + ".")); }
+    else {
+      rs.struck[i] = true; couldBe();
+      var other = I.range(r.model.n).filter(function (w) { return I.evalW(r.logic, r.model, r.f, w) === v; });
+      rs.notes.push(note("when", "COULD BE", (other.length ? "At " + other.map(function (w) { return "w" + w; }).join(", ") + " it is " + (v ? "true" : "false") + ". " : "") + "At w" + r.at + ", look at exactly the worlds it sees."));
+    }
+    render();
+  }
+  // ---- verdict rounds
+  function chooseVerdict(i) {
+    var r = round(), rs = st.rs; if (rs.done || rs.struck[i]) return;
+    var said = i === 0, v = verdict(r.logic, r.prem, r.concl, r.eps);
+    if (said === v.valid) {
+      rs.ok[i] = true;
+      finishRound(note("ok", "FITS", (v.valid ? "Valid in " + lname(r.logic) + "." : "Invalid in " + lname(r.logic) + ". " + counterText(r.logic, v))));
+    } else {
+      rs.struck[i] = true; couldBe();
+      var where = (r.side || []).filter(function (id) { return verdict(id, r.prem, r.concl).valid === said; }).map(lname);
+      rs.notes.push(note("when", "COULD BE", (where.length ? "Could be! In " + where.join(", ") + " it is " + (said ? "valid" : "invalid") + ". " : "") +
+        "In " + lname(r.logic) + " it is " + (v.valid ? "valid." : "invalid. " + counterText(r.logic, v))));
+    }
+    render();
+  }
+  // ---- atlas rounds
+  function cycleAtlas(i) {
+    var rs = st.rs; if (rs.done || rs.locked[i]) return;
+    rs.marks[i] = rs.marks[i] === null ? true : rs.marks[i] === true ? false : null; render();
+  }
+  function checkAtlas() {
+    var r = round(), rs = st.rs; if (rs.done) return;
+    var allOk = true; rs.notes = [];
+    r.logics.forEach(function (id, i) {
+      if (rs.locked[i]) return;
+      var v = verdict(id, r.prem, r.concl);
+      if (rs.marks[i] === v.valid) rs.locked[i] = true;
+      else {
+        allOk = false;
+        if (rs.marks[i] !== null) {
+          couldBe();
+          rs.notes.push(note("when", "COULD BE — " + lname(id), v.valid ? "Valid in " + lname(id) + " (the mark you gave fits another land)." : "Invalid in " + lname(id) + ". " + counterText(id, v)));
+        }
+      }
+    });
+    if (allOk) finishRound(note("ok", "MAPPED", "Every land marked. One inference, " + r.logics.filter(function (id) { return verdict(id, r.prem, r.concl).valid; }).length + " of " + r.logics.length + " lands validate it."));
+    else if (!rs.notes.length) rs.notes.push(note("part", "KEEP GOING", "Mark every land valid (✓) or invalid (✗)."));
+    render();
+  }
+  // ---- forge rounds (counter-models in truth-functional logics)
+  function cycleAtom(a, dir) {
+    var r = round(), rs = st.rs; if (rs.done) return;
+    var vs = I.valsOf(r.logic), lg = I.L(r.logic);
+    if (lg.kind === "fz") { var k = vs.indexOf(rs.nu[a]); k = Math.max(0, Math.min(vs.length - 1, k + (dir || 1))); rs.nu[a] = vs[k]; }
+    else rs.nu[a] = vs[(vs.indexOf(rs.nu[a]) + 1) % vs.length];
+    if (I.isCounterTF(r.logic, r.prem.map(I.parse), I.parse(r.concl), rs.nu, r.eps)) {
+      finishRound(note("ok", "COUNTER-MODEL", I.describeTF(r.logic, rs.nu) + ": premises designated, conclusion not. So " + I.seqText(r.prem.map(I.parse), I.parse(r.concl)) + " fails in " + lname(r.logic) + "."));
+    }
+    render();
+  }
+  // ---- choose rounds (more than one right answer)
+  function chooseOpt(i) {
+    var r = round(), rs = st.rs; if (rs.struck[i] || rs.ok[i]) return;
+    if (rs.done && !r.all) { /* free exploring after success */ }
+    var o = r.opts[i], v = verdict(o.logic, o.prem, o.concl, o.eps);
+    var fits = (r.want === "valid") === v.valid, label = o.label || lname(o.logic);
+    if (fits) {
+      rs.ok[i] = true; rs.found++;
+      rs.notes.push(note("ok", "FITS — " + label, (v.valid ? "Valid there." : "Invalid there. " + counterText(o.logic, v))));
+      var total = r.opts.filter(function (x) { return ((r.want === "valid") === verdict(x.logic, x.prem, x.concl, x.eps).valid); }).length;
+      if (!rs.done && (!r.all || rs.found === total)) finishRound(note("part", rs.found < total ? "MORE THAN ONE" : "ALL FOUND",
+        rs.found < total ? "That fits. " + (total - rs.found) + " more option" + (total - rs.found > 1 ? "s fit" : " fits") + " as well — keep looking if you like." : "Every fitting reading found."));
+    } else {
+      rs.struck[i] = true; couldBe();
+      rs.notes.push(note("when", "COULD BE — " + label, (v.valid ? "Valid there. " : "Invalid there. " + counterText(o.logic, v) + " ") + "It would answer the opposite question."));
+    }
+    render();
+  }
+  // ---- pick / flip
+  function choosePick(i) {
+    var r = round(), rs = st.rs; if (rs.done || rs.struck[i]) return;
+    var o = r.opts[i];
+    if (r.type === "flip") { rs.ok[i] = true; finishRound(note("trap", "THE FLIP", r.reveal)); render(); return; }
+    if (o.kind === "ok") { rs.ok[i] = true; finishRound(note("ok", "FITS", o.note)); }
+    else { rs.struck[i] = true; couldBe(); rs.notes.push(note("when", "COULD BE", o.note)); }
+    render();
+  }
+  // ---- sieve (variable sharing)
+  function toggleSieve(i) { var rs = st.rs; if (rs.done) return; rs.marks[i] = !rs.marks[i]; render(); }
+  function checkSieve() {
+    var r = round(), rs = st.rs; if (rs.done) return; rs.notes = [];
+    var wrong = 0;
+    r.items.forEach(function (f, i) {
+      var out = !I.sharesParameter(f);
+      if (rs.marks[i] !== out) {
+        wrong++;
+        rs.notes.push(note("when", I.show(f), out ? "Antecedent and consequent share no parameter: no relevant logic in the R family can have this as a logical truth." :
+          "Antecedent and consequent share a parameter, so the test cannot rule it out. (Passing is necessary, not sufficient.)"));
+      }
+    });
+    if (wrong) couldBe();
+    else finishRound(note("ok", "SIEVED", "Exactly the conditionals with no shared parameter are ruled out (10.4a.15)."));
+    render();
+  }
+
+  // ---- builder (world models)
+  function blankModel(r) {
+    var lg = I.L(r.logic), n = r.n, m = { n: n, R: {}, f: {}, nn: {}, R3: {} }, atoms = I.atomsOf(r.prem.concat([r.concl]));
+    if (lg.kind === "k4") { m.val4 = {}; atoms.forEach(function (a) { m.val4[a] = I.range(n).map(function () { return "t"; }); }); }
+    else { m.val = {}; atoms.forEach(function (a) { m.val[a] = I.range(n).map(function () { return false; }); }); }
+    if (lg.nonnormal) m.normal = I.range(n).map(function () { return true; });
+    if (lg.kind === "star" || lg.kind === "B") m.star = I.range(n);
+    if (lg.kind === "int") I.range(n).forEach(function (w) { m.R[w + "," + w] = 1; });
+    (r.ants || []).forEach(function (A) { m.f[A] = I.range(n).map(function () { return []; }); });
+    return m;
+  }
+  // the starting model must not already be a counter-model: try blank, then all atoms true, then all arrows too
+  function startModel(r) {
+    var prem = r.prem.map(I.parse), concl = I.parse(r.concl), tries = [0, 1, 2];
+    for (var t = 0; t < tries.length; t++) {
+      var m = blankModel(r);
+      if (t >= 1) { if (m.val) Object.keys(m.val).forEach(function (a) { m.val[a] = m.val[a].map(function () { return true; }); }); }
+      if (t >= 2) I.range(m.n).forEach(function (i) { I.range(m.n).forEach(function (j) { m.R[i + "," + j] = 1; }); });
+      if (!I.isCounterW(r.logic, m, prem, concl, 0)) return m;
+    }
+    return blankModel(r);
+  }
+  function builderToggles(r, m) {
+    var lg = I.L(r.logic), n = m.n, out = [], names = { t: "T", f: "F", b: "B", n: "N" };
+    if (lg.kind === "modal" || lg.kind === "int") I.range(n).forEach(function (i) { I.range(n).forEach(function (j) {
+      if (lg.kind === "int" && i === j) return;
+      out.push({ label: "w" + i + "→w" + j, on: !!m.R[i + "," + j], fn: function () { if (m.R[i + "," + j]) delete m.R[i + "," + j]; else m.R[i + "," + j] = 1; } });
+    }); });
+    if (m.val) Object.keys(m.val).forEach(function (a) { I.range(n).forEach(function (w) {
+      out.push({ label: a + " at w" + w, on: m.val[a][w], fn: function () { m.val[a][w] = !m.val[a][w]; } });
+    }); });
+    if (m.val4) Object.keys(m.val4).forEach(function (a) { I.range(n).forEach(function (w) {
+      out.push({ label: a + " at w" + w + ": " + I.FDENAME[m.val4[a][w]], on: m.val4[a][w] !== "t", cyc: names[m.val4[a][w]],
+        fn: function () { var c = ["t", "f", "b", "n"]; m.val4[a][w] = c[(c.indexOf(m.val4[a][w]) + 1) % 4]; } });
+    }); });
+    if (m.normal) I.range(n).forEach(function (w) { if (w > 0) out.push({ label: "w" + w + " non-normal", on: !m.normal[w], fn: function () { m.normal[w] = !m.normal[w]; } }); });
+    if (m.star && n === 2) out.push({ label: "star swaps w0 ↔ w1", on: m.star[0] === 1, fn: function () { m.star = m.star[0] === 1 ? [0, 1] : [1, 0]; } });
+    (r.ants || []).forEach(function (A) { I.range(n).forEach(function (x) {
+      out.push({ label: "w" + x + " ∈ f_" + (A.length > 1 ? "(" + A + ")" : A) + "(w0)", on: m.f[A][0].indexOf(x) >= 0,
+        fn: function () { var s = m.f[A][0], k = s.indexOf(x); if (k >= 0) s.splice(k, 1); else { s.push(x); s.sort(); } } });
+    }); });
+    if (lg.kind === "k4" && m.normal) {
+      var conds = I.condSubs(I.parse(r.concl), "imp").map(I.show);
+      r.prem.forEach(function (p) { I.condSubs(I.parse(p), "imp").forEach(function (g) { if (conds.indexOf(I.show(g)) < 0) conds.push(I.show(g)); }); });
+      I.range(n).forEach(function (w) { if (!m.normal[w]) conds.forEach(function (c) {
+        var k = w + "|" + c, cur = m.nn[k] || "n";
+        out.push({ label: c + " at w" + w + ": " + I.FDENAME[cur], on: cur !== "n", cyc: names[cur], fn: function () { var cc = ["n", "t", "f", "b"]; m.nn[k] = cc[(cc.indexOf(m.nn[k] || "n") + 1) % 4]; } });
+      }); });
+    }
+    if (lg.kind === "B" && m.normal) I.range(n).forEach(function (w) { if (!m.normal[w]) I.range(n).forEach(function (x) { I.range(n).forEach(function (y) {
+      var k = w + "," + x + "," + y;
+      out.push({ label: "R w" + w + " w" + x + " w" + y, on: !!m.R3[k], fn: function () { if (m.R3[k]) delete m.R3[k]; else m.R3[k] = 1; } });
+    }); }); });
+    return out;
+  }
+  function toggleBuilder(i) {
+    var r = round(), rs = st.rs; if (rs.done) return;
+    var t = builderToggles(r, rs.model)[i]; if (!t) return;
+    t.fn();
+    if (I.isCounterW(r.logic, rs.model, r.prem.map(I.parse), I.parse(r.concl), 0)) {
+      finishRound(note("ok", "COUNTER-MODEL", "Built: " + I.describeW(r.logic, rs.model) + ". At w0 the premises hold and " + I.show(r.concl) + " fails, so " + I.seqText(r.prem.map(I.parse), I.parse(r.concl)) + " is invalid in " + lname(r.logic) + "."));
+    }
+    render();
+  }
+
+  // ------------------------------------------------------------------ Shuffle Sea
+  function rng(seed) { var s = seed % 2147483647; if (s <= 0) s += 2147483646; return function () { s = s * 16807 % 2147483647; return (s - 1) / 2147483646; }; }
+  function makeShuffle(seed) {
+    var R = rng(seed * 7919 + 13), pick = function (a) { return a[Math.floor(R() * a.length)]; }, out = [], guard = 0;
+    var split = function (pair) { return { prem: pair[0] ? pair[0].split(", ") : [], concl: pair[1] }; };
+    while (out.length < 6 && guard++ < 200) {
+      var kind = pick(["verdict", "forge", "value", "atlas", "mverdict", "mbuild", "ilbuild"]), q, lg, v;
+      if (kind === "verdict" || kind === "forge") {
+        q = split(pick(C.POOL.tf)); lg = pick(C.POOL.tfLogics); v = I.verdict(lg, q.prem, q.concl);
+        if (kind === "forge" && v.valid) continue;
+        out.push(kind === "verdict" ? { type: "verdict", logic: lg, prem: q.prem, concl: q.concl, side: C.POOL.tfLogics.filter(function (x) { return x !== lg; }) }
+          : { type: "forge", logic: lg, prem: q.prem, concl: q.concl });
+      } else if (kind === "value") {
+        q = split(pick(C.POOL.tf)); lg = pick(C.POOL.tfLogics);
+        var f = q.prem.length ? q.prem[q.prem.length - 1] : q.concl, nu = {};
+        I.atomsOf([f]).forEach(function (a) { nu[a] = pick(I.valsOf(lg)); });
+        if (I.parse(f).op === "atom") continue;
+        out.push({ type: "value", logic: lg, f: f, nu: nu });
+      } else if (kind === "atlas") {
+        q = split(pick(C.POOL.tf)); out.push({ type: "atlas", prem: q.prem, concl: q.concl, logics: C.POOL.tfLogics.slice() });
+      } else if (kind === "mverdict") {
+        q = split(pick(C.POOL.modal)); lg = pick(C.POOL.modalLogics);
+        out.push({ type: "verdict", logic: lg, prem: q.prem, concl: q.concl, side: C.POOL.modalLogics.filter(function (x) { return x !== lg; }) });
+      } else {
+        var il = kind === "ilbuild";
+        q = split(pick(il ? C.POOL.il : C.POOL.modal)); lg = il ? "IL" : pick(C.POOL.modalLogics);
+        var n = I.counterW(lg, q.prem, q.concl, 2) ? 2 : (I.counterW(lg, q.prem, q.concl, 3) ? 3 : 0);
+        if (!n) continue;
+        out.push({ type: "build", logic: lg, n: n, prem: q.prem, concl: q.concl });
+      }
+      var last = out[out.length - 1];
+      if (out.slice(0, -1).some(function (x) { return x.type === last.type && x.logic === last.logic && x.concl === last.concl && (x.prem || []).join() === (last.prem || []).join(); })) out.pop();
+    }
+    out.forEach(function (r) { r.shuffled = true; });
+    return out;
+  }
+
+  // ------------------------------------------------------------------ rendering
+  function hud() {
+    var set = function (id, t) { var e = doc.getElementById(id); if (e) e.textContent = t; };
+    set("hearts", "♥ ∞");
+    set("couldbe", "could-bes " + st.save.couldbe);
+    set("ins", "insights " + Object.keys(st.save.insights).length + "/" + Object.keys(C.INSIGHTS).length);
+    set("where", st.screen === "round" ? st.place.name : "Atlas");
+  }
+  function render() {
+    applyBodyClasses(); clear(panel); hud();
+    if (st.screen === "map") renderMap();
+    else if (st.screen === "round") renderRound();
+    else if (st.screen === "done") renderDone();
+    else if (st.screen === "insights") renderInsights();
+    else if (st.screen === "options") renderOptions();
+    draw();
+  }
+  function renderMap() {
+    panel.appendChild(h("h1", "", "FROM IF TO IS — the atlas"));
+    panel.appendChild(h("div", "sub", "Every land is open. Wander in any order: chapters and logics are mixed on purpose. Hearts never run out; a wrong answer is a 'could be' — right somewhere else."));
+    var grid = h("div", "cards places");
+    PLACES.forEach(function (p, i) {
+      var b = btn(p.name + "  ·  " + p.ch + (st.save.done[p.id] ? "  ✓" : ""), "card" + (i === st.sel ? " sel" : "") + (p.cross ? " cross" : ""), function () { goTo(i); }, p.key);
+      grid.appendChild(b);
+    });
+    panel.appendChild(grid);
+    var p = PLACES[st.sel];
+    var box = h("div", "ex"); box.appendChild(h("b", "", p.name + " — ")); box.appendChild(h("span", "", p.intro));
+    panel.appendChild(box);
+    var row = h("div", "row");
+    row.appendChild(btn("Enter " + p.name, "btn gold", function () { startPlace(PLACES[st.sel]); }, "Enter"));
+    row.appendChild(btn("Insights", "btn alt", function () { st.screen = "insights"; render(); }, "I"));
+    row.appendChild(btn("Options", "btn alt", function () { st.screen = "options"; render(); }));
+    panel.appendChild(row);
+    panel.appendChild(h("div", "sub", "Keys: 1–9, 0, A–F choose a place · ←/→ walk · Enter go in · I insights · in rounds: digits / letters choose, Enter next, L lens, Esc atlas."));
+  }
+  function goTo(i) {
+    if (st.sel === i && st.screen === "map") { startPlace(PLACES[i]); return; }
+    var from = st.here; st.sel = i; st.here = PLACES[i].id; st.walk = { from: from, to: st.here, t: 0 };
+    render(); animate();
+  }
+  function lensBox(r) {
+    var p = st.place, kinds = ["", "ARROWS", "COULD BE", "BOOK"], k = st.lens; if (!k) return null;
+    var find = function (src) { var key = p.insights.filter(function (x) { return C.INSIGHTS[x].src === src; })[0]; return key ? C.INSIGHTS[key] : null; };
+    var text;
+    if (k === 1) { var ci = find("cat"); text = r.cat || (ci ? ci.title + ": " + ci.text : "Every entailment here is an arrow; A ⊨ A is an identity, chains compose."); }
+    if (k === 2) { var mi = find("mind"); text = r.mind || (mi ? mi.title + ": " + mi.text : "Could be: what is right here may be wrong in another land."); }
+    if (k === 3) { var bi = find("book"); text = (r.ref ? "Priest § " + r.ref + ". " : "") + (bi ? bi.text : "Logics: " + (r.logic ? lname(r.logic) : p.logics.map(lname).join(", ")) + "."); }
+    if (r.lean) text += "  ✔ Checked in Lean: " + r.lean + ".";
+    var box = h("div", "lensbox"); box.appendChild(h("b", "tag", "LENS · " + kinds[k])); box.appendChild(h("span", "", text)); return box;
+  }
+  function header(r) {
+    var top = h("div", "rhead");
+    top.appendChild(h("span", "chip", st.place.name));
+    top.appendChild(h("span", "chip", "round " + (st.ri + 1) + "/" + st.rounds.length));
+    if (r.logic) top.appendChild(h("span", "chip logic", lname(r.logic)));
+    if (r.eps !== undefined) top.appendChild(h("span", "chip", "ε = " + r.eps));
+    panel.appendChild(top);
+  }
+  function seq(r) { return I.seqText(r.prem.map(I.parse), I.parse(r.concl)); }
+  function valuationText(r) { return Object.keys(r.nu).sort().map(function (a) { return "ν(" + a + ") = " + vname(r.logic, r.nu[a]); }).join(", "); }
+  function renderRound() {
+    var r = round(), rs = st.rs; header(r);
+    var cards = h("div", "cards");
+    var q = function (t) { panel.appendChild(h("div", "q", t)); };
+    switch (r.type) {
+      case "value":
+        q("In " + lname(r.logic) + ", with " + valuationText(r) + ": what is the value of");
+        panel.appendChild(h("div", "formula", I.show(r.f)));
+        valueOptions(r).forEach(function (v, i) { cards.appendChild(optCard(vname(r.logic, v), i, chooseValue)); });
+        break;
+      case "wvalue":
+        q("In this " + lname(r.logic) + " model (" + I.describeW(r.logic, r.model) + "), at w" + r.at + ":");
+        panel.appendChild(h("div", "formula", I.show(r.f)));
+        ["true", "false"].forEach(function (t, i) { cards.appendChild(optCard(t, i, chooseWValue)); });
+        break;
+      case "verdict":
+        q("In " + lname(r.logic) + ", is this inference valid?");
+        panel.appendChild(h("div", "formula", seq(r)));
+        ["valid", "invalid"].forEach(function (t, i) { cards.appendChild(optCard(t, i, chooseVerdict)); });
+        if (rs.done && r.side && r.side.length) cards.appendChild(sideStrip(r));
+        break;
+      case "atlas":
+        q("Sideways: mark the inference in every land. Press a number to cycle ? → ✓ valid → ✗ invalid, then Enter to check.");
+        panel.appendChild(h("div", "formula", seq(r)));
+        r.logics.forEach(function (id, i) {
+          var m = rs.marks[i], b = btn(lname(id) + "   " + (m === null ? "?" : m ? "✓ valid" : "✗ invalid"), "card" + (rs.locked[i] ? " right" : ""), function () { cycleAtlas(i); }, String(i + 1));
+          cards.appendChild(b);
+        });
+        if (!rs.done) cards.appendChild(btn("Check the map", "btn gold", checkAtlas, "Enter"));
+        break;
+      case "forge":
+        q(r.q || ("Build a counter-model in " + lname(r.logic) + ": designate every premise but not the conclusion."));
+        panel.appendChild(h("div", "formula", seq(r)));
+        renderForge(r, rs, cards);
+        break;
+      case "build":
+        q("Build a " + lname(r.logic) + " model in which, at w0, " + (r.prem.length ? "the premises are true and " : "") + "the conclusion fails.");
+        panel.appendChild(h("div", "formula", seq(r)));
+        renderBuilder(r, rs, cards);
+        break;
+      case "choose":
+        q(r.q);
+        r.opts.forEach(function (o, i) {
+          var label = (o.label || lname(o.logic)) + ":  " + seq(o);
+          cards.appendChild(optCard(label, i, chooseOpt, true));
+        });
+        break;
+      case "pick":
+        q(r.q); r.opts.forEach(function (o, i) { cards.appendChild(optCard(o.t, i, choosePick)); }); break;
+      case "flip":
+        panel.appendChild(h("div", "formula claim", r.claim)); q(r.q);
+        r.opts.forEach(function (o, i) { cards.appendChild(optCard(o.t, i, choosePick)); }); break;
+      case "sieve":
+        q(r.q);
+        r.items.forEach(function (f, i) { cards.appendChild(btn((rs.marks[i] ? "✗ ruled out   " : "·            ") + I.show(f), "card", function () { toggleSieve(i); }, String(i + 1))); });
+        if (!rs.done) cards.appendChild(btn("Check", "btn gold", checkSieve, "Enter"));
+        break;
+    }
+    panel.appendChild(cards);
+    rs.notes.forEach(function (n) { panel.appendChild(n); });
+    var lb = lensBox(r); if (lb) panel.appendChild(lb);
+    var row = h("div", "row");
+    if (rs.done) row.appendChild(btn(st.ri + 1 < st.rounds.length ? "Next round" : "Finish", "btn gold", nextRound, "Enter"));
+    row.appendChild(btn("Lens", "btn alt lens", cycleLens, "L"));
+    row.appendChild(btn("Atlas", "btn alt", toMap, "Esc"));
+    panel.appendChild(row);
+  }
+  function optCard(text, i, fn, allowAfter) {
+    var rs = st.rs, cls = "card";
+    if (rs.struck[i]) cls += " struck"; else if (rs.ok[i]) cls += " right";
+    var b = btn(text, cls, function () { if (!rs.done || allowAfter) fn(i); }, String(i + 1));
+    return b;
+  }
+  function sideStrip(r) {
+    var box = h("div", "strip");
+    box.appendChild(h("b", "tag", "SIDEWAYS GLANCE — the same inference elsewhere"));
+    [r.logic].concat(r.side).forEach(function (id) {
+      var v = verdict(id, r.prem, r.concl);
+      box.appendChild(h("span", "pill " + (v.valid ? "yes" : "no"), lname(id) + (v.valid ? " ✓" : " ✗")));
+    });
+    return box;
+  }
+  function renderForge(r, rs, cards) {
+    var lg = I.L(r.logic), atoms = Object.keys(rs.nu).sort(), key = 1;
+    atoms.forEach(function (a) {
+      if (lg.kind === "fz") {
+        var row = h("div", "row");
+        row.appendChild(h("span", "chip", "ν(" + a + ") = " + I.fzName(rs.nu[a])));
+        row.appendChild(btn("−", "btn alt", function () { cycleAtom(a, -1); }, String(key++)));
+        row.appendChild(btn("+", "btn alt", function () { cycleAtom(a, 1); }, String(key++)));
+        cards.appendChild(row);
+      } else cards.appendChild(btn("ν(" + a + ") = " + vname(r.logic, rs.nu[a]) + "   (cycle)", "card", function () { cycleAtom(a); }, String(key++)));
+    });
+    var live = h("div", "proof");
+    r.prem.concat([r.concl]).forEach(function (f, i) {
+      var v = I.evalTF(r.logic, f, rs.nu), d = I.desTF(r.logic, v, r.eps), isC = i === r.prem.length;
+      live.appendChild(h("div", "", (isC ? "conclusion  " : "premise     ") + I.show(f) + "  =  " + vname(r.logic, v) + (d ? "  (designated)" : "  (not designated)") + ((isC ? !d : d) ? "  ✓" : "")));
+    });
+    if (!r.prem.length) live.appendChild(h("div", "", "(no premises)"));
+    cards.appendChild(live);
+  }
+  function renderBuilder(r, rs, cards) {
+    var m = rs.model, lg = I.L(r.logic);
+    var toggles = builderToggles(r, m);
+    var grid = h("div", "toggles");
+    toggles.forEach(function (t, i) {
+      grid.appendChild(btn((t.cyc ? t.cyc + "  " : (t.on ? "■ " : "□ ")) + t.label, "tog" + (t.on ? " on" : ""), function () { toggleBuilder(i); }, KEYS[i]));
+    });
+    cards.appendChild(grid);
+    var live = h("div", "proof");
+    var rep = I.frameReport(r.logic, m);
+    if (rep.length) live.appendChild(h("div", "", "conditions: " + rep.map(function (c) { return I.CONDNAME[c.cond] + (c.ok ? " ✓" : " ✗"); }).join("   ")));
+    if (lg.kind === "int") live.appendChild(h("div", "", "(reflexive loops are always on)"));
+    var fs = r.prem.concat([r.concl]);
+    fs.forEach(function (f, i) {
+      var vals = I.range(m.n).map(function (w) { return "w" + w + ":" + (I.evalW(r.logic, m, f, w) ? "T" : "F"); }).join(" ");
+      live.appendChild(h("div", "", (i === r.prem.length ? "conclusion  " : "premise     ") + I.show(f) + "   " + vals));
+    });
+    cards.appendChild(live);
+  }
+  function renderDone() {
+    var p = st.place;
+    panel.appendChild(h("h2", "", p.name + " — explored"));
+    panel.appendChild(h("div", "sub", "No score, no grade. You found " + st.save.couldbe + " could-bes so far: answers that are right somewhere in the atlas."));
+    p.insights.forEach(function (k) { panel.appendChild(insightCard(k)); });
+    var row = h("div", "row");
+    row.appendChild(btn("Back to the atlas", "btn gold", toMap, "Enter"));
+    if (p.shuffle) row.appendChild(btn("Deal again", "btn alt", function () { startPlace(p); }, "R"));
+    panel.appendChild(row);
+  }
+  function insightCard(k) {
+    var x = C.INSIGHTS[k], box = h("div", "insight " + x.src);
+    var src = { book: "PRIEST", mind: "MINDFUL LEARNING", cat: "CATEGORY PATTERN" }[x.src];
+    box.appendChild(h("b", "tag", src + " · " + x.title));
+    box.appendChild(h("span", "", x.text + (x.lean ? "  ✔ Lean: " + x.lean : "")));
+    return box;
+  }
+  function renderInsights() {
+    panel.appendChild(h("h2", "", "Insights"));
+    var keys = Object.keys(C.INSIGHTS), got = keys.filter(function (k) { return st.save.insights[k]; });
+    panel.appendChild(h("div", "sub", got.length + " of " + keys.length + " found. They unlock when you explore a place; the order is up to you."));
+    keys.forEach(function (k) { if (st.save.insights[k]) panel.appendChild(insightCard(k)); else panel.appendChild(h("div", "insight locked", "? · " + C.INSIGHTS[k].src)); });
+    panel.appendChild(h("div", "row")).appendChild(btn("Back", "btn gold", toMap, "Esc"));
+  }
+  function renderOptions() {
+    panel.appendChild(h("h2", "", "Options"));
+    var row = h("div", "row");
+    row.appendChild(btn("Calm mode: " + (st.save.calm ? "on" : "off"), "btn alt", function () { st.save.calm = !st.save.calm; persist(); render(); }));
+    row.appendChild(btn("High contrast: " + (st.save.contrast ? "on" : "off"), "btn alt", function () { st.save.contrast = !st.save.contrast; persist(); render(); }));
+    row.appendChild(btn("Back", "btn gold", toMap, "Esc"));
+    panel.appendChild(row);
+  }
+  function cycleLens() { st.lens = (st.lens + 1) % 4; render(); }
+  function toMap() { st.screen = "map"; render(); }
+
+  // ------------------------------------------------------------------ keyboard
+  function onKey(e) {
+    var k = e.key;
+    if (st.screen === "map") {
+      var idx = PLACES.findIndex(function (p) { return p.key === k || p.key === String(k).toUpperCase(); });
+      if (idx >= 0) { goTo(idx); return pd(e); }
+      if (k === "ArrowRight" || k === "ArrowDown") { goTo((st.sel + 1) % PLACES.length); return pd(e); }
+      if (k === "ArrowLeft" || k === "ArrowUp") { goTo((st.sel + PLACES.length - 1) % PLACES.length); return pd(e); }
+      if (k === "Enter") { startPlace(PLACES[st.sel]); return pd(e); }
+      if (k === "i" || k === "I") { st.screen = "insights"; render(); return pd(e); }
+      return;
+    }
+    if (k === "Escape") { toMap(); return pd(e); }
+    if (st.screen === "done") { if (k === "Enter") toMap(); if ((k === "r" || k === "R") && st.place.shuffle) startPlace(st.place); return pd(e); }
+    if (st.screen !== "round") { if (k === "Enter") toMap(); return; }
+    var r = round(), rs = st.rs;
+    if (k === "l" || k === "L") { cycleLens(); return pd(e); }
+    if (k === "Enter") {
+      if (rs.done) nextRound();
+      else if (r.type === "atlas") checkAtlas();
+      else if (r.type === "sieve") checkSieve();
+      return pd(e);
+    }
+    var d = "123456789".indexOf(k);
+    if (d >= 0) {
+      if (r.type === "value") { if (d < valueOptions(r).length && !rs.done) chooseValue(d); }
+      else if (r.type === "wvalue") { if (d < 2 && !rs.done) chooseWValue(d); }
+      else if (r.type === "verdict") { if (d < 2 && !rs.done) chooseVerdict(d); }
+      else if (r.type === "atlas") { if (d < r.logics.length) cycleAtlas(d); }
+      else if (r.type === "choose") { if (d < r.opts.length) chooseOpt(d); }
+      else if (r.type === "pick" || r.type === "flip") { if (d < r.opts.length && !rs.done) choosePick(d); }
+      else if (r.type === "sieve") { if (d < r.items.length) toggleSieve(d); }
+      else if (r.type === "forge") {
+        var atoms = Object.keys(rs.nu).sort();
+        if (I.L(r.logic).kind === "fz") { var a = atoms[Math.floor(d / 2)]; if (a) cycleAtom(a, d % 2 ? 1 : -1); }
+        else if (atoms[d]) cycleAtom(atoms[d]);
+      }
+      return pd(e);
+    }
+    if (r.type === "build") { var t = KEYS.indexOf(String(k).toUpperCase()); if (t >= 0 && String(k).length === 1) { toggleBuilder(t); return pd(e); } }
+  }
+  function pd(e) { if (e && e.preventDefault) e.preventDefault(); }
+  doc.addEventListener("keydown", onKey);
+
+  // ------------------------------------------------------------------ pixel canvas
+  var W = 320, H = 180;
+  var SPRITE = ["..XXXX..", ".XXXXXX.", "..OOOO..", "..O.O...", ".YYYYYY.", "Y.YYYY.Y", "..Y..Y..", ".BB..BB."];
+  function px(x, y, w, hh, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, hh); }
+  function placeById(id) { return PLACES.filter(function (p) { return p.id === id; })[0]; }
+  function drawSprite(x, y, s) {
+    var col = { X: "#3a2a1a", O: "#f2c69b", Y: "#4a6cd4", B: "#222" };
+    SPRITE.forEach(function (row, j) { for (var i = 0; i < row.length; i++) if (row[i] !== ".") px(x + i * s, y + j * s, s, s, col[row[i]]); });
+  }
+  function text(t, x, y, c, size) { ctx.fillStyle = c || "#23203f"; ctx.font = "bold " + (size || 8) + "px monospace"; ctx.fillText(t, x, y); }
+  function draw() {
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    if (st.screen === "round") drawRoundScene(); else drawMap();
+  }
+  function drawMap() {
+    var calm = st.save.calm;
+    px(0, 0, W, H, "#bfe3a8");
+    for (var y = 0; y < H; y += 6) for (var x = (y / 6) % 2 ? 3 : 0; x < W; x += 12) px(x, y, 2, 1, "#a8d490");
+    C.PATHS.forEach(function (pth) {
+      var a = placeById(pth[0]), b = placeById(pth[1]); if (!a || !b) return;
+      var n = 24; for (var i = 1; i < n; i++) if (i % 2) px(a.x + (b.x - a.x) * i / n + 6, a.y + (b.y - a.y) * i / n + 6, 2, 2, "#8a84c0");
+      var hx = a.x + (b.x - a.x) * 0.8 + 6, hy = a.y + (b.y - a.y) * 0.8 + 6; px(hx - 1, hy - 1, 4, 4, "#c0561a"); // arrow head
+    });
+    PLACES.forEach(function (p, i) {
+      px(p.x - 2, p.y + 10, 16, 4, "#8fbf7a");
+      px(p.x, p.y, 12, 12, p.color); px(p.x + 2, p.y + 2, 8, 2, "rgba(255,255,255,0.35)");
+      if (st.save.done[p.id]) px(p.x + 9, p.y - 3, 4, 4, "#c0561a");
+      if (i === st.sel) { px(p.x - 3, p.y - 3, 18, 1, "#23203f"); px(p.x - 3, p.y + 14, 18, 1, "#23203f"); px(p.x - 3, p.y - 3, 1, 18, "#23203f"); px(p.x + 14, p.y - 3, 1, 18, "#23203f"); }
+      text(p.key, p.x + 3, p.y + 9, "#111", 8);
+    });
+    var here = placeById(st.here) || PLACES[0], sx = here.x, sy = here.y - 14;
+    if (st.walk && !calm) { var f = placeById(st.walk.from), t = Math.min(1, st.walk.t); if (f) { sx = f.x + (here.x - f.x) * t; sy = f.y - 14 + (here.y - f.y) * t; } }
+    drawSprite(sx, sy, 1.5);
+    text(PLACES[st.sel].name, 6, 174, "#23203f", 9);
+    text("♥ ∞", 286, 12, "#b0102a", 10);
+  }
+  function animate() {
+    if (!st.walk || typeof window.requestAnimationFrame !== "function" || st.save.calm) { st.walk = null; return; }
+    window.requestAnimationFrame(function step() { if (!st.walk) return; st.walk.t += 0.06; draw(); if (st.walk.t < 1) window.requestAnimationFrame(step); else { st.walk = null; draw(); } });
+  }
+  function drawRoundScene() {
+    var p = st.place, r = round(), rs = st.rs;
+    px(0, 0, W, H, "#eef7ff"); px(0, 0, W, 16, p.color); text(p.name + (r.logic ? "  ·  " + lname(r.logic) : ""), 6, 11, "#111", 9);
+    text("♥ ∞", 286, 11, "#b0102a", 10);
+    var model = r.type === "build" ? rs.model : r.type === "wvalue" ? r.model : null;
+    if (model) return drawWorlds(r, model);
+    if (r.logic && I.L(r.logic).kind === "fde") return drawDiamond(r, rs);
+    if (r.type === "forge" || r.type === "value") return drawBars(r, rs);
+    if (r.concl || (r.opts && r.opts[0] && r.opts[0].concl)) return drawArrow(r, rs);
+    drawSprite(40, 70, 4);
+    px(90, 50, 200, 50, "#f4ecd8"); px(86, 70, 4, 6, "#f4ecd8");
+    text(r.type === "flip" ? "a 'fact'… or is it?" : r.type === "sieve" ? "share a parameter?" : "could be…", 100, 72, "#23203f", 10);
+    text(rs.done ? "★ found" : "♥ ∞ tries", 100, 90, "#6a4fc2", 9);
+    if (rs.done) { for (var i = 0; i < 12; i++) px(40 + i * 22, 130 + (i % 3) * 8, 3, 3, "#c0561a"); }
+  }
+  // premises → conclusion as an arrow (an entailment is a morphism)
+  function drawArrow(r, rs) {
+    var o = r.concl ? r : r.opts[0], prem = (o.prem || []).map(I.show).join(", ") || "⊤ (nothing)", concl = I.show(o.concl);
+    px(14, 60, 120, 40, "#f4ecd8"); px(186, 60, 120, 40, "#f4ecd8");
+    text(prem.length > 22 ? prem.slice(0, 21) + "…" : prem, 20, 84, "#23203f", 8);
+    text(concl.length > 22 ? concl.slice(0, 21) + "…" : concl, 192, 84, "#23203f", 8);
+    var known = null;
+    if (r.type === "verdict" && rs.done) known = verdict(r.logic, r.prem, r.concl, r.eps).valid;
+    for (var x = 138; x < 178; x += known === false ? 6 : 2) px(x, 79, known === false ? 3 : 2, 2, known === null ? "#8a84c0" : known ? "#3fa34d" : "#c0563f");
+    px(176, 76, 4, 8, known === null ? "#c0561a" : known ? "#3fa34d" : "#c0563f"); px(180, 78, 2, 4, known === null ? "#c0561a" : known ? "#3fa34d" : "#c0563f");
+    text("⊨", 150, 72, "#c0561a", 10);
+    text(r.logic ? lname(r.logic) : r.type === "atlas" ? "in every land?" : "which land?", 120, 118, "#4a4380", 8);
+    if (known === false) text("✗ no arrow here", 120, 132, "#c0563f", 8);
+    if (known === true) text("✓ an arrow", 130, 132, "#2e7d3a", 8);
+    if (r.type === "atlas") r.logics.forEach(function (id, i) {
+      var m = rs.marks[i]; px(20 + i * 58, 146, 52, 14, rs.locked[i] ? "#3fa34d" : m === null ? "#4a4380" : "#6b6585");
+      text(lname(id).slice(0, 7) + (m === null ? " ?" : m ? " ✓" : " ✗"), 22 + i * 58, 156, "#fff", 7);
+    });
+  }
+  function worldPos(n, w) {
+    if (n === 1) return [150, 90];
+    if (n === 2) return [[90, 95], [220, 95]][w];
+    return [[80, 120], [160, 50], [240, 120]][w];
+  }
+  function drawWorlds(r, m) {
+    var lg = I.L(r.logic);
+    Object.keys(m.R || {}).forEach(function (k) {
+      if (!m.R[k]) return; var a = k.split(",").map(Number), A = worldPos(m.n, a[0]), B = worldPos(m.n, a[1]);
+      if (a[0] === a[1]) { px(A[0] - 4, A[1] - 26, 9, 2, "#8a84c0"); px(A[0] - 4, A[1] - 26, 2, 8, "#8a84c0"); px(A[0] + 3, A[1] - 26, 2, 8, "#8a84c0"); return; }
+      for (var i = 2; i < 22; i++) px(A[0] + (B[0] - A[0]) * i / 24, A[1] + (B[1] - A[1]) * i / 24 + (a[0] < a[1] ? -3 : 3), 2, 2, "#8a84c0");
+      px(A[0] + (B[0] - A[0]) * 0.8 - 2, A[1] + (B[1] - A[1]) * 0.8 - 2 + (a[0] < a[1] ? -3 : 3), 5, 5, "#c0561a");
+    });
+    if (m.star && m.star[0] === 1) { var s0 = worldPos(m.n, 0), s1 = worldPos(m.n, 1); for (var j = 3; j < 21; j += 3) px(s0[0] + (s1[0] - s0[0]) * j / 24, s0[1] + 16, 2, 2, "#c0307a"); text("✶ star", 140, 128, "#c0307a", 8); }
+    I.range(m.n).forEach(function (w) {
+      var P = worldPos(m.n, w), nn = m.normal && !m.normal[w];
+      px(P[0] - 14, P[1] - 12, 28, 24, nn ? "#5a4a7a" : "#3f6f4a"); px(P[0] - 12, P[1] - 10, 24, 20, nn ? "#7a6aa0" : "#6ab070");
+      text("w" + w, P[0] - 6, P[1] + 4, "#111", 9);
+      var atoms = m.val ? Object.keys(m.val).filter(function (a) { return m.val[a][w]; }) : Object.keys(m.val4 || {}).map(function (a) { return a + ":" + m.val4[a][w].toUpperCase(); });
+      text(atoms.join(" ") || "—", P[0] - 14, P[1] + 24, "#23203f", 8);
+      if (nn) text("non-normal", P[0] - 22, P[1] - 16, "#6a4fc2", 7);
+      if (r.concl) { var t = I.evalW(r.logic, m, r.concl, w); px(P[0] + 10, P[1] - 12, 4, 4, t ? "#3fa34d" : "#c0563f"); }
+    });
+    var r3 = Object.keys(m.R3 || {}).filter(function (k) { return m.R3[k]; });
+    if (r3.length) text("R: " + r3.map(function (k) { return "(" + k.split(",").map(function (x) { return "w" + x; }).join(" ") + ")"; }).join(" "), 6, 168, "#c0561a", 8);
+    if (lg.kind === "cond" && m.f) Object.keys(m.f).forEach(function (A, k) { text("f_" + A + "(w0) = {" + m.f[A][0].map(function (x) { return "w" + x; }).join(",") + "}", 6, 160 + k * 9, "#c0561a", 8); });
+  }
+  function drawBars(r, rs) {
+    var nu = r.type === "forge" ? rs.nu : r.nu, atoms = Object.keys(nu).sort();
+    atoms.forEach(function (a, i) {
+      var v = nu[a], x = 60 + i * 70, hgt = Math.round(v * 110);
+      px(x, 150 - 110, 30, 110, "#d8d4ee"); px(x, 150 - hgt, 30, hgt, v === 0.5 ? "#f0d050" : v > 0.5 ? "#3fa34d" : "#c0563f");
+      text(a + " = " + vname(r.logic, v), x - 4, 166, "#23203f", 9);
+    });
+    if (r.eps !== undefined) { var ey = 150 - Math.round(r.eps * 110); for (var x2 = 40; x2 < 290; x2 += 4) px(x2, ey, 2, 1, "#c0561a"); text("ε", 292, ey + 3, "#c0561a", 9); }
+  }
+  function drawDiamond(r, rs) {
+    var pos = { t: [160, 34], b: [110, 90], n: [210, 90], f: [160, 146] };
+    [["t", "b"], ["t", "n"], ["b", "f"], ["n", "f"]].forEach(function (e) { var A = pos[e[0]], B = pos[e[1]]; for (var i = 0; i < 20; i++) px(A[0] + (B[0] - A[0]) * i / 20, A[1] + (B[1] - A[1]) * i / 20, 2, 2, "#8a84c0"); });
+    var nu = r.type === "forge" ? rs.nu : r.nu || {};
+    Object.keys(pos).forEach(function (c) {
+      var P = pos[c]; px(P[0] - 9, P[1] - 9, 18, 18, "#f08cb4"); text(c.toUpperCase(), P[0] - 3, P[1] + 3, "#111", 9);
+      var here = Object.keys(nu).filter(function (a) { return nu[a] === c; });
+      if (here.length) text(here.join(","), P[0] + 12, P[1] + 3, "#23203f", 9);
+    });
+    text("truth order: T top, F bottom; B (both) and N (neither) side by side", 8, 172, "#4a4380", 7);
+  }
+
+  // ------------------------------------------------------------------ boot
+  window.IFIUI = { st: st, render: render, makeShuffle: makeShuffle, builderToggles: builderToggles, PLACES: PLACES, KEYS: KEYS };
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Limit Quest — ε, δ and the Arrows of Approach</title>
+<style>
+  :root {
+    --bg:#0f1226; --panel:#1b1f3f; --panel2:#262b57; --ink:#f1efff; --muted:#a7a5cc;
+    --accent:#ffcf5a; --good:#5be49b; --bad:#ff7a8f; --blue:#6ec8ff; --pink:#ff9de2;
+    --violet:#b9a4ff; --code:#0b0d1d;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; color:var(--ink); min-height:100vh;
+    background:radial-gradient(circle at 20% 0%, #2a2f6a, var(--bg) 60%);
+    font-family:"Segoe UI","Noto Sans","DejaVu Sans",system-ui,sans-serif; }
+  header { display:flex; justify-content:space-between; align-items:center; padding:10px 18px;
+    background:rgba(0,0,0,.28); position:sticky; top:0; z-index:5; }
+  header .brand { font-weight:700; cursor:pointer; letter-spacing:.4px; }
+  header .hud { display:flex; gap:14px; align-items:center; font-size:14px; color:var(--muted); }
+  header .hud b { color:var(--accent); }
+  main { max-width:1180px; margin:0 auto; padding:16px; }
+  button { font:inherit; color:var(--ink); background:var(--panel2); border:2px solid #474d98;
+    border-radius:10px; padding:8px 14px; cursor:pointer; transition:transform .08s, background .15s; }
+  button:hover { background:#353b78; transform:translateY(-1px); }
+  button.primary { background:var(--accent); color:#2a1d00; border-color:#ffe39a; font-weight:700; }
+  button.sel { border-color:var(--accent); background:#4a3f1a; }
+  button.small { padding:3px 9px; font-size:13px; }
+  .panel { background:var(--panel); border-radius:16px; padding:18px 20px; margin-bottom:14px;
+    box-shadow:0 6px 24px rgba(0,0,0,.3); }
+  h1 { font-size:30px; margin:4px 0; } h2 { color:var(--accent); font-size:21px; margin:0 0 10px; }
+  h3 { color:var(--blue); margin:10px 0 6px; font-size:16px; }
+  .sub { color:var(--muted); line-height:1.6; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:12px; }
+  .card { text-align:left; padding:14px; border-radius:14px; }
+  .card .num { color:var(--muted); font-size:13px; } .card .ttl { font-weight:700; font-size:16px; margin:3px 0; }
+  .card .stars { color:var(--accent); } .card .sym { color:var(--violet); font-size:13px; }
+  .split { display:grid; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); gap:14px; }
+  @media (max-width:900px){ .split { grid-template-columns:1fr; } }
+  .myth { background:#22264d; border-left:4px solid var(--pink); padding:8px 12px; border-radius:8px;
+    color:#ffd9f2; font-size:14px; line-height:1.5; margin-bottom:10px; }
+  .question { font-size:17px; line-height:1.7; margin:6px 0 8px; }
+  .choices { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .feedback { margin-top:12px; padding:10px 14px; border-radius:10px; line-height:1.6; }
+  .feedback.good { background:rgba(91,228,155,.12); border:1px solid var(--good); }
+  .feedback.bad { background:rgba(255,122,143,.12); border:1px solid var(--bad); }
+  .feedback.ctx { background:rgba(185,164,255,.12); border:1px solid var(--violet); }
+  .progress { height:7px; background:#0d0f22; border-radius:6px; overflow:hidden; margin-bottom:10px; }
+  .progress > div { height:100%; background:var(--accent); transition:width .3s; }
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .tabs button { padding:4px 10px; font-size:13px; }
+  .lensbody { line-height:1.65; overflow-x:auto; }
+  .visual { overflow-x:auto; margin:6px 0; }
+  svg { display:block; max-width:100%; margin:0 auto; }
+  input[type=text], textarea { font:inherit; color:var(--ink); background:#0d1024; border:2px solid #474d98;
+    border-radius:8px; padding:7px 10px; }
+  input[type=range] { width:100%; }
+  pre.lean { background:var(--code); border:1px solid #2c3270; border-radius:10px; padding:10px 12px;
+    font-family:"JetBrains Mono","Fira Code","DejaVu Sans Mono",monospace; font-size:12.5px;
+    line-height:1.45; overflow-x:auto; white-space:pre; color:#dfe3ff; }
+  .kw { color:#ff9de2; } .cm { color:#7f86b8; font-style:italic; } .tac { color:#6ec8ff; }
+  .m { font-family:"Cambria Math","STIX Two Math","DejaVu Serif",serif; }
+  .frac { display:inline-flex; flex-direction:column; vertical-align:middle; text-align:center; margin:0 2px; }
+  .frac > span:first-child { border-bottom:1px solid currentColor; padding:0 3px; }
+  .frac > span:last-child { padding:0 3px; }
+  .lim { display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; margin-right:3px; line-height:1.05; }
+  .lim small { font-size:11px; }
+  .tree { display:inline-flex; flex-direction:column; align-items:center; margin:0 4px; }
+  .tree .prem { display:flex; gap:16px; align-items:flex-end; justify-content:center; padding:0 6px; }
+  .tree .bar { position:relative; border-top:1.5px solid #dcd8ff; align-self:stretch; margin:3px 0; }
+  .tree .bar span { position:absolute; left:100%; top:-10px; font-size:11px; color:var(--accent); white-space:nowrap; padding-left:4px; }
+  .tree .concl { padding:0 6px; white-space:nowrap; }
+  .open { border:1.5px dashed var(--muted); border-radius:6px; padding:1px 6px; color:var(--muted); white-space:nowrap; }
+  .open.now { border-color:var(--accent); color:var(--accent); }
+  .seq { font-family:"Cambria Math","STIX Two Math","DejaVu Serif",serif; background:#14183a; border-radius:8px;
+    padding:6px 10px; display:inline-block; margin:3px 0; }
+  .turn { color:var(--accent); font-weight:700; padding:0 6px; }
+  table.t { border-collapse:collapse; margin:6px 0; font-size:14px; }
+  table.t td, table.t th { border:1px solid #3a3f80; padding:4px 9px; text-align:center; }
+  .tag { display:inline-block; font-size:12px; padding:1px 7px; border-radius:20px; background:#30366e; color:var(--violet); margin-right:4px; }
+  .footer { color:var(--muted); font-size:13px; text-align:center; margin:18px 0; line-height:1.6; }
+  .codex td:first-child { font-size:20px; color:var(--accent); }
+  .journal li { margin-bottom:8px; line-height:1.5; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand" onclick="home()">∀ε ∃δ · Limit Quest</div>
+  <div class="hud"><span>Insight <b id="hud-ins">0</b></span><span>Stars <b id="hud-stars">0</b></span>
+    <button class="small" onclick="codex()">Symbols ⊢</button>
+    <button class="small" onclick="journal()">Journal ✎</button></div>
+</header>
+<main id="app"></main>
+<div class="footer">Built from Thomas' <i>Calculus</i>, Chapter 2 (§2.1–§2.6) and the seven "myths" of Ellen Langer's
+<i>The Power of Mindful Learning</i>. Every Lean 4 snippet is copied from
+<code>RequestProject/LimitPatterns.lean</code>, which compiles with no <code>sorry</code>.</div>
+
+<script>
+"use strict";
+const LEAN = {
+ "Approach": "/-- An object of the \"category of limits\": a type together with a filter on it\n(a notion of \"approaching\"). -/\nstructure Approach where\n  /-- The carrier type. -/\n  carrier : Type\n  /-- The filter describing how points approach. -/\n  filter : Filter carrier",
+ "Approach.category": "instance : CategoryTheory.Category Approach where\n  Hom := LimArrow\n  id _ := ⟨id, tendsto_id⟩\n  comp f g := ⟨g.1 ∘ f.1, g.2.comp f.2⟩\n  id_comp _ := rfl\n  comp_id _ := rfl\n  assoc _ _ _ := rfl",
+ "LimArrow": "/-- An arrow `A ⟶ B` is a function sending `A`'s approach into `B`'s approach. -/\ndef LimArrow (A B : Approach) : Type :=\n  { f : A.carrier → B.carrier // Tendsto f A.filter B.filter }",
+ "cancel_common_factor": "/-- Example 7: cancel the common factor `x - 1`; the limit is `3`. -/\ntheorem cancel_common_factor :\n    Tendsto (fun x : ℝ => (x ^ 2 + x - 2) / (x ^ 2 - x)) (𝓝[≠] 1) (𝓝 3) := by\n  have h : Tendsto (fun x : ℝ => (x + 2) / x) (𝓝 1) (𝓝 ((1 + 2) / 1)) :=\n    ((continuous_id.add continuous_const).tendsto 1).div (continuous_id.tendsto 1) one_ne_zero\n  norm_num at h\n  refine (h.mono_left nhdsWithin_le_nhds).congr' ?_\n  filter_upwards [self_mem_nhdsWithin,\n    nhdsWithin_le_nhds (lt_mem_nhds (show (0 : ℝ) < 1 by norm_num))] with x hx hx0\n  have : x - 1 ≠ 0 := sub_ne_zero.mpr hx\n  have : x ≠ 0 := hx0.ne'\n  field_simp\n  ring",
+ "continuous_comp_at": "/-- Theorem 8: compositions of continuous functions are continuous. -/\ntheorem continuous_comp_at {f g : ℝ → ℝ} {c : ℝ}\n    (hf : ContinuousAt f c) (hg : ContinuousAt g (f c)) : ContinuousAt (g ∘ f) c :=\n  hg.comp hf",
+ "dominant_terms": "/-- Example 3(a): dominant terms decide the horizontal asymptote `y = 5/3`. -/\ntheorem dominant_terms :\n    Tendsto (fun x : ℝ => (5 * x ^ 2 + 8 * x - 3) / (3 * x ^ 2 + 2)) atTop (𝓝 (5 / 3)) := by\n  have hi : Tendsto (fun x : ℝ => x⁻¹) atTop (𝓝 0) := tendsto_inv_atTop_zero\n  have hN : Tendsto (fun x : ℝ => 5 + 8 * x⁻¹ - 3 * x⁻¹ ^ 2) atTop\n      (𝓝 (5 + 8 * 0 - 3 * 0 ^ 2)) :=\n    (tendsto_const_nhds.add (tendsto_const_nhds.mul hi)).sub (tendsto_const_nhds.mul (hi.pow 2))\n  have hD : Tendsto (fun x : ℝ => 3 + 2 * x⁻¹ ^ 2) atTop (𝓝 (3 + 2 * 0 ^ 2)) :=\n    tendsto_const_nhds.add (tendsto_const_nhds.mul (hi.pow 2))\n  have h := hN.div hD (by norm_num)\n  norm_num at h\n  refine h.congr' ?_\n  filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx\n  have : x ≠ 0 := hx.ne'\n  simp only [Pi.div_apply]\n  field_simp",
+ "eps_delta_as_function": "/-- Curry–Howard reading: a proof of `∀ ε, ∃ δ` hands us a *function* `ε ↦ δ(ε)`. -/\ntheorem eps_delta_as_function :\n    ∃ δ : ℝ → ℝ, ∀ ε > 0, 0 < δ ε ∧\n      ∀ x : ℝ, 0 < |x - 1| ∧ |x - 1| < δ ε → |(5 * x - 3) - 2| < ε :=\n  ⟨fun ε => ε / 5, by\n    intro ε hε\n    refine ⟨by positivity, fun x hx => ?_⟩\n    have : (5 * x - 3) - 2 = 5 * (x - 1) := by ring\n    rw [this, abs_mul]\n    norm_num\n    linarith [hx.2]⟩",
+ "eps_delta_example": "/-- Example 2: `lim_{x→1} (5x − 3) = 2`, with the ε–δ witness `δ = ε / 5`. -/\ntheorem eps_delta_example :\n    ∀ ε > 0, ∃ δ > 0, ∀ x : ℝ, 0 < |x - 1| ∧ |x - 1| < δ → |(5 * x - 3) - 2| < ε := by\n  intro ε hε\n  refine ⟨ε / 5, by positivity, fun x hx => ?_⟩\n  have : (5 * x - 3) - 2 = 5 * (x - 1) := by ring\n  rw [this, abs_mul]\n  norm_num\n  linarith [hx.2]",
+ "eps_delta_first_look": "/-- Example 1 of §2.3: near `x = 4`, `|x − 4| < 1` keeps `2x − 1` within `2` of `7`. -/\ntheorem eps_delta_first_look (x : ℝ) (hx : |x - 4| < 1) : |(2 * x - 1) - 7| < 2 := by\n  have : (2 * x - 1) - 7 = 2 * (x - 4) := by ring\n  rw [this, abs_mul]\n  norm_num\n  linarith",
+ "eps_delta_iff_tendsto": "/-- The textbook ε–δ definition is exactly Lean's `Tendsto` on the punctured neighborhood. -/\ntheorem eps_delta_iff_tendsto (f : ℝ → ℝ) (c L : ℝ) :\n    Tendsto f (𝓝[≠] c) (𝓝 L) ↔\n      ∀ ε > 0, ∃ δ > 0, ∀ x : ℝ, 0 < |x - c| ∧ |x - c| < δ → |f x - L| < ε := by\n  rw [Metric.tendsto_nhdsWithin_nhds]\n  simp only [Real.dist_eq, mem_compl_iff, mem_singleton_iff, abs_pos, sub_ne_zero]\n  constructor\n  · rintro h ε hε\n    obtain ⟨δ, hδ, h⟩ := h ε hε\n    exact ⟨δ, hδ, fun x hx => h hx.1 hx.2⟩\n  · rintro h ε hε\n    obtain ⟨δ, hδ, h⟩ := h ε hε\n    exact ⟨δ, hδ, fun x hx hd => h x ⟨hx, hd⟩⟩",
+ "galileo_deriv": "/-- The same fact read as a derivative. -/\ntheorem galileo_deriv : HasDerivAt (fun t : ℝ => 16 * t ^ 2) 32 1 := by\n  convert (hasDerivAt_pow 2 (1 : ℝ)).const_mul 16 using 1\n  norm_num",
+ "galileo_secant": "/-- Galileo's falling rock `y = 16 t²`: the average speed over `[1, 1+h]` is `32 + 16 h`. -/\ntheorem galileo_secant (h : ℝ) (hh : h ≠ 0) :\n    (16 * (1 + h) ^ 2 - 16 * 1 ^ 2) / h = 32 + 16 * h := by\n  field_simp\n  ring",
+ "galileo_speed": "/-- As `h → 0` (with `h ≠ 0`), the average speeds tend to the instantaneous speed `32`. -/\ntheorem galileo_speed :\n    Tendsto (fun h : ℝ => (16 * (1 + h) ^ 2 - 16 * 1 ^ 2) / h) (𝓝[≠] 0) (𝓝 32) := by\n  have hline : Tendsto (fun h : ℝ => 32 + 16 * h) (𝓝[≠] 0) (𝓝 32) := by\n    have := (by fun_prop : Continuous (fun h : ℝ => 32 + 16 * h)).tendsto 0\n    simp only [mul_zero, add_zero] at this\n    exact this.mono_left nhdsWithin_le_nhds\n  refine hline.congr' ?_\n  filter_upwards [self_mem_nhdsWithin] with h hh\n  exact (galileo_secant h hh).symm",
+ "inv_limit_atTop": "/-- The basic fact (1) of §2.6: `1/x → 0` as `x → ∞`. -/\ntheorem inv_limit_atTop : Tendsto (fun x : ℝ => 1 / x) atTop (𝓝 0) := by\n  simpa using tendsto_inv_atTop_zero (𝕜 := ℝ)",
+ "inv_right_infinite": "/-- Infinite limit (Example 11): `1/x → +∞` as `x → 0⁺`. -/\ntheorem inv_right_infinite : Tendsto (fun x : ℝ => 1 / x) (𝓝[>] 0) atTop := by\n  simpa using tendsto_inv_nhdsGT_zero (𝕜 := ℝ)",
+ "ivt_root": "/-- Example 10 (Intermediate Value Theorem): `x³ − x − 1 = 0` has a root in `[1, 2]`. -/\ntheorem ivt_root : ∃ c ∈ Icc (1 : ℝ) 2, c ^ 3 - c - 1 = 0 := by\n  obtain ⟨c, hc, h⟩ := intermediate_value_Icc (show (1 : ℝ) ≤ 2 by norm_num)\n    (f := fun c : ℝ => c ^ 3 - c - 1) (by fun_prop) (show (0 : ℝ) ∈ Icc _ _ by norm_num)\n  exact ⟨c, hc, h⟩",
+ "ivt_root_refined": "/-- The bisection step the game lets you play: the root lies in `[1.3125, 1.375]`. -/\ntheorem ivt_root_refined : ∃ c ∈ Icc (1.3125 : ℝ) 1.375, c ^ 3 - c - 1 = 0 := by\n  obtain ⟨c, hc, h⟩ := intermediate_value_Icc (show (1.3125 : ℝ) ≤ 1.375 by norm_num)\n    (f := fun c : ℝ => c ^ 3 - c - 1) (by fun_prop) (show (0 : ℝ) ∈ Icc _ _ by norm_num)\n  exact ⟨c, hc, h⟩",
+ "limit_comp": "/-- Composition of limits (`Tendsto.comp`) is the composition law of that category. -/\ntheorem limit_comp {α β γ : Type*} {F : Filter α} {G : Filter β} {H : Filter γ}\n    {f : α → β} {g : β → γ} (hg : Tendsto g G H) (hf : Tendsto f F G) :\n    Tendsto (g ∘ f) F H :=\n  hg.comp hf",
+ "limit_inside_continuous": "/-- Theorem 9: a continuous function can be moved inside a limit. -/\ntheorem limit_inside_continuous {α : Type*} {l : Filter α} {f : α → ℝ} {g : ℝ → ℝ} {b : ℝ}\n    (hf : Tendsto f l (𝓝 b)) (hg : ContinuousAt g b) : Tendsto (g ∘ f) l (𝓝 (g b)) :=\n  hg.tendsto.comp hf",
+ "poly_limit": "/-- Example 5(a) / Theorem 2: limits of polynomials are found by substitution. -/\ntheorem poly_limit (c : ℝ) :\n    Tendsto (fun x : ℝ => x ^ 3 + 4 * x ^ 2 - 3) (𝓝 c) (𝓝 (c ^ 3 + 4 * c ^ 2 - 3)) :=\n  (by fun_prop : Continuous (fun x : ℝ => x ^ 3 + 4 * x ^ 2 - 3)).tendsto c",
+ "product_rule": "/-- Product Rule, with the same \"pair, then compose\" shape. -/\ntheorem product_rule {α : Type*} {l : Filter α} {f g : α → ℝ} {L M : ℝ}\n    (hf : Tendsto f l (𝓝 L)) (hg : Tendsto g l (𝓝 M)) :\n    Tendsto (fun x => f x * g x) l (𝓝 (L * M)) :=\n  (continuous_mul.tendsto (L, M)).comp (hf.prodMk_nhds hg)",
+ "quotient_rule": "/-- Quotient Rule: it needs the side condition `M ≠ 0`. -/\ntheorem quotient_rule {α : Type*} {l : Filter α} {f g : α → ℝ} {L M : ℝ}\n    (hf : Tendsto f l (𝓝 L)) (hg : Tendsto g l (𝓝 M)) (hM : M ≠ 0) :\n    Tendsto (fun x => f x / g x) l (𝓝 (L / M)) :=\n  hf.div hg hM",
+ "quotient_rule_needs_side_condition": "/-- The side condition matters: `x / x → 1` near `0`, but `0 / 0 = 0` in Lean. -/\ntheorem quotient_rule_needs_side_condition :\n    ¬ Tendsto (fun x : ℝ => x / x) (𝓝[≠] 0) (𝓝 ((0 : ℝ) / 0)) := by\n  intro h\n  have h1 : Tendsto (fun x : ℝ => x / x) (𝓝[≠] 0) (𝓝 1) := by\n    refine tendsto_const_nhds.congr' ?_\n    filter_upwards [self_mem_nhdsWithin] with x hx\n    rw [div_self hx]\n  have := tendsto_nhds_unique h h1\n  norm_num at this",
+ "sandwich_example": "/-- Theorem 4, the Sandwich Theorem, in the form of Example 10. -/\ntheorem sandwich_example (u : ℝ → ℝ)\n    (hlo : ∀ x, x ≠ 0 → 1 - x ^ 2 / 4 ≤ u x) (hhi : ∀ x, x ≠ 0 → u x ≤ 1 + x ^ 2 / 2) :\n    Tendsto u (𝓝[≠] 0) (𝓝 1) := by\n  have h1 : Tendsto (fun x : ℝ => 1 - x ^ 2 / 4) (𝓝[≠] 0) (𝓝 1) := by\n    have := (by fun_prop : Continuous (fun x : ℝ => 1 - x ^ 2 / 4)).tendsto 0\n    norm_num at this\n    exact this.mono_left nhdsWithin_le_nhds\n  have h2 : Tendsto (fun x : ℝ => 1 + x ^ 2 / 2) (𝓝[≠] 0) (𝓝 1) := by\n    have := (by fun_prop : Continuous (fun x : ℝ => 1 + x ^ 2 / 2)).tendsto 0\n    norm_num at this\n    exact this.mono_left nhdsWithin_le_nhds\n  exact tendsto_of_tendsto_of_tendsto_of_le_of_le' h1 h2\n    (eventually_nhdsWithin_of_forall hlo) (eventually_nhdsWithin_of_forall hhi)",
+ "sign_left": "/-- … and to `-1` from the left … -/\ntheorem sign_left : Tendsto (fun x : ℝ => x / |x|) (𝓝[<] 0) (𝓝 (-1)) := by\n  refine tendsto_const_nhds.congr' ?_\n  filter_upwards [self_mem_nhdsWithin] with x hx\n  have hx : x < 0 := hx\n  rw [abs_of_neg hx, div_neg, div_self hx.ne]",
+ "sign_no_limit": "/-- … so it has no two-sided limit at `0`. -/\ntheorem sign_no_limit (L : ℝ) : ¬ Tendsto (fun x : ℝ => x / |x|) (𝓝[≠] 0) (𝓝 L) := by\n  intro h\n  rw [two_sided_iff_one_sided] at h\n  have h1 := tendsto_nhds_unique h.1 sign_left\n  have h2 := tendsto_nhds_unique h.2 sign_right\n  linarith",
+ "sign_right": "/-- `x / |x|` tends to `1` from the right … -/\ntheorem sign_right : Tendsto (fun x : ℝ => x / |x|) (𝓝[>] 0) (𝓝 1) := by\n  refine tendsto_const_nhds.congr' ?_\n  filter_upwards [self_mem_nhdsWithin] with x hx\n  have hx : (0 : ℝ) < x := hx\n  rw [abs_of_pos hx, div_self hx.ne']",
+ "sin_div_limit": "/-- Theorem 6: `sin θ / θ → 1` as `θ → 0`. -/\ntheorem sin_div_limit : Tendsto (fun θ : ℝ => Real.sin θ / θ) (𝓝[≠] 0) (𝓝 1) := by\n  have h := (Real.continuous_sinc.tendsto 0).mono_left (nhdsWithin_le_nhds (s := {0}ᶜ))\n  rw [Real.sinc_zero] at h\n  refine h.congr' ?_\n  filter_upwards [self_mem_nhdsWithin] with x hx\n  exact Real.sinc_of_ne_zero hx",
+ "sum_rule": "/-- Sum Rule, proved categorically: pair `⟨f, g⟩` into the product, then compose with\nthe continuous map `+`. -/\ntheorem sum_rule {α : Type*} {l : Filter α} {f g : α → ℝ} {L M : ℝ}\n    (hf : Tendsto f l (𝓝 L)) (hg : Tendsto g l (𝓝 M)) :\n    Tendsto (fun x => f x + g x) l (𝓝 (L + M)) :=\n  (continuous_add.tendsto (L, M)).comp (hf.prodMk_nhds hg)",
+ "tendsto_adjunction": "/-- `map f ⊣ comap f`: \"`f` tends from `F` to `G`\" has two adjoint readings. -/\ntheorem tendsto_adjunction {α β : Type*} (f : α → β) (F : Filter α) (G : Filter β) :\n    (Tendsto f F G ↔ map f F ≤ G) ∧ (map f F ≤ G ↔ F ≤ comap f G) :=\n  ⟨Iff.rfl, map_le_iff_le_comap⟩",
+ "two_sided_iff_one_sided": "/-- Theorem 5 as a universal property: the punctured neighborhood is the join (coproduct)\nof the left and right neighborhoods, so a two-sided limit is a pair of one-sided limits. -/\ntheorem two_sided_iff_one_sided (f : ℝ → ℝ) (c L : ℝ) :\n    Tendsto f (𝓝[≠] c) (𝓝 L) ↔ Tendsto f (𝓝[<] c) (𝓝 L) ∧ Tendsto f (𝓝[>] c) (𝓝 L) := by\n  rw [← nhdsLT_sup_nhdsGT, tendsto_sup]"
+};
+const L = (name) => name;               // marks a Lean declaration used by the game
+
+/* ───────────────────────── tiny helpers ───────────────────────── */
+const $ = (id) => document.getElementById(id);
+const R = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const choose = (arr) => arr[Math.floor(Math.random() * arr.length)];
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const fmt = (v) => { if (!isFinite(v)) return v > 0 ? "∞" : "−∞"; const r = Math.round(v * 10000) / 10000; return (r < 0 ? "−" + Math.abs(r) : String(r)); };
+const F = (a, b) => `<span class="frac"><span>${a}</span><span>${b}</span></span>`;
+const LIM = (sub) => `<span class="lim">lim<small>${sub}</small></span>`;
+const M = (s) => `<span class="m">${s}</span>`;
+const SEQ = (lhs, rhs) => `<div class="seq">${lhs}<span class="turn">⊢</span>${rhs}</div>`;
+function ND(prems, concl, rule) {
+  return `<div class="tree"><div class="prem">${prems.join("")}</div><div class="bar"><span>${rule || ""}</span></div><div class="concl m">${concl}</div></div>`;
+}
+const LEAF = (s) => `<div class="tree"><div class="concl m">${s}</div></div>`;
+function parseNum(s) {
+  s = String(s).trim().replace(/−/g, "-").replace(/\s+/g, "");
+  if (/^\+?(inf|infinity|∞)$/i.test(s)) return Infinity;
+  if (/^-(inf|infinity|∞)$/i.test(s)) return -Infinity;
+  const m = s.match(/^(-?\d*\.?\d+)\/(-?\d*\.?\d+)$/);
+  if (m) return parseFloat(m[1]) / parseFloat(m[2]);
+  if (/^-?\d*\.?\d+(e-?\d+)?$/i.test(s)) return parseFloat(s);
+  return NaN;
+}
+const near = (a, b, tol) => Math.abs(a - b) <= (tol == null ? 1e-6 : tol);
+
+function highlightLean(code) {
+  const parts = code.split(/(\/-[\s\S]*?-\/|--[^\n]*)/);
+  return parts.map((p, i) => {
+    if (i % 2 === 1) return `<span class="cm">${esc(p)}</span>`;
+    return esc(p)
+      .replace(/\b(theorem|lemma|def|structure|instance|where|fun|by|have|show|from|open|namespace|end|Type|Prop)\b/g, '<span class="kw">$1</span>')
+      .replace(/\b(intro|rintro|refine|exact|rw|simp|simpa|norm_num|linarith|field_simp|ring|obtain|filter_upwards|constructor|convert|positivity|fun_prop|using|with)\b/g, '<span class="tac">$1</span>');
+  }).join("");
+}
+function leanBlock(names) {
+  return names.map((n) => LEAN[n] ? `<pre class="lean">${highlightLean(LEAN[n])}</pre>` : `<pre class="lean">-- (snippet ${esc(n)} missing: run build_limits.py)</pre>`).join("");
+}
+
+/* SVG plot: fns [{f,color,dash}], ranges, dots, bands */
+let plotId = 0;
+function plot(o) {
+  const cid = "cp" + (plotId++);
+  const W = o.w || 520, H = o.h || 280, pad = 30;
+  const [x0, x1] = o.xr, [y0, y1] = o.yr;
+  const X = (x) => pad + (x - x0) / (x1 - x0) * (W - 2 * pad);
+  const Y = (y) => H - pad - (y - y0) / (y1 - y0) * (H - 2 * pad);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="m">`;
+  s += `<rect x="0" y="0" width="${W}" height="${H}" rx="10" fill="#11142e"/><clipPath id="${cid}"><rect x="${pad}" y="${pad}" width="${W - 2 * pad}" height="${H - 2 * pad}"/></clipPath>`;
+  if (o.band) s += `<rect x="${pad}" y="${Y(o.band[1])}" width="${W - 2 * pad}" height="${Math.max(0, Y(o.band[0]) - Y(o.band[1]))}" fill="rgba(255,207,90,.15)"/>`;
+  if (o.vband) s += `<rect x="${X(o.vband[0])}" y="${pad}" width="${Math.max(0, X(o.vband[1]) - X(o.vband[0]))}" height="${H - 2 * pad}" fill="rgba(110,200,255,.15)"/>`;
+  if (y0 < 0 && y1 > 0) s += `<line x1="${pad}" y1="${Y(0)}" x2="${W - pad}" y2="${Y(0)}" stroke="#555b9c"/>`;
+  if (x0 < 0 && x1 > 0) s += `<line x1="${X(0)}" y1="${pad}" x2="${X(0)}" y2="${H - pad}" stroke="#555b9c"/>`;
+  s += `<text x="${W - pad + 4}" y="${Math.min(H - pad, Math.max(pad, Y(0))) + 4}" fill="#8d92c9" font-size="12">x</text>`;
+  (o.hl || []).forEach((h) => { s += `<line x1="${pad}" y1="${Y(h.y)}" x2="${W - pad}" y2="${Y(h.y)}" stroke="${h.color || "#ffcf5a"}" stroke-dasharray="5 4"/>`; if (h.label) s += `<text x="${pad + 3}" y="${Y(h.y) - 4}" fill="${h.color || "#ffcf5a"}" font-size="12">${h.label}</text>`; });
+  (o.vl || []).forEach((v) => { s += `<line x1="${X(v.x)}" y1="${pad}" x2="${X(v.x)}" y2="${H - pad}" stroke="${v.color || "#6ec8ff"}" stroke-dasharray="5 4"/>`; if (v.label) s += `<text x="${X(v.x) + 3}" y="${H - pad - 4}" fill="${v.color || "#6ec8ff"}" font-size="12">${v.label}</text>`; });
+  (o.fns || []).forEach((fn) => {
+    let d = "", pen = false, prev = null; const N = 600;
+    for (let i = 0; i <= N; i++) {
+      const x = x0 + (x1 - x0) * i / N; const y = fn.f(x);
+      const ok = isFinite(y) && y > y0 - (y1 - y0) && y < y1 + (y1 - y0);
+      const jump = prev != null && Math.abs(y - prev) > (y1 - y0) * 0.35;
+      if (!ok || jump) pen = false;
+      if (ok) { d += (pen ? "L" : "M") + X(x).toFixed(1) + " " + Y(Math.max(y0 - 1, Math.min(y1 + 1, y))).toFixed(1) + " "; pen = true; }
+      prev = ok ? y : null;
+    }
+    s += `<path d="${d}" fill="none" stroke="${fn.color || "#6ec8ff"}" stroke-width="2.4" ${fn.dash ? 'stroke-dasharray="6 4"' : ""} clip-path="url(#${cid})"/>`;
+  });
+  (o.segs || []).forEach((g) => { s += `<line x1="${X(g[0])}" y1="${Y(g[1])}" x2="${X(g[2])}" y2="${Y(g[3])}" stroke="${g[4] || "#ff9de2"}" stroke-width="2"/>`; });
+  (o.dots || []).forEach((p) => { s += `<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="5" fill="${p.open ? "#11142e" : (p.color || "#ffcf5a")}" stroke="${p.color || "#ffcf5a"}" stroke-width="2"/>`; if (p.label) s += `<text x="${X(p.x) + 7}" y="${Y(p.y) - 7}" fill="${p.color || "#ffcf5a"}" font-size="12">${p.label}</text>`; });
+  [[x0, y0], [x1, y0]].forEach(([x], i) => { s += `<text x="${i ? W - pad - 18 : pad}" y="${H - 8}" fill="#8d92c9" font-size="11">${fmt(x)}</text>`; });
+  s += `<text x="4" y="${pad + 4}" fill="#8d92c9" font-size="11">${fmt(y1)}</text><text x="4" y="${H - pad}" fill="#8d92c9" font-size="11">${fmt(y0)}</text>`;
+  return s + "</svg>";
+}
+
+/* commutative diagram: nodes {k:[x,y,label]}, arrows [from,to,label,opts] */
+function diag(W, H, nodes, arrows) {
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="m"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#dcd8ff"/></marker></defs>`;
+  arrows.forEach(([a, b, lab, op]) => {
+    op = op || {}; const [ax, ay] = nodes[a], [bx, by] = nodes[b];
+    const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
+    const sh = op.sh || 30, sx = ax + ux * sh, sy = ay + uy * sh * 0.75, ex = bx - ux * sh, ey = by - uy * sh * 0.75;
+    const bend = op.bend || 0, mx = (sx + ex) / 2 - uy * bend, my = (sy + ey) / 2 + ux * bend;
+    s += `<path d="M${sx} ${sy} Q${mx} ${my} ${ex} ${ey}" fill="none" stroke="${op.color || "#dcd8ff"}" stroke-width="1.8" ${op.dash ? 'stroke-dasharray="5 4"' : ""} marker-end="url(#ah)"/>`;
+    const off = op.off == null ? 13 : op.off;
+    s += `<text x="${mx - uy * off}" y="${my + ux * off + 4}" fill="${op.color || "#ffcf5a"}" font-size="13" text-anchor="middle">${lab}</text>`;
+  });
+  Object.values(nodes).forEach(([x, y, lab]) => { s += `<text x="${x}" y="${y + 5}" fill="#f1efff" font-size="15" text-anchor="middle">${lab}</text>`; });
+  return s + "</svg>";
+}
+
+/* ───────────────────────── persistent state ───────────────────────── */
+const KEY = "limitQuest.v1";
+let S = { insight: 0, stars: {}, journal: [] };
+try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(S, JSON.parse(raw)); } catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} hud(); }
+function hud() { if ($("hud-ins")) $("hud-ins").innerHTML = S.insight; if ($("hud-stars")) $("hud-stars").innerHTML = Object.values(S.stars).reduce((a, b) => a + b, 0); }
+
+/* ───────────────────────── lenses (sideways learning) ───────────────────────── */
+const LENSES = [
+  ["intuition", "📈 Intuition"], ["nd", "ND tree"], ["sequent", "⊢ Sequent"], ["category", "𝐂 Category"],
+  ["types", "Π Type theory"], ["algebra", "⊕ Algebra"], ["lean", "Lean 4"],
+];
+
+/* ───────────────────────── stage content ───────────────────────── */
+/* Expressions for the limit-law proof forge (§2.2) */
+const X = { t: "x" }, K = (v) => ({ t: "k", v });
+const add = (a, b) => ({ t: "add", a, b }), sub = (a, b) => ({ t: "sub", a, b }), mul = (a, b) => ({ t: "mul", a, b });
+const cm = (k, a) => ({ t: "cmul", k, a }), pw = (a, n) => ({ t: "pow", a, n }), dv = (a, b) => ({ t: "div", a, b });
+const RULES = ["Sum", "Difference", "Constant Multiple", "Product", "Quotient", "Power", "Identity  lim x = c", "Constant  lim k = k"];
+const RULE_OF = { add: 0, sub: 1, cmul: 2, mul: 3, div: 4, pow: 5, x: 6, k: 7 };
+const kids = (e) => e.t === "add" || e.t === "sub" || e.t === "mul" || e.t === "div" ? [e.a, e.b] : (e.t === "cmul" || e.t === "pow" ? [e.a] : []);
+function ev(e, c) {
+  switch (e.t) { case "x": return c; case "k": return e.v; case "add": return ev(e.a, c) + ev(e.b, c);
+    case "sub": return ev(e.a, c) - ev(e.b, c); case "mul": return ev(e.a, c) * ev(e.b, c);
+    case "cmul": return e.k * ev(e.a, c); case "pow": return Math.pow(ev(e.a, c), e.n); case "div": return ev(e.a, c) / ev(e.b, c); }
+}
+function pp(e) {
+  const par = (s) => `(${s})`;
+  switch (e.t) {
+    case "x": return "x"; case "k": return fmt(e.v);
+    case "add": return pp(e.a) + " + " + pp(e.b);
+    case "sub": return pp(e.a) + " − " + (e.b.t === "add" || e.b.t === "sub" ? par(pp(e.b)) : pp(e.b));
+    case "mul": return [e.a, e.b].map((u) => (u.t === "add" || u.t === "sub" ? par(pp(u)) : pp(u))).join("·");
+    case "cmul": return e.k + (e.a.t === "x" || (e.a.t === "pow" && e.a.a.t === "x") ? pp(e.a) : "·" + par(pp(e.a)));
+    case "pow": return (e.a.t === "x" ? "x" : par(pp(e.a))) + `<sup>${e.n}</sup>`;
+    case "div": return F(pp(e.a), pp(e.b));
+  }
+}
+function preorder(e, out) { out = out || []; out.push(e); kids(e).forEach((k) => preorder(k, out)); return out; }
+function forgeTask(expr, c) {
+  const nodes = preorder(expr);
+  const at = `x→${fmt(c)}`;
+  const steps = [];
+  nodes.forEach((n, i) => {
+    steps.push({ node: i, prompt: `Which law breaks down ${M(LIM(at) + " " + pp(n))} ?`,
+      opts: RULES.map((r, j) => ({ h: r, ok: j === RULE_OF[n.t],
+        ctx: j === 4 && n.t !== "div" ? "The Quotient Rule would be the one to use if this expression were a fraction whose denominator tends to a non-zero number." : null })),
+      explain: `${RULES[RULE_OF[n.t]]} rule.` });
+    if (n.t === "div") {
+      const q = ev(n.b, c);
+      steps.push({ node: null, prompt: `Side condition of the Quotient Rule: the denominator tends to ${M(fmt(q))} as ${M(at)}. May we use the rule?`,
+        opts: [{ h: `Yes — ${fmt(q)} ≠ 0`, ok: q !== 0 }, { h: "No — the limit of the denominator is 0", ok: q === 0 }],
+        explain: "The Quotient Rule carries the premise M ≠ 0. In the tree it appears as an extra leaf." });
+    }
+  });
+  const val = ev(expr, c);
+  const wrong = shuffle(Array.from(new Set([val + 1, val - 2, -val, val * 2, val + 0.5])).filter((v) => v !== val)).slice(0, 3);
+  steps.push({ node: null, prompt: `Every leaf is closed. So ${M(LIM(at) + " " + pp(expr))} = ?`,
+    opts: shuffle([val].concat(wrong)).map((v) => ({ h: fmt(v), ok: v === val })),
+    explain: `Substitution gives ${fmt(val)} — this is Theorem 2/3: limits of polynomials and rational functions (with Q(c) ≠ 0) are found by plugging in.` });
+  const visual = (resolved) => {
+    const render = (e, idx) => {
+      const myIdx = idx.n++;
+      const v = ev(e, c);
+      if (myIdx >= resolved) { kids(e).forEach((k) => skip(k, idx)); return `<span class="open ${myIdx === resolved ? "now" : ""}">${LIM(at)} ${pp(e)} = ?</span>`; }
+      const prem = kids(e).map((k) => render(k, idx));
+      if (e.t === "div") prem.push(LEAF(`${fmt(ev(e.b, c))} ≠ 0`));
+      return ND(prem.length ? prem : [], `${LIM(at)} ${pp(e)} = ${fmt(v)}`, RULES[RULE_OF[e.t]].split(" ")[0]);
+    };
+    const skip = (e, idx) => { idx.n++; kids(e).forEach((k) => skip(k, idx)); };
+    return `<div style="padding:8px 0 4px">${render(expr, { n: 0 })}</div>`;
+  };
+  return { kind: "steps", title: "Proof forge", steps, visual,
+    intro: `Build a natural-deduction proof of the limit by choosing, node by node, which <b>limit law</b> (Theorem 1) applies. Each choice adds an inference line.` };
+}
+
+/* One-sided gallery (§2.4) */
+const GALLERY = [
+  { name: "x / |x|", f: (x) => x / Math.abs(x), c: 0, L: -1, Rr: 1, xr: [-2, 2], yr: [-2, 2], dots: [{ x: 0, y: 1, open: true }, { x: 0, y: -1, open: true }] },
+  { name: "unit step U(x) (0 for x < 0, 1 for x ≥ 0)", f: (x) => (x < 0 ? 0 : 1), c: 0, L: 0, Rr: 1, xr: [-2, 2], yr: [-1, 2], dots: [{ x: 0, y: 0, open: true }, { x: 0, y: 1 }] },
+  { name: "⌊x⌋ (floor) at x = 2", f: (x) => Math.floor(x), c: 2, L: 1, Rr: 2, xr: [0, 4], yr: [-1, 4], dots: [{ x: 2, y: 1, open: true }, { x: 2, y: 2 }] },
+  { name: "sin θ / θ", f: (x) => Math.sin(x) / x, c: 0, L: 1, Rr: 1, xr: [-8, 8], yr: [-0.5, 1.3], dots: [{ x: 0, y: 1, open: true }] },
+  { name: "sin(1/x)", f: (x) => Math.sin(1 / x), c: 0, L: null, Rr: null, xr: [-0.6, 0.6], yr: [-1.4, 1.4], dots: [] },
+];
+function pieceGalleryItem() {
+  const c = R(-1, 2), a = R(-2, 2) || 1, b = R(-3, 3), p = R(-2, 2), same = Math.random() < 0.5;
+  const left = a * c + b, q = same ? left - p * c : left - p * c + choose([-2, -1, 1, 2]);
+  const right = p * c + q;
+  return { name: `f(x) = ${a}x ${b < 0 ? "− " + (-b) : "+ " + b} for x &lt; ${c},&nbsp; ${p}x ${q < 0 ? "− " + (-q) : "+ " + q} for x ≥ ${c}`,
+    f: (x) => (x < c ? a * x + b : p * x + q), c, L: left, Rr: right, xr: [c - 3, c + 3],
+    yr: [Math.min(left, right) - 4, Math.max(left, right) + 4], dots: [{ x: c, y: left, open: true }, { x: c, y: right }] };
+}
+function oneSidedTask(g) {
+  const two = g.L !== null && g.L === g.Rr ? g.L : null;
+  const cands = shuffle(Array.from(new Set([g.L, g.Rr].concat(shuffle([0, 1, -1, 2])).filter((v) => v !== null))).slice(0, 4));
+  const options = (val) => cands.concat(["does not exist"]).map((v) => ({ h: typeof v === "number" ? fmt(v) : v, ok: v === (val === null ? "does not exist" : val) }));
+  const opt = (val, side) => options(val).map((o) => {
+    if (!o.ok && o.h !== "does not exist") {
+      const n = parseNum(o.h);
+      if (side !== "−" && n === g.L) o.ctx = `That is the limit <b>from the left</b> (x → ${fmt(g.c)}⁻). Same function, different context.`;
+      if (side !== "+" && n === g.Rr) o.ctx = `That is the limit <b>from the right</b> (x → ${fmt(g.c)}⁺). Same function, different context.`;
+    }
+    return o;
+  });
+  return { kind: "steps", title: "Left gate · right gate", intro: `Function: ${M(g.name)}, near ${M("c = " + fmt(g.c))}.`,
+    visual: () => plot({ fns: [{ f: g.f }], xr: g.xr, yr: g.yr, dots: g.dots, vl: [{ x: g.c, label: "c" }] }),
+    steps: [
+      { prompt: `${M(LIM(`x→${fmt(g.c)}⁻`) + " f(x)")} = ?`, opts: opt(g.L, "−"), explain: g.L === null ? "It oscillates between −1 and 1 forever; no left limit (Example 4)." : `From the left the values approach ${fmt(g.L)}.` },
+      { prompt: `${M(LIM(`x→${fmt(g.c)}⁺`) + " f(x)")} = ?`, opts: opt(g.Rr, "+"), explain: g.Rr === null ? "No right limit either." : `From the right the values approach ${fmt(g.Rr)}.` },
+      { prompt: `Now combine them (Theorem 5): ${M(LIM(`x→${fmt(g.c)}`) + " f(x)")} = ?`, opts: opt(two, "2"),
+        explain: two === null ? "Theorem 5: a two-sided limit exists only when both one-sided limits exist and agree. Here they don't." : `Both sides agree, so by Theorem 5 the limit is ${fmt(two)}.` },
+    ] };
+}
+
+/* Dominant terms (§2.6) */
+function dominantTask() {
+  const n = R(1, 3), m = R(1, 3), a = choose([1, 2, 3, 4, 5, -2, -3]), b = choose([1, 2, 3, 4, 7]);
+  const term = (c, d) => (c === 1 ? "" : c === -1 ? "−" : c) + (d === 1 ? "x" : `x<sup>${d}</sup>`);
+  const num = term(a, n) + (n > 1 ? ` + ${R(1, 9)}x` : "") + ` − ${R(1, 9)}`;
+  const den = term(b, m) + ` + ${R(1, 9)}`;
+  const q = (u, v) => (Number.isInteger(u / v) ? fmt(u / v) : (u * v < 0 ? "−" : "") + `${Math.abs(u)}/${Math.abs(v)}`);
+  const ans = n < m ? "0" : n === m ? q(a, b) : (a > 0 ? "+∞ (no horizontal asymptote)" : "−∞ (no horizontal asymptote)");
+  const opts = Array.from(new Set(["0", q(a, b), q(b, a), a > 0 ? "+∞ (no horizontal asymptote)" : "−∞ (no horizontal asymptote)"]));
+  return { kind: "choice", title: "Dominant terms",
+    prompt: `${M(LIM("x→∞") + " " + F(num, den))} = ?<br><span class="sub">Divide top and bottom by the highest power of x in the denominator.</span>`,
+    opts: opts.map((h) => ({ h, ok: h === ans, ctx: h === q(b, a) && h !== ans ? "That would be the answer for the reciprocal function, with numerator and denominator swapped." : null })),
+    explain: n < m ? `deg top ${n} < deg bottom ${m}: everything tends to 0.` : n === m ? `Equal degrees: the ratio of leading coefficients, ${a}/${b}.` : `deg top ${n} > deg bottom ${m}: the quotient grows without bound.` };
+}
+
+/* ε–δ duel (§2.3) */
+function duelTask(eps) {
+  const m = choose([2, 3, 4, 5, -2, -3]), b = R(-5, 5), c = R(-3, 4), Lv = m * c + b;
+  const fx = `${m}x ${b < 0 ? "− " + (-b) : "+ " + b}`;
+  return { kind: "number", title: "ε–δ duel", duel: { m, b, c, eps },
+    prompt: `The ∀-player challenges: ${M(`ε = ${eps}`)}. You are the ∃-player. Choose ${M("δ > 0")} so that
+      ${M(`0 &lt; |x − ${fmt(c)}| &lt; δ  ⟹  |(${fx}) − ${fmt(Lv)}| &lt; ${eps}`)}.`,
+    visual: (d) => { const dd = isFinite(d) && d > 0 ? d : null; return plot({ fns: [{ f: (x) => m * x + b }], xr: [c - 3, c + 3], yr: [Lv - 3 * Math.abs(m), Lv + 3 * Math.abs(m)], band: [Lv - eps, Lv + eps], vband: dd ? [c - dd, c + dd] : null, dots: [{ x: c, y: Lv, open: true, label: `(c, L)` }] }); },
+    check: (d) => d > 0 && d <= eps / Math.abs(m) + 1e-12,
+    answerText: `any δ with 0 < δ ≤ ε/|m| = ${eps}/${Math.abs(m)} = ${fmt(eps / Math.abs(m))}`,
+    onWrong: (d) => {
+      if (!(d > 0)) return "δ must be a positive number.";
+      const x = c + (eps / Math.abs(m) + d) / 2;
+      return `The ∀-player answers with ${M(`x = ${fmt(x)}`)}: then ${M(`|x − c| = ${fmt(x - c)} &lt; δ`)} but ${M(`|f(x) − L| = ${fmt(Math.abs(m * x + b - Lv))} ≥ ε`)}.
+        <br><i>Context check:</i> your δ = ${fmt(d)} <b>would</b> win if the challenge were ε ≥ ${fmt(Math.abs(m) * d)}.`;
+    },
+    explain: `|f(x) − L| = |${m}(x − ${fmt(c)})| = ${Math.abs(m)}·|x − c| &lt; ${Math.abs(m)}·δ ≤ ε. Any smaller positive δ also wins — there is no single "right" δ.` };
+}
+
+/* Shuffle cards: one concept, many lenses */
+const CARDS = [
+  { id: "sum", calc: `${LIM("x→c")}(f + g) = ${LIM("x→c")} f + ${LIM("x→c")} g`, nd: ND([LEAF("f → L"), LEAF("g → M")], "f + g → L + M", "Sum"), cat: "pair ⟨f, g⟩ into ℝ × ℝ, then compose with + : ℝ × ℝ → ℝ", lean: "Tendsto (fun x => f x + g x) l (𝓝 (L + M))" },
+  { id: "thm5", calc: "two-sided limit ⇔ left limit = right limit", nd: ND([LEAF("f →<sub>c⁻</sub> L"), LEAF("f →<sub>c⁺</sub> L")], "f →<sub>c</sub> L", "⊔I"), cat: "arrows out of a coproduct 𝓝[&lt;]c ⊔ 𝓝[&gt;]c = pairs of arrows", lean: "𝓝[<] c ⊔ 𝓝[>] c = 𝓝[≠] c" },
+  { id: "comp", calc: "f continuous at c, g continuous at f(c) ⇒ g ∘ f continuous at c", nd: ND([LEAF("f cont. at c"), LEAF("g cont. at f(c)")], "g ∘ f cont. at c", "∘I"), cat: "composition of arrows in the category of spaces", lean: "hg.comp hf : ContinuousAt (g ∘ f) c" },
+  { id: "eps", calc: "lim f(x) = L as x → c (precise definition)", nd: ND([LEAF("[ε &gt; 0]¹ ⋯ ∃δ&gt;0 ∀x (0&lt;|x−c|&lt;δ → |f x − L|&lt;ε)")], "∀ε&gt;0 ∃δ&gt;0 ∀x (…)", "∀I¹"), cat: "map f (𝓝[≠] c) ≤ 𝓝 L, i.e. 𝓝[≠] c ≤ comap f (𝓝 L)", lean: "Tendsto f (𝓝[≠] c) (𝓝 L)" },
+  { id: "ivt", calc: "continuous on [a, b], f(a) ≤ y₀ ≤ f(b) ⇒ y₀ = f(c) for some c", nd: ND([LEAF("ContinuousOn f [a,b]"), LEAF("y₀ ∈ [f a, f b]")], "∃c ∈ [a,b], f c = y₀", "IVT"), cat: "continuous images of connected spaces are connected", lean: "Icc (f a) (f b) ⊆ f '' Icc a b" },
+  { id: "sand", calc: "g ≤ f ≤ h and lim g = lim h = L ⇒ lim f = L", nd: ND([LEAF("g ≤ f ≤ h"), LEAF("g → L"), LEAF("h → L")], "f → L", "Sandwich"), cat: "order-squeeze: 𝓝 L is pinched from below and above", lean: "tendsto_of_tendsto_of_tendsto_of_le_of_le'" },
+  { id: "quot", calc: "lim f/g = L/M provided M ≠ 0", nd: ND([LEAF("f → L"), LEAF("g → M"), LEAF("M ≠ 0")], "f / g → L / M", "Quot"), cat: "compose ⟨f, g⟩ with division, which is continuous only where M ≠ 0", lean: "hf.div hg hM" },
+  { id: "inf", calc: "lim 1/x = 0 as x → ∞", nd: ND([LEAF("x → ∞")], "1/x → 0", "inv"), cat: "an arrow atTop ⟶ 𝓝 0 in the category of approaches", lean: "Tendsto (fun x => 1 / x) atTop (𝓝 0)" },
+];
+const CARD_LENSES = [["calc", "calculus words"], ["nd", "a natural-deduction rule"], ["cat", "a category pattern"], ["lean", "a Lean 4 statement"]];
+function shuffleTask() {
+  const card = choose(CARDS); const [la, lb] = shuffle(CARD_LENSES).slice(0, 2);
+  const others = shuffle(CARDS.filter((c) => c.id !== card.id)).slice(0, 3);
+  const show = (c, l) => (l === "lean" ? `<code>${esc(c[l])}</code>` : `<span class="m">${c[l]}</span>`);
+  return { kind: "choice", title: "Sideways shuffle", prompt: `This idea is written as <b>${la[1]}</b>:<div class="seq" style="display:block;margin:8px 0">${show(card, la[0])}</div>Which <b>${lb[1]}</b> says the same thing?`,
+    opts: shuffle([card].concat(others)).map((c) => ({ h: show(c, lb[0]), ok: c.id === card.id, ctx: c.id !== card.id ? `That one belongs to a different idea: “${c.calc}”. Worth keeping, just elsewhere.` : null })),
+    explain: `Same idea, two lenses. Meeting it again in a new form is the point — forgetting the old form is not a failure.` };
+}
+
+/* ─────────────── the stages ─────────────── */
+const STAGES = [
+{ id: "s1", sec: "§2.1", title: "Secant Slide", sym: "Δy/Δx → dy/dx",
+  myth: "Myth 3 — “Delaying gratification is important.” Here you play first: slide h toward 0 and watch, before any formal definition shows up.",
+  intro: `A rock falls ${M("y = 16t²")} feet (Galileo). Average speed over ${M("[t₁, t₂]")} is ${M(F("f(t₂) − f(t₁)", "t₂ − t₁"))}. The speed <i>at</i> an instant could be seen as what these averages approach.`,
+  make() {
+    const t1 = R(0, 2), t2 = t1 + R(1, 2), t0 = R(1, 3), a = R(1, 3), meters = R(1, 3);
+    return [
+      { kind: "number", title: "Average speed", prompt: `Average speed of the rock over ${M(`[${t1}, ${t2}]`)} seconds (ft/sec)?`,
+        check: (v) => near(v, 16 * (t2 * t2 - t1 * t1) / (t2 - t1)), answerText: fmt(16 * (t2 * t2 - t1 * t1) / (t2 - t1)),
+        explain: `${F(`16·${t2}² − 16·${t1}²`, `${t2} − ${t1}`)} = ${fmt(16 * (t2 * t2 - t1 * t1) / (t2 - t1))} ft/sec.`,
+        onWrong: (v) => near(v, 16 * t2 * t2 - 16 * t1 * t1) ? "That is the <b>distance</b> fallen — right answer to a neighbouring question. Divide by the elapsed time." : null },
+      { kind: "number", title: "Secant → tangent", slider: { t0 },
+        prompt: `Drag ${M("h")} toward 0 and watch the secant slopes ${M(F(`f(${t0}+h) − f(${t0})`, "h"))}. What speed do they approach at ${M(`t = ${t0}`)}?`,
+        visual: (h) => { h = h == null ? 1 : h; const f = (t) => 16 * t * t; const sl = (f(t0 + h) - f(t0)) / h;
+          return plot({ fns: [{ f }, { f: (t) => f(t0) + sl * (t - t0), color: "#ff9de2", dash: true }], xr: [t0 - 1.5, t0 + 2.2], yr: [0, f(t0 + 2.2)], dots: [{ x: t0, y: f(t0) }, { x: t0 + h, y: f(t0 + h), color: "#ff9de2" }] })
+            + `<div class="m" style="text-align:center">h = ${fmt(h)} &nbsp;&nbsp; slope = ${fmt(sl)} ft/sec</div>`; },
+        check: (v) => near(v, 32 * t0), answerText: fmt(32 * t0),
+        explain: `${F(`16(${t0}+h)² − 16·${t0}²`, "h")} = ${32 * t0} + 16h → ${32 * t0} as h → 0. The Lean theorems below prove the t = 1 case (32 ft/sec).` },
+      { kind: "number", title: "Tangent slope", prompt: `Slope of the tangent to ${M("y = x²")} at ${M(`(${a}, ${a * a})`)}? (Example 3)`,
+        check: (v) => near(v, 2 * a), answerText: String(2 * a), explain: `${F(`(${a}+h)² − ${a}²`, "h")} = ${2 * a} + h → ${2 * a}.` },
+      { kind: "number", title: "Change the context", prompt: `Thomas notes that in <b>meters</b> the constant is about 4.9 instead of 16: ${M("y = 4.9t²")}. Speed at ${M(`t = ${meters}`)} (m/sec)?`,
+        check: (v) => near(v, 9.8 * meters, 0.011), answerText: fmt(9.8 * meters),
+        explain: `Same pattern, new constant: 2·4.9·${meters} = ${fmt(9.8 * meters)}. A fact like "the speed is 32" is only true <i>in a context</i> (feet, t = 1).`,
+        onWrong: (v) => near(v, 32 * meters) ? "That is the answer in <b>feet</b> — right in the textbook's original context." : null },
+    ];
+  },
+  lenses: {
+    intuition: () => `Secant slope ${M(F("f(t+h) − f(t)", "h"))} is an <i>average</i>; as ${M("h → 0")} the secant line swings into the tangent line. For ${M("y = 16t²")} at ${M("t = 1")}: ${M("32 + 16h → 32")}.`,
+    nd: () => ND([ND([LEAF("[h ≠ 0]¹")], `${F("16(1+h)² − 16", "h")} = 32 + 16h`, "ring"), LEAF(`${LIM("h→0")} (32 + 16h) = 32`)], `${LIM("h→0")} ${F("16(1+h)² − 16", "h")} = 32`, "congr on 𝓝[≠]0, discharge ¹"),
+    sequent: () => SEQ("h : ℝ, h ≠ 0", "(16(1+h)² − 16·1²)/h = 32 + 16h") + SEQ("", "Tendsto (h ↦ (16(1+h)² − 16)/h) (𝓝[≠] 0) (𝓝 32)") + SEQ("", "HasDerivAt (t ↦ 16t²) 32 1"),
+    category: () => `One pattern behind derivatives is the <b>chain rule as functoriality</b>: sending a differentiable map at a point to its derivative preserves identities and composition, ${M("D(g∘f)ₐ = Dg<sub>f(a)</sub> ∘ Dfₐ")}.` +
+      diag(420, 150, { a: [60, 40, "(ℝ, a)"], b: [210, 40, "(ℝ, f a)"], c: [360, 40, "(ℝ, g(f a))"], A: [60, 120, "ℝ"], B: [210, 120, "ℝ"], C: [360, 120, "ℝ"] },
+        [["a", "b", "f"], ["b", "c", "g"], ["A", "B", "Dfₐ", { off: -13 }], ["B", "C", "Dg(f a)", { off: -13 }], ["a", "c", "g ∘ f", { bend: -40 }]]),
+    types: () => `${M("galileo_secant : Π (h : ℝ), h ≠ 0 → (16(1+h)² − 16·1²)/h = 32 + 16h")}<br>A proof is a <i>program</i>: given a number ${M("h")} and evidence ${M("h ≠ 0")}, it returns evidence of an equation (Curry–Howard: ${M("→")} is the function type).`,
+    algebra: () => M(`16(1+h)² − 16 = 16(1 + 2h + h²) − 16 = 32h + 16h² = h·(32 + 16h)`) + `<br>so for ${M("h ≠ 0")}: ${M(F("16(1+h)² − 16", "h") + " = 32 + 16h")}.`,
+    lean: () => leanBlock([L('galileo_secant'), L('galileo_speed'), L('galileo_deriv')]),
+  } },
+
+{ id: "s2", sec: "§2.2", title: "Proof Forge: the Limit Laws", sym: "Γ ⊢ f+g → L+M",
+  myth: "Myth 4 — “Rote memorization is necessary.” Instead of memorising Theorem 1, you assemble each limit as a proof tree; the laws are tools you pick up, each with its conditions.",
+  intro: `Theorem 1: if ${M("lim f = L")} and ${M("lim g = M")}, then sums, differences, constant multiples, products, powers and (when ${M("M ≠ 0")}) quotients behave as you might hope.`,
+  make() {
+    const c1 = choose([-2, -1, 1, 2, 3]), c2 = choose([-1, 1, 2]), k = R(2, 6), a = R(2, 5), b = R(1, 3);
+    return [
+      forgeTask(sub(add(pw(X, 3), cm(4, pw(X, 2))), K(3)), c1),
+      forgeTask(dv(sub(add(pw(X, 4), pw(X, 2)), K(1)), add(pw(X, 2), K(5))), c2),
+      { kind: "choice", title: "Zero over zero", prompt: `Example 7: ${M(LIM("x→1") + " " + F("x² + x − 2", "x² − x"))}. Substitution gives ${M("0/0")}. What could we do?`,
+        opts: [{ h: "Cancel the common factor (x − 1): the limit is 3", ok: true },
+               { h: "The limit is 0/0 = 0", ok: false, ctx: "In <b>Lean</b> (and many programming languages) 0/0 is defined to be 0, so in that context the expression 0/0 really is 0. But the <i>limit</i> doesn't care about the value at x = 1 — see the Lean lens: Quotient Rule needs M ≠ 0." },
+               { h: "The limit does not exist", ok: false, ctx: "That would be right for, e.g., 1/(x − 1) at 1: there the numerator does not vanish." }],
+        explain: `${F("(x − 1)(x + 2)", "x(x − 1)")} = ${F("x + 2", "x")} for x ≠ 1, and ${F("1 + 2", "1")} = 3. Proved in Lean as <code>cancel_common_factor</code>.` },
+      { kind: "number", title: "Sandwich", prompt: `Suppose ${M(`${k} − x²/${a} ≤ u(x) ≤ ${k} + x²/${b}`)} for all ${M("x ≠ 0")} (cf. Example 10). Find ${M(LIM("x→0") + " u(x)")}, no matter how complicated ${M("u")} is.`,
+        check: (v) => near(v, k), answerText: String(k), explain: `Both bounds tend to ${k}; by the Sandwich Theorem (Theorem 4) so does u.` },
+    ];
+  },
+  lenses: {
+    intuition: () => `If ${M("f(x)")} is near ${M("L")} and ${M("g(x)")} near ${M("M")}, then ${M("f(x)+g(x)")} is near ${M("L+M")}. The quotient is the delicate one: dividing by something near 0 can blow up.`,
+    nd: () => ND([LEAF("lim f = L"), LEAF("lim g = M")], "lim (f + g) = L + M", "Sum") + "&nbsp;&nbsp;&nbsp;" +
+      ND([LEAF("lim f = L"), LEAF("lim g = M"), LEAF("M ≠ 0")], `lim ${F("f", "g")} = ${F("L", "M")}`, "Quot") + "<br><br>" +
+      ND([LEAF("g ≤ f ≤ h near c"), LEAF("lim g = L"), LEAF("lim h = L")], "lim f = L", "Sandwich"),
+    sequent: () => `Each law is a sequent rule (Γ = the hypotheses in play):<div class="seq">Γ ⊢ f → L &nbsp;&nbsp; Γ ⊢ g → M &nbsp;&nbsp;⟹&nbsp;&nbsp; Γ ⊢ f + g → L + M</div>` +
+      `<div class="seq">Γ ⊢ ∀ᶠ x, g x ≤ f x ≤ h x &nbsp;&nbsp; Γ ⊢ g → L &nbsp;&nbsp; Γ ⊢ h → L &nbsp;&nbsp;⟹&nbsp;&nbsp; Γ ⊢ f → L</div>` +
+      `<br>Counter-sequent (the rule is <i>not</i> unconditional):` + SEQ("", "¬ Tendsto (x ↦ x / x) (𝓝[≠] 0) (𝓝 (0 / 0))"),
+    category: () => `The Sum Rule could be read as <b>“pair, then compose”</b>. Arrows into a product are pairs of arrows (universal property of ×), and ${M("+")} is a continuous arrow ${M("ℝ × ℝ → ℝ")}:` +
+      diag(460, 170, { l: [60, 85, "(α, l)"], P: [240, 85, "ℝ × ℝ ∋ (L, M)"], R: [410, 85, "ℝ ∋ L+M"], A: [240, 20, "ℝ ∋ L"], B: [240, 155, "ℝ ∋ M"] },
+        [["l", "A", "f", { sh: 26 }], ["l", "B", "g", { sh: 26, off: -13 }], ["l", "P", "⟨f, g⟩", { sh: 40 }], ["P", "A", "π₁", { sh: 22, off: -14 }], ["P", "B", "π₂", { sh: 22 }], ["P", "R", "+", { sh: 55 }]]) +
+      `Lean literally proves <code>sum_rule</code> this way: <code>(continuous_add.tendsto (L, M)).comp (hf.prodMk_nhds hg)</code>.`,
+    types: () => `${M("sum_rule : Tendsto f l (𝓝 L) → Tendsto g l (𝓝 M) → Tendsto (f + g) l (𝓝 (L + M))")}<br>Arrows associate to the right; the curried form ${M("A → B → C")} is equivalent to ${M("A × B → C")} — the currying adjunction ${M("(− × B) ⊣ (B ⇒ −)")}.`,
+    algebra: () => `On functions that have limits at c, ${M("lim")} respects the ring structure: ${M("lim(f+g) = lim f + lim g")}, ${M("lim(f·g) = lim f · lim g")}, ${M("lim 1 = 1")}. That is the shape of a <b>ring homomorphism</b>; the Quotient Rule is the part that needs ${M("M ≠ 0")} because only non-zero numbers are invertible.`,
+    lean: () => leanBlock([L('sum_rule'), L('product_rule'), L('quotient_rule'), L('quotient_rule_needs_side_condition'), L('poly_limit'), L('cancel_common_factor'), L('sandwich_example')]),
+  } },
+
+{ id: "s3", sec: "§2.3", title: "The ε–δ Duel", sym: "∀ε>0 ∃δ>0 ∀x",
+  myth: "Myth 2 — “Paying attention means staying focused on one thing.” Soft vigilance: keep both bands in view at once. The challenger changes ε each round, so the scene never stays the same.",
+  intro: `Definition: ${M("lim<sub>x→c</sub> f(x) = L")} means ${M("∀ε > 0 ∃δ > 0 ∀x, 0 &lt; |x − c| &lt; δ → |f(x) − L| &lt; ε")}. Read it as a game: the ∀-player picks ε, you (∃) answer with δ, then ∀ picks x.`,
+  make() {
+    const m = choose([2, 3, 4, 5, 7]);
+    return [
+      duelTask(choose([1, 2])), duelTask(choose([0.5, 0.2])), duelTask(choose([0.1, 0.01])),
+      { kind: "multi", title: "Skolem's strategy", prompt: `Instead of answering each ε separately, give a <i>strategy</i> ${M("δ(ε)")} for ${M(`f(x) = ${m}x + 1`)} at any c. Select <b>all</b> strategies that always win.`,
+        opts: [{ h: `δ(ε) = ε/${m}`, ok: true }, { h: `δ(ε) = ε/${2 * m}`, ok: true }, { h: `δ(ε) = min(1, ε/${m})`, ok: true }, { h: `δ(ε) = ${m}ε`, ok: false }, { h: "δ(ε) = ε + 1", ok: false }],
+        explain: `Anything with ${M(`0 &lt; δ(ε) ≤ ε/${m}`)} wins. Many right answers! A proof of ${M("∀ε ∃δ")} <i>is</i> such a function (Curry–Howard; Lean: <code>eps_delta_as_function</code>).` },
+      { kind: "number", title: "First look", prompt: `Example 1: for ${M("y = 2x − 1")} near ${M("x = 4")}, what is the largest ${M("δ")} such that ${M("|x − 4| &lt; δ")} guarantees ${M("|y − 7| &lt; 2")}?`,
+        check: (v) => near(v, 1), answerText: "1", explain: `${M("|y − 7| = |2x − 8| = 2|x − 4| &lt; 2")} ⇔ ${M("|x − 4| &lt; 1")}.` },
+    ];
+  },
+  lenses: {
+    intuition: () => `Yellow band: ${M("|y − L| &lt; ε")}. Blue window: ${M("|x − c| &lt; δ")}. You win if the graph over the blue window (minus the point c) stays inside the yellow band.`,
+    nd: () => ND([ND([ND([ND([LEAF("[0 &lt; |x−1| &lt; ε/5]²"), LEAF("|5x − 5| = 5|x − 1|")], "|(5x−3) − 2| &lt; ε", "alg"),], "0&lt;|x−1|&lt;ε/5 → |(5x−3)−2|&lt;ε", "→I²")], "∀x (…)", "∀I"), LEAF("[ε &gt; 0]¹ ⊢ ε/5 &gt; 0")], "∃δ &gt; 0 ∀x (…)", "∃I  δ := ε/5") +
+      "<br><br>" + ND([LEAF("⋮")], "∀ε &gt; 0 ∃δ &gt; 0 ∀x (0&lt;|x−1|&lt;δ → |(5x−3)−2|&lt;ε)", "∀I, →I¹"),
+    sequent: () => `A sequent-calculus reading (bottom-up search):` +
+      SEQ("ε, ε &gt; 0, x, 0 &lt; |x−1| &lt; ε/5", "|(5x−3) − 2| &lt; ε") + `<div class="sub">→R, ∀R ↓</div>` +
+      SEQ("ε, ε &gt; 0", "∀x (0&lt;|x−1|&lt;ε/5 → |(5x−3)−2|&lt;ε)") + `<div class="sub">∃R with witness ε/5 ↓</div>` +
+      SEQ("ε, ε &gt; 0", "∃δ &gt; 0, ∀x (…)") + `<div class="sub">→R, ∀R ↓</div>` + SEQ("", "∀ε &gt; 0, ∃δ &gt; 0, ∀x (…)"),
+    category: () => `In Mathlib a limit is an <b>arrow between filters</b>: ${M("Tendsto f F G")} means ${M("map f F ≤ G")}. The pair ${M("map f ⊣ comap f")} is a Galois connection (an adjunction between posets):` +
+      `<div class="seq">map f F ≤ G &nbsp;⟺&nbsp; F ≤ comap f G</div>` +
+      `Objects “(type, filter)” and these arrows form a category (identity = <code>tendsto_id</code>, composition = <code>Tendsto.comp</code>); see the <code>Approach</code> instance in the Lean lens of §2.5.`,
+    types: () => `Under Curry–Howard, ${M("∀")} is a dependent function type ${M("Π")} and ${M("∃")} a dependent pair ${M("Σ")}:<div class="seq">Π (ε : ℝ), ε &gt; 0 → Σ (δ : ℝ), δ &gt; 0 × Π (x : ℝ), 0 &lt; |x−1| &lt; δ → |(5x−3) − 2| &lt; ε</div>So a proof is a program ${M("λ ε hε. ⟨ε/5, …⟩")}. (In Lean, ${M("∃")} lives in Prop, so we state the function version separately: <code>eps_delta_as_function</code>.)`,
+    algebra: () => M("|(5x − 3) − 2| = |5x − 5| = 5·|x − 1| &lt; 5δ = 5·(ε/5) = ε") + `<br>Working backwards from the ε-inequality finds δ, exactly as in Thomas' Example 2.`,
+    lean: () => leanBlock([L('eps_delta_example'), L('eps_delta_as_function'), L('eps_delta_first_look'), L('eps_delta_iff_tendsto'), L('tendsto_adjunction')]),
+  } },
+
+{ id: "s4", sec: "§2.4", title: "Left Gate, Right Gate", sym: "𝓝[<]c ⊔ 𝓝[>]c",
+  myth: "Myth 7 — “There are right and wrong answers.” Is lim x/|x| equal to 1? From the right, yes. From the left, −1. Most answers here are right in some context.",
+  intro: `Theorem 5: ${M("lim<sub>x→c</sub> f = L ⇔ lim<sub>x→c⁻</sub> f = L ∧ lim<sub>x→c⁺</sub> f = L")}. Theorem 6: ${M("lim<sub>θ→0</sub> sin θ / θ = 1")}.`,
+  make() {
+    const picks = shuffle(GALLERY).slice(0, 3);
+    return [oneSidedTask(picks[0]), oneSidedTask(pieceGalleryItem()), oneSidedTask(picks[1]), oneSidedTask(picks[2]),
+      { kind: "choice", title: "Whose answer?", prompt: `A classmate says ${M(LIM("x→0") + " x/|x| = 1")}. Another says ${M("= −1")}. A third says it doesn't exist. Who is right?`,
+        opts: [{ h: "Each one — in a different context (x → 0⁺, x → 0⁻, two-sided)", ok: true }, { h: "Only the first", ok: false, ctx: "The first is right exactly in the context x → 0⁺ (Lean: <code>sign_right</code>)." }, { h: "Only the third", ok: false, ctx: "The third is right for the two-sided limit (Lean: <code>sign_no_limit</code>) — but the other two are right too, about one-sided limits." }],
+        explain: "Mindful answer: state the context. The two-sided limit fails exactly because the one-sided ones disagree (Theorem 5)." }];
+  },
+  lenses: {
+    intuition: () => `Approach c only from the left, or only from the right. The punctured neighbourhood of c is “left side ∪ right side”, so the two-sided limit is the pair of one-sided limits.`,
+    nd: () => ND([LEAF("lim<sub>x→c⁻</sub> f = L"), LEAF("lim<sub>x→c⁺</sub> f = L")], "lim<sub>x→c</sub> f = L", "∧I + Thm 5") + "&nbsp;&nbsp;" +
+      ND([LEAF("lim<sub>x→c</sub> f = L")], "lim<sub>x→c⁻</sub> f = L", "∧E₁") + "<br><br>" +
+      ND([LEAF("lim<sub>0⁻</sub> x/|x| = −1"), LEAF("lim<sub>0⁺</sub> x/|x| = 1"), LEAF("−1 ≠ 1")], "¬ ∃L, lim<sub>0</sub> x/|x| = L", "¬I (uniqueness)"),
+    sequent: () => SEQ("", "Tendsto f (𝓝[≠] c) (𝓝 L) ↔ Tendsto f (𝓝[&lt;] c) (𝓝 L) ∧ Tendsto f (𝓝[&gt;] c) (𝓝 L)") +
+      SEQ("h : Tendsto (x ↦ x/|x|) (𝓝[≠] 0) (𝓝 L)", "⊥"),
+    category: () => `Filters on ℝ form a poset, hence a thin category (an arrow ${M("F → G")} iff ${M("F ≤ G")}). There the join ${M("⊔")} is the <b>coproduct</b>, and Mathlib proves ${M("𝓝[&lt;] c ⊔ 𝓝[&gt;] c = 𝓝[≠] c")}. Since ${M("Tendsto f F (𝓝 L)")} means ${M("map f F ≤ 𝓝 L")}, an arrow out of the coproduct is the same as a pair of arrows:` +
+      diag(470, 170, { a: [70, 40, "𝓝[&lt;] c"], b: [400, 40, "𝓝[&gt;] c"], s: [235, 40, "𝓝[≠] c"], t: [235, 145, "𝓝 L  (via map f)"] },
+        [["a", "s", "≤"], ["b", "s", "≤", { off: -13 }], ["a", "t", "f⁻", { sh: 34, off: 14 }], ["b", "t", "f⁺", { sh: 34, off: -14 }], ["s", "t", "∃! f", { dash: true, sh: 24 }]]) +
+      `Theorem 5 <i>is</i> this universal property: <code>rw [← nhdsLT_sup_nhdsGT, tendsto_sup]</code>.`,
+    types: () => `${M("A ↔ B")} is a pair of functions ${M("(A → B) × (B → A)")}; ${M("A ∧ B")} is the product type ${M("A × B")}. So <code>two_sided_iff_one_sided</code> converts one proof into a pair of proofs and back.`,
+    algebra: () => `${M("x/|x| = 1")} for ${M("x &gt; 0")} and ${M("= −1")} for ${M("x &lt; 0")}. For Theorem 6 Thomas squeezes ${M("cos θ &lt; sin θ / θ &lt; 1")}; in Lean we use the continuity of ${M("sinc")}, which equals ${M("sin θ / θ")} off 0 and 1 at 0.`,
+    lean: () => leanBlock([L('two_sided_iff_one_sided'), L('sign_right'), L('sign_left'), L('sign_no_limit'), L('sin_div_limit')]),
+  } },
+
+{ id: "s5", sec: "§2.5", title: "Continuity Bridge & the IVT", sym: "g ∘ f, ∃c f(c)=0",
+  myth: "Myth 6 — “Intelligence is knowing what's out there.” There is more than one way to locate a root: guess, plot, bisect, or argue existence with the IVT. You choose the route.",
+  intro: `Theorem 8: if ${M("f")} is continuous at ${M("c")} and ${M("g")} at ${M("f(c)")}, then ${M("g ∘ f")} is continuous at ${M("c")}. Theorem 10 (IVT): a continuous ${M("f")} on ${M("[a, b]")} takes every value between ${M("f(a)")} and ${M("f(b)")}.`,
+  make() {
+    const c = choose([-1, 0, 1, 2, 3]), bad = c === 1 || c === -1;
+    const fv = (x) => x * x * x - x - 1;
+    const steps = []; let lo = 1, hi = 2;
+    for (let i = 0; i < 4; i++) {
+      const mid = (lo + hi) / 2, v = fv(mid), left = v > 0;
+      steps.push({ prompt: `Interval ${M(`[${lo}, ${hi}]`)}: ${M(`f(${lo}) &lt; 0 &lt; f(${hi})`)}. At the midpoint, ${M(`f(${mid}) = ${v.toFixed(4)}`)}. Where must a root be?`,
+        opts: [{ h: `[${lo}, ${mid}]`, ok: left }, { h: `[${mid}, ${hi}]`, ok: !left }], explain: `The sign changes on ${left ? `[${lo}, ${mid}]` : `[${mid}, ${hi}]`}, so the IVT puts a root there.` });
+      if (left) hi = mid; else lo = mid;
+    }
+    return [
+      { kind: "choice", title: "Compose the arrows", prompt: `Let ${M("f(x) = x² − 1")} and ${M("g(y) = 1/y")}. Is ${M("g ∘ f")} continuous at ${M(`x = ${c}`)}?`,
+        opts: [{ h: "Yes", ok: !bad, ctx: bad ? "It would be “yes” at any point where f(x) ≠ 0, e.g. x = 0 or x = 2." : null }, { h: "No", ok: bad, ctx: !bad ? "It would be “no” at x = ±1, where f(x) = 0 lands outside g's domain." : null }],
+        explain: bad ? `f(${c}) = 0 and g is not even defined at 0, so Theorem 8's hypothesis fails — and indeed 1/(x² − 1) blows up at ${c}.` : `f is continuous at ${c} and g is continuous at f(${c}) = ${c * c - 1} ≠ 0, so g ∘ f is continuous there (Theorem 8).` },
+      { kind: "steps", title: "Bisection", intro: `Example 10: ${M("x³ − x − 1 = 0")} has a root in ${M("[1, 2]")}. Squeeze it, one halving at a time.`,
+        visual: () => plot({ fns: [{ f: fv }], xr: [0.8, 2.1], yr: [-2, 5], hl: [{ y: 0, color: "#555b9c" }], dots: [{ x: 1, y: -1 }, { x: 2, y: 5 }] }), steps },
+      { kind: "number", title: "Continuous extension", prompt: `${M(`f(x) = ${F("x² − 1", "x − 1")}`)} is undefined at ${M("x = 1")}. Which value ${M("f(1)")} makes it continuous there?`,
+        check: (v) => near(v, 2), answerText: "2", explain: `For x ≠ 1, f(x) = x + 1 → 2. (Continuous extension to a point.)` },
+      { kind: "number", title: "Move the limit inside", prompt: `Theorem 9: ${M(LIM("x→1") + " √(x² + 3)")} = ?`, check: (v) => near(v, 2), answerText: "2",
+        explain: `√ is continuous at 4 = lim (x² + 3), so the limit moves inside: √4 = 2 (Lean: <code>limit_inside_continuous</code>).` },
+    ];
+  },
+  lenses: {
+    intuition: () => `Continuity at c: you can draw through c without lifting the pen, ${M("lim<sub>x→c</sub> f(x) = f(c)")}. Composing two such pens keeps the line unbroken.`,
+    nd: () => ND([LEAF("f cont. at c"), LEAF("g cont. at f(c)")], "g ∘ f cont. at c", "∘I (Thm 8)") + "&nbsp;&nbsp;&nbsp;" +
+      ND([LEAF("f cont. on [1,2]"), LEAF("f(1) = −1 ≤ 0"), LEAF("0 ≤ 5 = f(2)")], "∃c ∈ [1,2], c³ − c − 1 = 0", "IVT"),
+    sequent: () => SEQ("hf : ContinuousAt f c, hg : ContinuousAt g (f c)", "ContinuousAt (g ∘ f) c") + SEQ("", "∃ c ∈ Icc 1.3125 1.375, c³ − c − 1 = 0"),
+    category: () => `Spaces and continuous maps form a <b>category</b>: identities are continuous and composites of continuous maps are continuous (Theorem 8 is the pointwise version). The same shape holds for limits, which the Lean file builds as an honest Mathlib <code>Category</code> instance on “approaches” (type + filter):` +
+      diag(440, 150, { A: [60, 110, "(α, F)"], B: [220, 30, "(β, G)"], C: [380, 110, "(γ, H)"] },
+        [["A", "B", "f", { off: 14 }], ["B", "C", "g"], ["A", "C", "g ∘ f", { off: -14 }]]) +
+      `<div class="sub">id ∘ f = f, f ∘ id = f, h ∘ (g ∘ f) = (h ∘ g) ∘ f — all hold by <code>rfl</code>.</div>`,
+    types: () => `${M("ContinuousAt.comp : ContinuousAt g (f c) → ContinuousAt f c → ContinuousAt (g ∘ f) c")}<br>The proof term <code>hg.comp hf</code> composes proofs exactly as <code>g ∘ f</code> composes functions — the λ-term ${M("λ hg hf. hg.comp hf")}.`,
+    algebra: () => `<table class="t"><tr><th>interval</th><th>midpoint m</th><th>f(m) = m³ − m − 1</th></tr><tr><td>[1, 2]</td><td>1.5</td><td>0.875</td></tr><tr><td>[1, 1.5]</td><td>1.25</td><td>−0.296875</td></tr><tr><td>[1.25, 1.5]</td><td>1.375</td><td>0.224609…</td></tr><tr><td>[1.25, 1.375]</td><td>1.3125</td><td>−0.051514…</td></tr><tr><td>[1.3125, 1.375]</td><td colspan="2">root is in here (Lean: <code>ivt_root_refined</code>)</td></tr></table>`,
+    lean: () => leanBlock([L('continuous_comp_at'), L('limit_inside_continuous'), L('ivt_root'), L('ivt_root_refined'), L('Approach'), L('LimArrow'), L('Approach.category'), L('limit_comp')]),
+  } },
+
+{ id: "s6", sec: "§2.6", title: "Toward Infinity", sym: "atTop, 1/x → 0",
+  myth: "Myth 1 — “The basics must be learned so well they become second nature.” “1/x is small” could be true or false: it depends on where x is heading. Basics stay conditional.",
+  intro: `${M(LIM("x→±∞") + " k = k")} and ${M(LIM("x→±∞") + " 1/x = 0")}; with the limit laws these give horizontal asymptotes via dominant terms. Infinite limits: ${M(LIM("x→0⁺") + " 1/x = ∞")}.`,
+  make() {
+    return [dominantTask(), dominantTask(),
+      { kind: "steps", title: "Where is x heading?", intro: `Same function ${M("1/x")}, three destinations.`,
+        visual: () => plot({ fns: [{ f: (x) => 1 / x }], xr: [-4, 4], yr: [-5, 5] }),
+        steps: [
+          { prompt: `${M(LIM("x→∞") + " 1/x")} = ?`, opts: [{ h: "0", ok: true }, { h: "+∞", ok: false, ctx: "+∞ is the answer as x → 0⁺." }, { h: "−∞", ok: false, ctx: "−∞ is the answer as x → 0⁻." }], explain: "Basic fact (1) of §2.6." },
+          { prompt: `${M(LIM("x→0⁺") + " 1/x")} = ?`, opts: [{ h: "0", ok: false, ctx: "0 is the answer as x → ±∞." }, { h: "+∞", ok: true }, { h: "−∞", ok: false, ctx: "−∞ is the answer from the left." }], explain: "Positive and huge: an infinite limit (Example 11)." },
+          { prompt: `${M(LIM("x→0⁻") + " 1/x")} = ?`, opts: [{ h: "0", ok: false, ctx: "0 is the answer as x → ±∞." }, { h: "+∞", ok: false, ctx: "+∞ is the answer from the right." }, { h: "−∞", ok: true }], explain: "Negative and huge. Every option was right somewhere!" },
+        ] },
+      { kind: "steps", title: "Two asymptotes", intro: `Example 4: ${M(`f(x) = ${F("x³ − 2", "|x|³ + 1")}`)}.`,
+        visual: () => plot({ fns: [{ f: (x) => (x * x * x - 2) / (Math.abs(x) ** 3 + 1) }], xr: [-8, 8], yr: [-2.5, 1.8], hl: [{ y: 1, label: "y = 1" }, { y: -1, label: "y = −1" }] }),
+        steps: [
+          { prompt: `${M(LIM("x→∞") + " f(x)")} = ?`, opts: [{ h: "1", ok: true }, { h: "−1", ok: false, ctx: "That is the limit as x → −∞." }, { h: "0", ok: false }], explain: "For x > 0, |x|³ = x³, so f → 1." },
+          { prompt: `${M(LIM("x→−∞") + " f(x)")} = ?`, opts: [{ h: "1", ok: false, ctx: "That is the limit as x → +∞." }, { h: "−1", ok: true }, { h: "0", ok: false }], explain: "For x < 0, |x|³ = −x³, so f → −1. Two horizontal asymptotes." },
+        ] },
+    ];
+  },
+  lenses: {
+    intuition: () => `As ${M("x")} grows, the highest powers dominate: ${M(F("5x² + 8x − 3", "3x² + 2"))} behaves like ${M(F("5x²", "3x²") + " = 5/3")}.`,
+    nd: () => ND([LEAF("1/x → 0 (x → ∞)"), LEAF("Sum, Mult, Power, Quot (3 ≠ 0)")], `${F("5 + 8/x − 3/x²", "3 + 2/x²")} → ${F("5", "3")}`, "Thm 11") + "&nbsp;&nbsp;" +
+      ND([LEAF("x &gt; 0 ⊢ (5x²+8x−3)/(3x²+2) = (5 + 8/x − 3/x²)/(3 + 2/x²)")], `${F("5x² + 8x − 3", "3x² + 2")} → ${F("5", "3")}`, "congr (eventually)"),
+    sequent: () => SEQ("", "Tendsto (x ↦ 1/x) atTop (𝓝 0)") + SEQ("", "Tendsto (x ↦ (5x² + 8x − 3)/(3x² + 2)) atTop (𝓝 (5/3))") + SEQ("", "Tendsto (x ↦ 1/x) (𝓝[&gt;] 0) atTop"),
+    category: () => `“Approaching ∞” is just another object: the filter ${M("atTop")}. The map ${M("x ↦ 1/x")} gives arrows in both directions, and composing them is an arrow ${M("𝓝[&gt;] 0 ⟶ 𝓝 0")}:` +
+      diag(440, 150, { A: [70, 40, "(ℝ, 𝓝[&gt;] 0)"], B: [370, 40, "(ℝ, atTop)"], C: [220, 125, "(ℝ, 𝓝 0)"] },
+        [["A", "B", "x ↦ 1/x", { sh: 60 }], ["B", "C", "x ↦ 1/x", { sh: 40 }], ["A", "C", "composite", { sh: 40, off: -14 }]]),
+    types: () => `${M("atTop : Filter ℝ")}, ${M("𝓝 0 : Filter ℝ")}, and ${M("Tendsto : (α → β) → Filter α → Filter β → Prop")}. One type signature covers finite limits, one-sided limits, limits at infinity and infinite limits.`,
+    algebra: () => M(`${F("5x² + 8x − 3", "3x² + 2")} = ${F("5 + 8/x − 3/x²", "3 + 2/x²")}  (x ≠ 0)  → ${F("5 + 0 − 0", "3 + 0")} = ${F("5", "3")}`),
+    lean: () => leanBlock([L('inv_limit_atTop'), L('dominant_terms'), L('inv_right_infinite')]),
+  } },
+
+{ id: "boss", sec: "Boss", title: "When Is It True?", sym: "Γ ⊢ φ  vs  ⊬ φ",
+  myth: "Langer: teach conditionally — “1 + 1 could be 2”. The boss never asks “true or false?”. It asks <i>under which conditions</i> a statement holds. Select every condition that makes it true.",
+  intro: `Each statement below is true in some contexts and false in others. Pick all the contexts where it holds.`,
+  make() {
+    return shuffle([
+      { kind: "multi", title: "Quotient", prompt: `${M("lim f/g = (lim f)/(lim g)")} holds when…`, opts: [{ h: "lim f = L, lim g = M exist and M ≠ 0", ok: true }, { h: "lim g = 0", ok: false }, { h: "always", ok: false }], explain: "Theorem 1.5. Lean shows the rule fails without M ≠ 0: <code>quotient_rule_needs_side_condition</code>." },
+      { kind: "multi", title: "Plug in", prompt: `${M(LIM("x→c") + " f(x) = f(c)")} holds when…`, opts: [{ h: "f is continuous at c", ok: true }, { h: "f is a polynomial", ok: true }, { h: "f is a rational function with denominator ≠ 0 at c", ok: true }, { h: "f(x) = ⌊x⌋ and c = 2", ok: false }], explain: "That is the definition of continuity at c; Theorems 2 and 3 make polynomials and rational functions instances." },
+      { kind: "multi", title: "x/|x|", prompt: `“The limit of ${M("x/|x|")} at 0 is 1” is true when…`, opts: [{ h: "x → 0⁺", ok: true }, { h: "x → 0⁻", ok: false }, { h: "the two-sided limit", ok: false }], explain: "Only from the right (Lean: <code>sign_right</code>, <code>sign_no_limit</code>)." },
+      { kind: "multi", title: "Root", prompt: `“${M("f")} has a zero in ${M("[a, b]")}” is guaranteed when…`, opts: [{ h: "f is continuous on [a, b] and f(a) ≤ 0 ≤ f(b)", ok: true }, { h: "f(a) &lt; 0 &lt; f(b) but f jumps somewhere", ok: false }, { h: "f(x) = x³ − x − 1 on [1, 2]", ok: true }], explain: "The IVT needs continuity; a jump can skip 0. Lean: <code>ivt_root</code>." },
+      { kind: "multi", title: "0/0", prompt: `“${M("0/0 = 0")}” is true…`, opts: [{ h: "in Lean / Mathlib, where x/0 is defined as 0", ok: true }, { h: "in the textbook's real arithmetic", ok: false }, { h: "as a statement about the limit of f/g when both tend to 0", ok: false }], explain: "A convention can make a fact true in one system and meaningless in another. Limits of 0/0 forms can be anything (3 in Example 7, 1 for sin θ/θ)." },
+      { kind: "multi", title: "1 + 1", prompt: `Langer's example: “${M("1 + 1 = 2")}” is true…`, opts: [{ h: "in ℕ, ℤ, ℝ", ok: true }, { h: "in ℤ/2 (arithmetic mod 2), where 1 + 1 = 0", ok: false }, { h: "when adding one cloud to one cloud — you may get one cloud", ok: false }], explain: "In ℤ/2 we get 1 + 1 = 0 instead. “Could be 2” leaves room for other contexts." },
+      { kind: "multi", title: "Two-sided", prompt: `${M(LIM("x→c") + " f(x)")} exists when…`, opts: [{ h: "both one-sided limits exist and are equal", ok: true }, { h: "only the right-hand limit exists", ok: false }, { h: "f is continuous at c", ok: true }], explain: "Theorem 5, and continuity gives the limit f(c)." },
+      { kind: "multi", title: "Asymptote", prompt: `${M(`y = ${F("a", "b")}`)} is a horizontal asymptote of ${M(F("axⁿ + …", "bxᵐ + …"))} when…`, opts: [{ h: "n = m", ok: true }, { h: "n &lt; m", ok: false }, { h: "n &gt; m", ok: false }], explain: "Equal degrees: ratio of leading coefficients; n < m gives y = 0; n > m gives no horizontal asymptote." },
+    ]).slice(0, 6);
+  },
+  lenses: {
+    intuition: () => `A statement plus its context is what's really true. “Γ ⊢ φ” is how logicians write it: φ follows <i>from the hypotheses Γ</i>.`,
+    nd: () => ND([LEAF("[M ≠ 0]"), LEAF("f → L"), LEAF("g → M")], "f/g → L/M", "Quot") + "&nbsp;&nbsp;&nbsp; but &nbsp;&nbsp;&nbsp;" + ND([LEAF("f → 0"), LEAF("g → 0")], "f/g → ?", "✗ no rule"),
+    sequent: () => SEQ("M ≠ 0, f → L, g → M", "f/g → L/M") + SEQ("", "¬(x/x → 0/0)  near 0  (Lean: 0/0 = 0, but x/x → 1)"),
+    category: () => `Context = the object you work over. The same arrow ${M("x ↦ x/|x|")} out of ${M("𝓝[&gt;]0")} lands in ${M("𝓝 1")}, out of ${M("𝓝[&lt;]0")} in ${M("𝓝 (−1)")}, and out of ${M("𝓝[≠]0")} in no ${M("𝓝 L")} at all.`,
+    types: () => `A hypothesis is an argument of a function type: ${M("quotient_rule : … → (hM : M ≠ 0) → …")}. Without an inhabitant of ${M("M ≠ 0")} the function simply cannot be called.`,
+    algebra: () => `In ${M("ℤ/2")}: ${M("1 + 1 = 0")}. In Lean's ℝ: ${M("x / 0 = 0")}. In the textbook's ℝ: ${M("x/0")} is undefined. Three contexts, three “basic facts”.`,
+    lean: () => leanBlock([L('quotient_rule'), L('quotient_rule_needs_side_condition'), L('sign_no_limit'), L('ivt_root'), L('two_sided_iff_one_sided')]),
+  } },
+
+{ id: "shuffle", sec: "Review", title: "Sideways Shuffle", sym: "calc ⇄ ND ⇄ 𝐂 ⇄ Lean",
+  myth: "Myth 5 — “Forgetting is a problem.” Forgetting a form lets you meet the idea fresh. Each card shows one idea in one lens and asks for it in another.",
+  intro: `Six random cards. Each idea from §2.1–§2.6 has many faces: calculus words, inference rules, category patterns and Lean statements.`,
+  make() { return Array.from({ length: 6 }, shuffleTask); },
+  lenses: {
+    intuition: () => `Langer's “sideways learning”: learn a subject through many perspectives instead of drilling one.`,
+    nd: () => CARDS.slice(0, 3).map((c) => c.nd).join("&nbsp;&nbsp;"),
+    sequent: () => SEQ("Γ", "φ") + `<div class="sub">read: from hypotheses Γ, conclude φ.</div>`,
+    category: () => `Every card's category pattern is listed in the Symbols page.`,
+    types: () => `Propositions as types, proofs as programs.`,
+    algebra: () => `${M("lim")} respects + and ·; division needs a non-zero denominator.`,
+    lean: () => leanBlock([L('sum_rule'), L('two_sided_iff_one_sided'), L('continuous_comp_at')]),
+  } },
+];
+
+/* ───────────────────────── engine ───────────────────────── */
+let cur = null;
+const REFLECT = ["a game between two players (∀ and ∃)", "a picture: bands and windows on a graph", "an arrow in a category", "a program (proof term) in Lean", "an algebraic identity", "something from everyday life (tolerances, zooming in, …)"];
+
+function home() {
+  cur = null;
+  const cards = STAGES.map((st, i) => `<button class="card" onclick="startStage(${i})"><div class="num">${st.sec}</div><div class="ttl">${st.title}</div><div class="sym m">${st.sym}</div><div class="stars">${"★".repeat(S.stars[st.id] || 0)}${"☆".repeat(3 - (S.stars[st.id] || 0))}</div></button>`).join("");
+  $("app").innerHTML = `<div class="panel"><h1>Limit Quest</h1><div class="sub m" style="font-size:18px">∀ε &gt; 0 ∃δ &gt; 0 ∀x, 0 &lt; |x − c| &lt; δ → |f(x) − L| &lt; ε</div>
+    <p class="sub">A game built on Thomas' <i>Calculus</i>, Chapter 2 — rates of change, limit laws, the precise definition, one-sided limits, continuity and limits at infinity.
+    Every stage can be viewed through several <b>lenses</b>: intuition, natural-deduction trees, sequents, category-theory patterns, type theory, algebra and checked Lean 4 proofs.</p></div>
+    <div class="panel"><h2>Play mindfully</h2><div class="sub">Ellen Langer's <i>The Power of Mindful Learning</i> names seven myths about learning. This game answers each of them:</div>
+    <table class="t" style="width:100%"><tr><th>Myth</th><th>How Limit Quest responds</th></tr>
+    <tr><td>1. Basics must become second nature</td><td>Facts are given conditionally (“could be”, “in this context”), never as unconditional rules.</td></tr>
+    <tr><td>2. Attention = focus on one thing</td><td>Values change on every attempt, and lenses switch, so there is always something new to notice.</td></tr>
+    <tr><td>3. Delay gratification</td><td>Play first (sliders, duels), formal definitions after. No lives to lose.</td></tr>
+    <tr><td>4. Rote memorization</td><td>You build limit laws into proof trees rather than recite them.</td></tr>
+    <tr><td>5. Forgetting is a problem</td><td>The Sideways Shuffle brings ideas back in a different form.</td></tr>
+    <tr><td>6. Intelligence = knowing what's out there</td><td>Several routes count: plot, bisect, argue, prove. Many questions accept several answers.</td></tr>
+    <tr><td>7. Right and wrong answers</td><td>A wrong answer is answered with the context in which it <i>would</i> be right. The boss asks “when is it true?”.</td></tr></table></div>
+    <div class="panel"><h2>Stages</h2><div class="sub">All stages are open — wander in any order.</div><div class="grid">${cards}</div></div>`;
+  hud();
+}
+
+function startStage(i) {
+  const st = STAGES[i];
+  cur = { idx: i, st, tasks: st.make(), i: 0, step: 0, mistakes: 0, firstTry: true, done: false, fb: "", lens: choose(LENSES)[0], lensSeen: {}, multiSel: {}, slider: 1, reflected: false };
+  cur.lensSeen[cur.lens] = true;
+  renderTask();
+}
+
+function lensPanel() {
+  const st = cur.st;
+  const tabs = LENSES.map(([k, lab]) => `<button class="${cur.lens === k ? "sel" : ""}" onclick="setLens('${k}')">${lab}</button>`).join("");
+  return `<div class="panel"><h2>Lenses <span class="tag">${Object.keys(cur.lensSeen).length}/${LENSES.length} seen</span></h2><div class="tabs">${tabs}</div><div class="lensbody" id="lens">${st.lenses[cur.lens]()}</div></div>`;
+}
+function setLens(k) {
+  if (!cur) return;
+  if (!cur.lensSeen[k]) { cur.lensSeen[k] = true; S.insight += 2; save(); }
+  cur.lens = k; renderTask();
+}
+
+function taskBody(t) {
+  let h = "";
+  if (t.intro) h += `<div class="sub" style="margin-bottom:6px">${t.intro}</div>`;
+  if (t.kind === "steps") {
+    const resolved = t.steps.slice(0, cur.step).filter((s) => s.node != null).length + (cur.done ? 999 : 0);
+    if (t.visual) h += `<div class="visual">${t.visual(resolved)}</div>`;
+    if (!cur.done) { const s = t.steps[cur.step]; h += `<div class="question">${s.prompt}</div><div class="choices">${s.opts.map((o, j) => `<button onclick="pick(${j})">${o.h}</button>`).join("")}</div>`; }
+    h += `<div class="sub">step ${Math.min(cur.step + 1, t.steps.length)} / ${t.steps.length}</div>`;
+  } else {
+    h += `<div class="question">${t.prompt}</div>`;
+    if (t.kind === "number" && t.slider) h += `<div class="visual" id="vis">${t.visual(cur.slider)}</div><input type="range" min="1" max="100" value="${Math.round(cur.slider * 100)}" oninput="slide(this.value)">`;
+    if (t.kind === "number" && t.duel) h += `<div class="visual" id="vis">${t.visual(cur.lastNum)}</div>`;
+    if (t.kind === "choice" && !cur.done) h += `<div class="choices">${t.opts.map((o, j) => `<button onclick="pick(${j})">${o.h}</button>`).join("")}</div>`;
+    if (t.kind === "multi" && !cur.done) h += `<div class="choices">${t.opts.map((o, j) => `<button class="${cur.multiSel[j] ? "sel" : ""}" onclick="toggleMulti(${j})">${cur.multiSel[j] ? "☑" : "☐"} ${o.h}</button>`).join("")}</div><div class="choices"><button class="primary" onclick="submitMulti()">Check</button></div>`;
+    if (t.kind === "number" && !cur.done) h += `<div class="choices"><input type="text" id="num" placeholder="e.g. 3, -1.5, 5/3" onkeydown="if(event.key==='Enter')submitNum()"><button class="primary" onclick="submitNum()">Check</button><button onclick="reveal()">Show me</button></div>`;
+  }
+  return h;
+}
+
+function renderTask() {
+  const st = cur.st, n = cur.tasks.length;
+  if (cur.i >= n) return reflect();
+  const t = cur.tasks[cur.i];
+  const left = `<div class="panel"><div class="progress"><div style="width:${100 * cur.i / n}%"></div></div>
+    <h2>${st.sec} · ${st.title} — ${t.title || ""} <span class="tag">${cur.i + 1}/${n}</span></h2>
+    ${cur.i === 0 && cur.step === 0 && !cur.done ? `<div class="myth">${st.myth}</div><div class="sub" style="margin-bottom:8px">${st.intro}</div>` : `<div class="myth" style="opacity:.85">${st.myth}</div>`}
+    ${taskBody(t)}
+    <div id="fb">${cur.fb}</div>
+    ${cur.done ? `<div class="choices"><button class="primary" onclick="nextTask()">Next ▶</button></div>` : ""}
+    <div class="choices"><button class="small" onclick="home()">◀ Map</button></div></div>`;
+  $("app").innerHTML = `<div class="split"><div>${left}</div><div>${lensPanel()}</div></div>`;
+  hud();
+}
+
+function good(explain) {
+  S.insight += cur.firstTry ? 10 : 5; save();
+  return `<div class="feedback good">✓ ${explain || ""}</div>`;
+}
+function bad(msg, ctx) {
+  cur.mistakes++; cur.firstTry = false;
+  return `<div class="feedback bad">Not in this context. ${msg || "Try again — or open another lens for a hint."}</div>` + (ctx ? `<div class="feedback ctx">💡 <b>When could your answer be right?</b> ${ctx}</div>` : "");
+}
+function pick(j) {
+  const t = cur.tasks[cur.i]; if (cur.done) return;
+  if (t.kind === "steps") {
+    const s = t.steps[cur.step], o = s.opts[j];
+    if (o.ok) { cur.step++; cur.fb = good(s.explain); if (cur.step >= t.steps.length) cur.done = true; }
+    else cur.fb = bad(null, o.ctx);
+  } else if (t.kind === "choice") {
+    const o = t.opts[j];
+    if (o.ok) { cur.done = true; cur.fb = good(t.explain); } else cur.fb = bad(null, o.ctx);
+  }
+  renderTask();
+}
+function toggleMulti(j) { cur.multiSel[j] = !cur.multiSel[j]; renderTask(); }
+function submitMulti() {
+  const t = cur.tasks[cur.i];
+  const okAll = t.opts.every((o, j) => !!cur.multiSel[j] === o.ok);
+  if (okAll) { cur.done = true; cur.fb = good(t.explain); }
+  else {
+    const missed = t.opts.filter((o, j) => o.ok && !cur.multiSel[j]).length, extra = t.opts.filter((o, j) => !o.ok && cur.multiSel[j]).length;
+    cur.fb = bad(`${missed ? `There ${missed === 1 ? "is" : "are"} ${missed} more context${missed === 1 ? "" : "s"} where it holds. ` : ""}${extra ? `${extra} of your picks ${extra === 1 ? "is a context" : "are contexts"} where it fails.` : ""}`);
+  }
+  renderTask();
+}
+function submitNum() {
+  const t = cur.tasks[cur.i]; const el = $("num"); const v = parseNum(el ? el.value : "");
+  if (isNaN(v)) { cur.fb = `<div class="feedback bad">Please type a number (fractions like 5/3 are fine).</div>`; return renderTask(); }
+  cur.lastNum = v;
+  if (t.check(v)) { cur.done = true; cur.fb = good(t.explain); }
+  else cur.fb = bad(null, t.onWrong ? t.onWrong(v) : null);
+  renderTask();
+}
+function reveal() {
+  const t = cur.tasks[cur.i]; cur.mistakes++; cur.firstTry = false; cur.done = true;
+  cur.fb = `<div class="feedback ctx">One answer: <b>${t.answerText}</b>. ${t.explain || ""}</div>`; renderTask();
+}
+function slide(v) { cur.slider = Math.max(0.01, v / 100); const t = cur.tasks[cur.i]; if ($("vis")) $("vis").innerHTML = t.visual(cur.slider); }
+function nextTask() { cur.i++; cur.step = 0; cur.done = false; cur.fb = ""; cur.firstTry = true; cur.multiSel = {}; cur.lastNum = undefined; renderTask(); }
+
+function reflect() {
+  const st = cur.st;
+  $("app").innerHTML = `<div class="panel"><h2>${st.sec} · ${st.title} — reflection</h2>
+    <div class="question">No right answer here. Which other way of seeing today's idea feels useful? (Langer: “noticing new things” is the core of mindfulness.)</div>
+    <div class="choices">${REFLECT.map((r, j) => `<button onclick="finishStage(${j})">${r}</button>`).join("")}</div>
+    <div class="choices"><textarea id="note" rows="2" cols="60" placeholder="Optional: one thing you noticed that surprised you…"></textarea></div></div>`;
+}
+function finishStage(j) {
+  const st = cur.st, note = $("note") ? $("note").value : "";
+  const stars = cur.mistakes === 0 ? 3 : cur.mistakes <= 3 ? 2 : 1;
+  S.stars[st.id] = Math.max(S.stars[st.id] || 0, stars); S.insight += 15;
+  S.journal.push({ stage: `${st.sec} ${st.title}`, view: REFLECT[j], note: note, lenses: Object.keys(cur.lensSeen).length });
+  save();
+  $("app").innerHTML = `<div class="panel"><h2>Stage complete: ${st.title}</h2><div style="font-size:30px;color:var(--accent)">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</div>
+    <p class="sub">Mistakes: ${cur.mistakes} · Lenses explored: ${Object.keys(cur.lensSeen).length}/${LENSES.length}. Mistakes only change stars — each one came with a context in which it was right.</p>
+    <div class="choices"><button class="primary" onclick="home()">Back to the map</button><button onclick="startStage(${cur.idx})">Replay (new numbers)</button></div></div>`;
+  cur = null;
+}
+
+function codex() {
+  const rows = [["⊢", "turnstile: “from these hypotheses, conclude…” (sequents Γ ⊢ φ)"], ["∀ ∃", "for all / there exists — the two players of the ε–δ game"], ["→ ↔ ∧ ¬ ⊥", "implies, iff, and, not, contradiction"],
+    ["Π Σ", "dependent function / pair types: ∀ and ∃ under Curry–Howard"], ["λ", "function abstraction; proofs are λ-terms"], ["∘", "composition: (g ∘ f)(x) = g(f(x))"], ["⟶", "an arrow (morphism) in a category"],
+    ["≤ ⊔", "order and join of filters; ⊔ is a coproduct in the poset category"], ["⊣", "adjunction / Galois connection, e.g. map f ⊣ comap f"], ["×  ⟨f, g⟩", "product and pairing; π₁, π₂ projections"],
+    ["𝓝 c", "Lean: neighbourhood filter of c (“x → c”)"], ["𝓝[≠] c", "punctured: x → c with x ≠ c"], ["𝓝[<] c  𝓝[>] c", "one-sided: x → c⁻, x → c⁺"], ["atTop", "x → +∞"],
+    ["Tendsto f F G", "f maps the approach F into the approach G (a limit)"], ["ε, δ", "error tolerance in y, control tolerance in x"], ["[A]¹ … →I¹", "natural deduction: assume A, discharge it at rule ¹"]];
+  $("app").innerHTML = `<div class="panel"><h2>Symbols ⊢ codex</h2><table class="t codex" style="width:100%">${rows.map(([a, b]) => `<tr><td class="m">${a}</td><td style="text-align:left">${b}</td></tr>`).join("")}</table>
+    <h3>Category patterns in this game</h3><table class="t" style="width:100%">${CARDS.map((c) => `<tr><td style="text-align:left" class="m">${c.calc}</td><td style="text-align:left">${c.cat}</td></tr>`).join("")}</table>
+    <div class="choices"><button onclick="home()">◀ Map</button></div></div>`;
+}
+function journal() {
+  const items = S.journal.slice().reverse().map((j) => `<li><b>${esc(j.stage)}</b> — seen as <i>${esc(j.view)}</i>; ${j.lenses} lenses explored.${j.note ? `<br>“${esc(j.note)}”` : ""}</li>`).join("");
+  $("app").innerHTML = `<div class="panel"><h2>Mindful journal ✎</h2>${items ? `<ul class="journal">${items}</ul>` : `<p class="sub">Finish a stage to add an entry.</p>`}
+    <div class="choices"><button onclick="home()">◀ Map</button><button onclick="if(confirm('Reset all progress?')){S={insight:0,stars:{},journal:[]};save();home();}">Reset progress</button></div></div>`;
+}
+
+home();
+</script>
+</body>
+</html>

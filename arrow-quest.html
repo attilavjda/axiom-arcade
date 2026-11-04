@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arrow Quest — Monics, Epis & Zeros / 射の冒険</title>
+<style>
+  :root {
+    --bg: #14152b; --panel: #1f2142; --panel2: #2a2d5a; --ink: #f2f0ff;
+    --muted: #a9a7c9; --accent: #ffcc4d; --good: #5be49b; --bad: #ff6b81;
+    --dom: #6ec8ff; --cod: #ff9de2; --arrow: #d8d6ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: radial-gradient(circle at 30% 10%, #2b2e63, var(--bg) 60%);
+    color: var(--ink); min-height: 100vh;
+    font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic",
+                 "Noto Sans JP", Meiryo, sans-serif;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 18px; background: rgba(0,0,0,.25);
+  }
+  header .brand { font-weight: 700; letter-spacing: .5px; cursor: pointer; }
+  header .hud { display: flex; gap: 16px; align-items: center; font-size: 15px; }
+  button {
+    font: inherit; color: var(--ink); background: var(--panel2); border: 2px solid #4a4e95;
+    border-radius: 10px; padding: 9px 16px; cursor: pointer; transition: transform .08s, background .15s;
+  }
+  button:hover { background: #3a3e7a; transform: translateY(-1px); }
+  button:disabled { opacity: .4; cursor: default; transform: none; }
+  button.primary { background: var(--accent); color: #2a1d00; border-color: #ffe08f; font-weight: 700; }
+  button.small { padding: 4px 10px; font-size: 13px; }
+  main { max-width: 860px; margin: 0 auto; padding: 18px; }
+  .panel { background: var(--panel); border-radius: 16px; padding: 20px 22px; margin-bottom: 16px;
+           box-shadow: 0 6px 24px rgba(0,0,0,.3); }
+  h1 { font-size: 30px; margin: 6px 0 4px; }
+  h2 { font-size: 22px; margin: 0 0 10px; color: var(--accent); }
+  .sub { color: var(--muted); margin-bottom: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+  .stage-card { text-align: left; padding: 14px; border-radius: 14px; }
+  .stage-card .num { font-size: 13px; color: var(--muted); }
+  .stage-card .ttl { font-size: 17px; font-weight: 700; margin: 2px 0 6px; }
+  .stage-card .stars { color: var(--accent); }
+  .lesson { line-height: 1.7; }
+  .lesson b { color: var(--accent); }
+  .def { background: #191a36; border-left: 4px solid var(--accent); padding: 10px 14px;
+         border-radius: 8px; margin: 10px 0; }
+  .question { font-size: 18px; margin-bottom: 10px; line-height: 1.6; }
+  .choices { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  .feedback { margin-top: 14px; padding: 12px 14px; border-radius: 10px; line-height: 1.6; }
+  .feedback.good { background: rgba(91,228,155,.13); border: 1px solid var(--good); }
+  .feedback.bad { background: rgba(255,107,129,.13); border: 1px solid var(--bad); }
+  .progress { height: 8px; background: #11122a; border-radius: 6px; overflow: hidden; margin-bottom: 12px; }
+  .progress > div { height: 100%; background: var(--accent); transition: width .3s; }
+  svg { width: 100%; max-width: 560px; display: block; margin: 0 auto; }
+  .dot.clickable { cursor: pointer; }
+  .dot.clickable:hover circle { stroke: var(--accent); stroke-width: 4; }
+  .footer { color: var(--muted); font-size: 13px; text-align: center; margin: 20px 0; line-height: 1.6; padding: 0 12px; }
+  .hearts { color: var(--bad); letter-spacing: 2px; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 6px; background: #191a36;
+         color: var(--muted); font-size: 13px; margin-left: 6px; }
+  .center { text-align: center; }
+  .big { font-size: 60px; }
+  code { background: #191a36; padding: 1px 6px; border-radius: 5px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand" id="brand" onclick="Game.home()"></div>
+  <div class="hud">
+    <span id="hud-hearts" class="hearts"></span>
+    <span id="hud-score"></span>
+    <button class="small" id="lang-btn" onclick="Game.toggleLang()"></button>
+  </div>
+</header>
+<main id="app"></main>
+<div class="footer" id="footer"></div>
+
+<script>
+"use strict";
+/* ------------------------------------------------------------------------
+ * Arrow Quest — an MVP game based on Mac Lane, "Categories for the Working
+ * Mathematician", Chapter I, Section 5: Monics, Epis, and Zeros
+ * (圏論の基礎 第I章 5節「モニック射，エピ射，ゼロ射」).
+ * Single file, no dependencies. Open in any modern browser.
+ * --------------------------------------------------------------------- */
+
+/* ===================== Text (English / 日本語) ===================== */
+const TEXT = {
+  brand: { en: "➶ Arrow Quest", ja: "➶ 射の冒険" },
+  title: { en: "Arrow Quest: Monics, Epis & Zeros", ja: "射の冒険：モニック射・エピ射・ゼロ射" },
+  subtitle: {
+    en: "A game based on Chapter I, §5 of Mac Lane's <i>Categories for the Working Mathematician</i> — “doing without elements”.",
+    ja: "マックレーン『圏論の基礎』第I章 5節に基づくゲーム ——「要素なしで済ませる」手法を体験しよう。"
+  },
+  langBtn: { en: "日本語", ja: "English" },
+  score: { en: "Score", ja: "スコア" },
+  stage: { en: "Stage", ja: "ステージ" },
+  locked: { en: "🔒 Clear the previous stage first", ja: "🔒 前のステージをクリアしてください" },
+  begin: { en: "Begin!", ja: "はじめる！" },
+  next: { en: "Next ▶", ja: "次へ ▶" },
+  back: { en: "◀ Stage select", ja: "◀ ステージ選択" },
+  retry: { en: "Retry stage", ja: "もう一度" },
+  correct: { en: "Correct!", ja: "正解！" },
+  wrong: { en: "Not quite.", ja: "残念！" },
+  cleared: { en: "Stage cleared!", ja: "ステージクリア！" },
+  failed: { en: "Out of hearts!", ja: "ハートがなくなった！" },
+  failedMsg: { en: "Review the lesson and try again.", ja: "レッスンを見直して再挑戦しよう。" },
+  allClear: { en: "You have mastered §5! 🎓", ja: "5節を制覇した！🎓" },
+  allClearMsg: {
+    en: "Monics, epis, sections, retractions, idempotents, initial, terminal and null objects — all yours.",
+    ja: "モニック射、エピ射、断面、レトラクション、冪等射、始対象・終対象・ヌル対象 —— すべて習得！"
+  },
+  reset: { en: "Reset progress", ja: "進行状況をリセット" },
+  expansion: {
+    en: "<b>Expansion: The Exercise Dojo</b> — the Stage 6 boss in depth: all nine exercises of §5 with arrow diagrams, category-theory proof steps and Lean 4 proof steps.",
+    ja: "<b>拡張：演習道場</b> —— ステージ 6 のボスを深掘り：5節の全 9 演習問題を、射の図式・圏論の証明の段階・Lean 4 の証明の段階で攻略。"
+  },
+  expansionBtn: { en: "Enter the Exercise Dojo ▶", ja: "演習道場へ ▶" },
+  footer: {
+    en: "MVP • The game's rules (e.g. “monic in Set = injective”) are proved in Lean in <code>RequestProject/GameRules.lean</code>.",
+    ja: "MVP版 • ゲームのルール（例：「Set のモニック射＝単射」）は <code>RequestProject/GameRules.lean</code> で Lean により証明済み。"
+  },
+  monicOnly: { en: "Monic only", ja: "モニックのみ" },
+  epiOnly: { en: "Epi only", ja: "エピのみ" },
+  iso: { en: "Invertible (iso)", ja: "可逆（同型射）" },
+  neither: { en: "Neither", ja: "どちらでもない" },
+  yes: { en: "Yes", ja: "はい" },
+  no: { en: "No", ja: "いいえ" },
+  tTrue: { en: "True", ja: "正しい" },
+  tFalse: { en: "False", ja: "誤り" },
+};
+
+/* Stage definitions: title, lesson, number of rounds, round generator. */
+const STAGES = [
+  {
+    id: "classify",
+    title: { en: "Monic or Epi?", ja: "モニック？それともエピ？" },
+    blurb: { en: "Classify arrows in Set.", ja: "Set の射を分類しよう。" },
+    lesson: {
+      en: `<p>An arrow <b>m : a → b</b> is <b>monic</b> when it can always be cancelled on the left:
+           for any two parallel arrows f₁, f₂ : d → a, <i>m∘f₁ = m∘f₂</i> implies <i>f₁ = f₂</i>.</p>
+           <p>An arrow <b>h : a → b</b> is <b>epi</b> when it is right cancellable:
+           <i>g₁∘h = g₂∘h</i> implies <i>g₁ = g₂</i>.</p>
+           <div class="def">In <b>Set</b>: monic = injective (one-one), epi = surjective (onto),
+           invertible = both.</div>
+           <p>Look at each function from <span style="color:var(--dom)">a</span> to
+           <span style="color:var(--cod)">b</span> and classify it.</p>`,
+      ja: `<p>射 <b>m : a → b</b> が<b>モニック</b>であるとは、任意の二つの平行な射 f₁, f₂ : d → a について
+           <i>m∘f₁ = m∘f₂</i> から <i>f₁ = f₂</i> が従うことである（左簡約可能）。</p>
+           <p>射 <b>h : a → b</b> が<b>エピ</b>であるとは、<i>g₁∘h = g₂∘h</i> から <i>g₁ = g₂</i>
+           が従うことである（右簡約可能）。</p>
+           <div class="def"><b>Set</b> では：モニック＝単射（一対一）、エピ＝全射（上への関数）、
+           可逆＝その両方。</div>
+           <p><span style="color:var(--dom)">a</span> から <span style="color:var(--cod)">b</span>
+           への関数を見て分類しよう。</p>`
+    },
+    rounds: 6,
+    make: makeClassifyRound
+  },
+  {
+    id: "witness",
+    title: { en: "Break the Cancellation", ja: "簡約を破れ" },
+    blurb: { en: "Find witnesses that an arrow is not monic / not epi.", ja: "モニックでない・エピでない証拠を見つけよう。" },
+    lesson: {
+      en: `<p>To show <b>m</b> is <i>not</i> monic, find two <i>different</i> arrows
+           f₁, f₂ : 1 → a (two different points of a) with <i>m∘f₁ = m∘f₂</i>:
+           <b>click two points of a that land on the same point of b.</b></p>
+           <p>To show <b>h</b> is <i>not</i> epi, find a point y of b that is never hit. Then the two maps
+           g₁, g₂ : b → {0,1} that differ only at y satisfy <i>g₁∘h = g₂∘h</i>:
+           <b>click a point of b that is missed.</b></p>`,
+      ja: `<p><b>m</b> がモニック<i>でない</i>ことを示すには、<i>異なる</i>二つの射
+           f₁, f₂ : 1 → a（a の異なる二点）で <i>m∘f₁ = m∘f₂</i> となるものを見つければよい：
+           <b>b の同じ点に行く a の二点をクリック。</b></p>
+           <p><b>h</b> がエピ<i>でない</i>ことを示すには、どこからも矢印が来ない b の点 y を見つける。
+           y でだけ異なる二つの写像 g₁, g₂ : b → {0,1} は <i>g₁∘h = g₂∘h</i> を満たす：
+           <b>当たらない b の点をクリック。</b></p>`
+    },
+    rounds: 5,
+    make: makeWitnessRound
+  },
+  {
+    id: "split",
+    title: { en: "Sections & Retractions", ja: "断面とレトラクション" },
+    blurb: { en: "Build one-sided inverses.", ja: "片側逆射を作ろう。" },
+    lesson: {
+      en: `<p>A <b>right inverse</b> (or <b>section</b>) of h : a → b is r : b → a with <i>h∘r = 1<sub>b</sub></i>.
+           If h has one, h is epi. In Set every epi has a section — but not in Grp!</p>
+           <p>A <b>left inverse</b> (or <b>retraction</b>) of h is g : b → a with <i>g∘h = 1<sub>a</sub></i>.
+           Any arrow with a left inverse is monic.</p>
+           <div class="def">Build the inverse point by point: for the highlighted point of
+           <span style="color:var(--cod)">b</span>, click the point of
+           <span style="color:var(--dom)">a</span> it should go to.</div>`,
+      ja: `<p>h : a → b の<b>右逆射</b>（<b>断面</b>）とは <i>h∘r = 1<sub>b</sub></i> を満たす r : b → a である。
+           右逆射を持てば h はエピ。Set ではすべてのエピ射が断面を持つが、Grp ではそうではない！</p>
+           <p>h の<b>左逆射</b>（<b>レトラクション</b>）とは <i>g∘h = 1<sub>a</sub></i> を満たす g : b → a である。
+           左逆射を持つ射は必ずモニック。</p>
+           <div class="def">一点ずつ逆射を作ろう：光っている <span style="color:var(--cod)">b</span> の点の行き先となる
+           <span style="color:var(--dom)">a</span> の点をクリック。</div>`
+    },
+    rounds: 4,
+    make: makeSplitRound
+  },
+  {
+    id: "idem",
+    title: { en: "Idempotents", ja: "冪等射" },
+    blurb: { en: "Spot f∘f = f and split it.", ja: "f∘f = f を見抜き、分裂させよう。" },
+    lesson: {
+      en: `<p>An arrow f : b → b is <b>idempotent</b> when <i>f∘f = f</i>.
+           If g∘h = 1<sub>a</sub>, then f = h∘g is idempotent.</p>
+           <p>An idempotent <b>splits</b> when f = h∘g and g∘h = 1 for some g, h.
+           In Set every idempotent splits — through its image (Exercise 6).</p>
+           <div class="def">Decide whether f is idempotent. If it is, say how many points the
+           splitting object (the image of f) has.</div>`,
+      ja: `<p>射 f : b → b が<b>冪等</b>であるとは <i>f∘f = f</i> を満たすことである。
+           g∘h = 1<sub>a</sub> ならば f = h∘g は冪等射になる。</p>
+           <p>冪等射が<b>分裂</b>するとは、f = h∘g かつ g∘h = 1 となる g, h が存在することである。
+           Set ではすべての冪等射が分裂する —— 像を経由して（演習問題 6）。</p>
+           <div class="def">f が冪等か判定しよう。冪等なら、分裂させる対象（f の像）が何点からなるか答えよう。</div>`
+    },
+    rounds: 5,
+    make: makeIdemRound
+  },
+  {
+    id: "objects",
+    title: { en: "Initial, Terminal, Zero", ja: "始・終・ヌル対象" },
+    blurb: { en: "Special objects and zero arrows.", ja: "特別な対象とゼロ射。" },
+    lesson: {
+      en: `<p>An object t is <b>terminal</b> if every object a has <i>exactly one</i> arrow a → t.
+           An object s is <b>initial</b> if every a has exactly one arrow s → a.</p>
+           <p>A <b>null object</b> z is both initial and terminal. Then for any a, b there is a unique
+           <b>zero arrow</b> a → z → b, and any composite with a zero arrow is a zero arrow.</p>
+           <div class="def">Set: ∅ is initial, any one-point set is terminal.
+           Grp: the one-element group is both (null). Ab, R-Mod: 0 is null. Set<sub>*</sub>: the one-point set is null.</div>`,
+      ja: `<p>対象 t が<b>終対象</b>であるとは、各対象 a について a → t がちょうど一つ存在することである。
+           対象 s が<b>始対象</b>であるとは、各 a について s → a がちょうど一つ存在することである。</p>
+           <p><b>ヌル対象</b> z とは始対象かつ終対象である対象。このとき任意の a, b について一意的な
+           <b>ゼロ射</b> a → z → b が存在し、ゼロ射との合成はゼロ射になる。</p>
+           <div class="def">Set：空集合が始対象、一点集合が終対象。Grp：一元群は両方（ヌル対象）。
+           Ab、R-Mod：0 がヌル対象。Set<sub>*</sub>：一点集合がヌル対象。</div>`
+    },
+    rounds: 6,
+    make: makeObjectsRound
+  },
+  {
+    id: "boss",
+    title: { en: "Boss: The Exercises", ja: "ボス：演習問題" },
+    blurb: { en: "True or false? Facts from §5's exercises.", ja: "正しい？誤り？ 5節の演習問題より。" },
+    lesson: {
+      en: `<p>The final challenge: statements drawn from §5 and its exercises.
+           Decide whether each is <b>true</b> or <b>false</b>. The answers rest on facts proved
+           in Lean in <code>GameRules.lean</code>.</p>`,
+      ja: `<p>最後の試練：5節と演習問題からの主張。それぞれが<b>正しい</b>か<b>誤り</b>かを判定しよう。
+           答えの根拠となる事実は <code>GameRules.lean</code> で Lean により証明されている。</p>`
+    },
+    rounds: 7,
+    make: makeBossRound
+  }
+];
+
+/* ===================== Utilities ===================== */
+const rnd = (k) => Math.floor(Math.random() * k);
+const pick = (arr) => arr[rnd(arr.length)];
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const isInjective = (f) => new Set(f).size === f.length;
+const isSurjective = (f, n) => new Set(f).size === n;
+function randomFn(m, n) { return Array.from({ length: m }, () => rnd(n)); }
+function randomInjection(m, n) { return shuffle([...Array(n).keys()]).slice(0, m); }
+function randomSurjection(m, n) { let f; do { f = randomFn(m, n); } while (!isSurjective(f, n)); return f; }
+const DOM_LABELS = ["x", "y", "z", "w", "v"];
+const COD_LABELS = ["1", "2", "3", "4", "5"];
+const EN = () => Game.lang === "en";
+function t(obj) { return obj[Game.lang]; }
+
+/* ===================== SVG drawing ===================== */
+/* Draw a function f : {0..m-1} → {0..n-1} as two columns of dots with arrows.
+   opts: clickDom, clickCod, hiDom (Set), hiCod (Set), partial (b index -> a index, drawn back),
+         labels [left, right], endo (label both columns with codomain names). */
+function drawMap(f, m, n, opts = {}) {
+  const W = 520, rowH = 62;
+  const rows = Math.max(m, n, 1);
+  const H = rows * rowH + 70;
+  const xL = 130, xR = 390;
+  const yOf = (i, k) => 60 + (rows - k) * rowH / 2 + i * rowH + rowH / 2 - 10;
+  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#d8d6ff"/></marker>
+      <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#ffcc4d"/></marker>
+    </defs>`;
+  const [lab1, lab2] = opts.labels || ["a", "b"];
+  s += `<ellipse cx="${xL}" cy="${H / 2 + 12}" rx="58" ry="${Math.max(m, 1) * rowH / 2 + 16}" fill="rgba(110,200,255,.07)" stroke="#6ec8ff" stroke-dasharray="5 5"/>`;
+  s += `<ellipse cx="${xR}" cy="${H / 2 + 12}" rx="58" ry="${Math.max(n, 1) * rowH / 2 + 16}" fill="rgba(255,157,226,.07)" stroke="#ff9de2" stroke-dasharray="5 5"/>`;
+  s += `<text x="${xL}" y="28" fill="#6ec8ff" font-size="22" text-anchor="middle" font-style="italic">${lab1}</text>`;
+  s += `<text x="${xR}" y="28" fill="#ff9de2" font-size="22" text-anchor="middle" font-style="italic">${lab2}</text>`;
+  s += `<text x="${(xL + xR) / 2}" y="28" fill="#d8d6ff" font-size="20" text-anchor="middle">f ⟶</text>`;
+  if (m === 0) s += `<text x="${xL}" y="${H / 2 + 20}" fill="#6ec8ff" font-size="26" text-anchor="middle">∅</text>`;
+  for (let i = 0; i < m; i++) {
+    const y1 = yOf(i, m), y2 = yOf(f[i], n);
+    s += `<path d="M${xL + 16},${y1} C${xL + 110},${y1} ${xR - 110},${y2} ${xR - 18},${y2}" fill="none" stroke="#d8d6ff" stroke-width="2.2" marker-end="url(#ah)" opacity=".85"/>`;
+  }
+  if (opts.partial) for (const [bStr, a] of Object.entries(opts.partial)) {
+    const b = +bStr; const y1 = yOf(b, n), y2 = yOf(a, m);
+    s += `<path d="M${xR - 16},${y1 + 6} C${xR - 110},${y1 + 40} ${xL + 110},${y2 + 40} ${xL + 18},${y2 + 6}" fill="none" stroke="#ffcc4d" stroke-width="2.4" stroke-dasharray="6 4" marker-end="url(#ah2)"/>`;
+  }
+  const dot = (x, y, label, color, clickable, handler, hi) =>
+    `<g class="dot ${clickable ? "clickable" : ""}" ${clickable ? `onclick="${handler}"` : ""}>
+     <circle cx="${x}" cy="${y}" r="15" fill="${hi ? "#ffcc4d" : "#11122a"}" stroke="${color}" stroke-width="3"/>
+     <text x="${x}" y="${y + 6}" text-anchor="middle" font-size="16" fill="${hi ? "#2a1d00" : "#f2f0ff"}">${label}</text></g>`;
+  const domLab = opts.endo ? COD_LABELS : DOM_LABELS;
+  for (let i = 0; i < m; i++)
+    s += dot(xL, yOf(i, m), domLab[i], "#6ec8ff", !!opts.clickDom, `Game.onDot('dom',${i})`, opts.hiDom && opts.hiDom.has(i));
+  for (let j = 0; j < n; j++)
+    s += dot(xR, yOf(j, n), COD_LABELS[j], "#ff9de2", !!opts.clickCod, `Game.onDot('cod',${j})`, opts.hiCod && opts.hiCod.has(j));
+  return s + "</svg>";
+}
+
+/* ===================== Round generators ===================== */
+/* mode "choice": round.choices = [{label(), correct}], round.explain()
+   mode "interactive": round.onDot(side, i) calls Game.resolve(ok, msg, retryable). */
+
+function makeClassifyRound(k) {
+  // first four rounds cover each answer once (in random order); later rounds are random,
+  // occasionally featuring the empty function.
+  if (k === 0) Game.order = shuffle(["monic", "epi", "iso", "neither"]);
+  const kind = k < 4 ? Game.order[k] : pick(["monic", "epi", "iso", "neither", "empty"]);
+  let m, n, f;
+  if (kind === "monic") { n = 2 + rnd(3); m = 1 + rnd(n - 1); f = randomInjection(m, n); }
+  else if (kind === "epi") { n = 1 + rnd(3); m = n + 1 + rnd(5 - n); f = randomSurjection(m, n); }
+  else if (kind === "iso") { n = 1 + rnd(4); m = n; f = randomInjection(m, n); }
+  else if (kind === "neither") { do { m = 2 + rnd(3); n = 2 + rnd(3); f = randomFn(m, n); } while (isInjective(f) || isSurjective(f, n)); }
+  else { m = 0; n = 1 + rnd(3); f = []; }
+  const inj = isInjective(f), sur = isSurjective(f, n);
+  const answer = inj && sur ? "iso" : inj ? "monic" : sur ? "epi" : "neither";
+  const why = () => {
+    const en = [], ja = [];
+    if (m === 0) {
+      en.push("The empty function ∅ → b is (vacuously) injective, hence monic — but it hits nothing, so it is not epi.");
+      ja.push("空関数 ∅ → b は（空虚に）単射なのでモニック。しかしどこにも当たらないのでエピではない。");
+    } else {
+      if (inj) { en.push("No two points of a share an image ⇒ injective ⇒ monic."); ja.push("a のどの二点も同じ点に行かない ⇒ 単射 ⇒ モニック。"); }
+      else { en.push("Two points of a land on the same point ⇒ not injective ⇒ not monic."); ja.push("a の二点が同じ点に行く ⇒ 単射でない ⇒ モニックでない。"); }
+      if (sur) { en.push("Every point of b is hit ⇒ surjective ⇒ epi."); ja.push("b のすべての点に当たる ⇒ 全射 ⇒ エピ。"); }
+      else { en.push("Some point of b is missed ⇒ not surjective ⇒ not epi."); ja.push("当たらない b の点がある ⇒ 全射でない ⇒ エピでない。"); }
+      if (inj && sur) { en.push("Both ⇒ invertible in Set."); ja.push("両方 ⇒ Set で可逆。"); }
+    }
+    return EN() ? en.join(" ") : ja.join(" ");
+  };
+  return {
+    mode: "choice",
+    html: () => `<div class="question">${EN() ? "Classify this arrow f : a → b in <b>Set</b>." : "<b>Set</b> の射 f : a → b を分類せよ。"}</div>` + drawMap(f, m, n),
+    choices: [["monic", TEXT.monicOnly], ["epi", TEXT.epiOnly], ["iso", TEXT.iso], ["neither", TEXT.neither]]
+      .map(([key, lab]) => ({ label: () => t(lab), correct: key === answer })),
+    explain: why
+  };
+}
+
+function makeWitnessRound(k) {
+  const target = pick(["monic", "epi"]);
+  let m, n, f;
+  if (target === "monic") { do { m = 2 + rnd(3); n = 1 + rnd(4); f = randomFn(m, n); } while (isInjective(f)); }
+  else { do { m = 1 + rnd(4); n = 2 + rnd(3); f = randomFn(m, n); } while (isSurjective(f, n)); }
+  const round = {
+    mode: "interactive",
+    sel: [],
+    html: () => {
+      const q = target === "monic"
+        ? (EN() ? "Show that f is <b>not monic</b>: click two different points of <i>a</i> with the same image."
+                : "f が<b>モニックでない</b>ことを示せ：同じ点に行く <i>a</i> の異なる二点をクリック。")
+        : (EN() ? "Show that f is <b>not epi</b>: click a point of <i>b</i> that is never hit."
+                : "f が<b>エピでない</b>ことを示せ：どこからも当たらない <i>b</i> の点をクリック。");
+      return `<div class="question">${q}</div>` +
+        drawMap(f, m, n, { clickDom: target === "monic", clickCod: target === "epi", hiDom: new Set(round.sel) });
+    },
+    onDot: (side, i) => {
+      if (target === "epi" && side === "cod") {
+        if (!f.includes(i)) Game.resolve(true, EN()
+          ? `Point ${COD_LABELS[i]} is missed. Let g₁, g₂ : b → {0,1} agree everywhere except at ${COD_LABELS[i]}. Then g₁∘f = g₂∘f but g₁ ≠ g₂, so f is not right cancellable.`
+          : `点 ${COD_LABELS[i]} には当たらない。g₁, g₂ : b → {0,1} を ${COD_LABELS[i]} 以外で一致させると g₁∘f = g₂∘f だが g₁ ≠ g₂。よって f は右簡約可能でない。`);
+        else Game.resolve(false, EN() ? `Point ${COD_LABELS[i]} is hit by an arrow. Look for a point with no incoming arrow.`
+                                      : `点 ${COD_LABELS[i]} には矢印が来ている。矢印が来ない点を探そう。`, true);
+      } else if (target === "monic" && side === "dom") {
+        if (round.sel.includes(i)) return;
+        round.sel.push(i);
+        if (round.sel.length < 2) { Game.rerender(); return; }
+        const [p, q] = round.sel;
+        if (f[p] === f[q]) Game.resolve(true, EN()
+          ? `f₁ : 1 → a picking ${DOM_LABELS[p]} and f₂ : 1 → a picking ${DOM_LABELS[q]} are different, yet f∘f₁ = f∘f₂ = ${COD_LABELS[f[p]]}. So f cannot be cancelled on the left.`
+          : `${DOM_LABELS[p]} を選ぶ f₁ : 1 → a と ${DOM_LABELS[q]} を選ぶ f₂ : 1 → a は異なるが f∘f₁ = f∘f₂ = ${COD_LABELS[f[p]]}。よって f は左簡約できない。`);
+        else Game.resolve(false, EN()
+          ? `${DOM_LABELS[p]} ↦ ${COD_LABELS[f[p]]} but ${DOM_LABELS[q]} ↦ ${COD_LABELS[f[q]]}: different images.`
+          : `${DOM_LABELS[p]} ↦ ${COD_LABELS[f[p]]}、${DOM_LABELS[q]} ↦ ${COD_LABELS[f[q]]}：行き先が違う。`, true);
+      }
+    },
+    resetPartial: () => { round.sel = []; }
+  };
+  return round;
+}
+
+function makeSplitRound(k) {
+  const kind = k % 2 === 0 ? "section" : "retraction";
+  let m, n, f;
+  if (kind === "section") { n = 2 + rnd(2); m = n + 1 + rnd(2); f = randomSurjection(m, n); }
+  else { m = 2 + rnd(2); n = m + 1 + rnd(2); f = randomInjection(m, n); }
+  const round = {
+    mode: "interactive",
+    built: {}, cur: 0,
+    html: () => {
+      const c = COD_LABELS[Math.min(round.cur, n - 1)];
+      const q = kind === "section"
+        ? (EN() ? `f is epi. Build a <b>section</b> r : b → a with <b>f∘r = 1<sub>b</sub></b>. Where should <b>${c}</b> go?`
+                : `f はエピ。<b>f∘r = 1<sub>b</sub></b> を満たす<b>断面</b> r : b → a を作れ。<b>${c}</b> の行き先は？`)
+        : (EN() ? `f is monic. Build a <b>retraction</b> g : b → a with <b>g∘f = 1<sub>a</sub></b>. Where should <b>${c}</b> go?`
+                : `f はモニック。<b>g∘f = 1<sub>a</sub></b> を満たす<b>レトラクション</b> g : b → a を作れ。<b>${c}</b> の行き先は？`);
+      return `<div class="question">${q}</div>` +
+        drawMap(f, m, n, { clickDom: round.cur < n, hiCod: new Set(round.cur < n ? [round.cur] : []), partial: round.built });
+    },
+    onDot: (side, i) => {
+      if (side !== "dom" || round.cur >= n) return;
+      const b = round.cur;
+      const pre = f.indexOf(b);
+      const ok = kind === "section" ? f[i] === b : (pre === -1 || pre === i);
+      if (!ok) {
+        const msg = kind === "section"
+          ? (EN() ? `f(${DOM_LABELS[i]}) = ${COD_LABELS[f[i]]} ≠ ${COD_LABELS[b]}, so f∘r would not fix ${COD_LABELS[b]}. Pick a preimage of ${COD_LABELS[b]}.`
+                  : `f(${DOM_LABELS[i]}) = ${COD_LABELS[f[i]]} ≠ ${COD_LABELS[b]} なので f∘r が ${COD_LABELS[b]} を固定しない。${COD_LABELS[b]} の逆像の点を選ぼう。`)
+          : (EN() ? `${COD_LABELS[b]} = f(${DOM_LABELS[pre]}), so g must send it back to ${DOM_LABELS[pre]}.`
+                  : `${COD_LABELS[b]} = f(${DOM_LABELS[pre]}) なので g はそれを ${DOM_LABELS[pre]} に戻さなければならない。`);
+        Game.resolve(false, msg, true);
+        return;
+      }
+      round.built[b] = i;
+      round.cur++;
+      Game.feedback = null;
+      if (round.cur >= n) {
+        Game.resolve(true, kind === "section"
+          ? (EN() ? "f∘r = 1<sub>b</sub> ✔. Having a right inverse makes f epi. (A section is usually not unique — other choices could also work.)"
+                  : "f∘r = 1<sub>b</sub> ✔。右逆射を持つので f はエピ。（断面は普通一意的でない —— 別の選び方でもよい。）")
+          : (EN() ? "g∘f = 1<sub>a</sub> ✔. Having a left inverse makes f monic. (Points outside the image may go anywhere!)"
+                  : "g∘f = 1<sub>a</sub> ✔。左逆射を持つので f はモニック。（像の外の点はどこへ送ってもよい！）"));
+      } else Game.rerender();
+    }
+  };
+  return round;
+}
+
+function makeIdemRound(k) {
+  const n = 3 + rnd(2);
+  const idem = Math.random() < 0.55;
+  let f;
+  if (idem) {
+    const img = shuffle([...Array(n).keys()]).slice(0, 1 + rnd(n - 1));
+    f = [...Array(n).keys()].map(x => img.includes(x) ? x : pick(img));
+  } else {
+    do { f = randomFn(n, n); } while (f.every(y => f[y] === y));
+  }
+  const imgSize = new Set(f).size;
+  const bad = f.findIndex(y => f[y] !== y);
+  const round = { mode: "choice", phase: 1 };
+  round.html = () => {
+    const q = round.phase === 1
+      ? (EN() ? "Is f : b → b <b>idempotent</b> (f∘f = f)?" : "f : b → b は<b>冪等</b>（f∘f = f）か？")
+      : (EN() ? "In Set it splits as f = h∘g with g∘h = 1. How many points does the splitting object have?"
+              : "Set では f = h∘g, g∘h = 1 と分裂する。分裂させる対象は何点からなる？");
+    return `<div class="question">${q}</div>` + drawMap(f, n, n, { labels: ["b", "b"], endo: true });
+  };
+  const phase2 = [...Array(n).keys()].map(j => ({ label: () => String(j + 1), correct: j + 1 === imgSize }));
+  round.choices = [
+    { label: () => t(TEXT.yes), correct: idem },
+    { label: () => t(TEXT.no), correct: !idem }
+  ];
+  round.explain = () => {
+    if (round.phase === 1 && !idem) {
+      const x = bad, y = f[x];
+      return EN()
+        ? `f(${COD_LABELS[x]}) = ${COD_LABELS[y]} but f(f(${COD_LABELS[x]})) = ${COD_LABELS[f[y]]}, so f∘f ≠ f.`
+        : `f(${COD_LABELS[x]}) = ${COD_LABELS[y]} だが f(f(${COD_LABELS[x]})) = ${COD_LABELS[f[y]]} なので f∘f ≠ f。`;
+    }
+    if (round.phase === 1)
+      return EN() ? "Every point in the image of f is fixed by f, so f∘f = f." : "f の像の点はすべて f で固定されるので f∘f = f。";
+    return EN()
+      ? `The image of f has ${imgSize} point(s). Take g : b → image (x ↦ f(x)) and h : image → b the inclusion: h∘g = f and g∘h = 1.`
+      : `f の像は ${imgSize} 点。g : b → 像（x ↦ f(x)）と包含 h : 像 → b をとれば h∘g = f かつ g∘h = 1。`;
+  };
+  // after a correct "yes", continue to the splitting question instead of ending the round
+  round.onCorrect = () => {
+    if (round.phase === 1 && idem) { round.phase = 2; round.choices = phase2; return "continue"; }
+    return "done";
+  };
+  return round;
+}
+
+const OBJECT_QUESTIONS = [
+  { q: { en: "In <b>Set</b>, which object is <b>initial</b>?", ja: "<b>Set</b> で<b>始対象</b>はどれ？" },
+    a: [["∅", true], ["{∗}", false], ["ℕ", false]],
+    e: { en: "From ∅ there is exactly one function (the empty function) to every set.", ja: "∅ からは任意の集合へちょうど一つの関数（空関数）がある。" } },
+  { q: { en: "In <b>Set</b>, which object is <b>terminal</b>?", ja: "<b>Set</b> で<b>終対象</b>はどれ？" },
+    a: [["∅", false], ["{∗}", true], ["{0,1}", false]],
+    e: { en: "Every set has exactly one function to a one-point set: send everything to ∗.", ja: "任意の集合から一点集合へはちょうど一つの関数がある：すべてを ∗ へ送る。" } },
+  { q: { en: "In <b>Grp</b>, the one-element group is…", ja: "<b>Grp</b> で一元群は…" },
+    a: [[{ en: "initial only", ja: "始対象のみ" }, false], [{ en: "terminal only", ja: "終対象のみ" }, false], [{ en: "null (both)", ja: "ヌル対象（両方）" }, true]],
+    e: { en: "There is exactly one homomorphism out of it and exactly one into it.", ja: "一元群からも一元群へも準同型はちょうど一つ。" } },
+  { q: { en: "In <b>Rng</b> (rings with 1), the ring ℤ is…", ja: "<b>Rng</b>（単位元をもつ環）で環 ℤ は…" },
+    a: [[{ en: "initial", ja: "始対象" }, true], [{ en: "terminal", ja: "終対象" }, false], [{ en: "null", ja: "ヌル対象" }, false]],
+    e: { en: "ℤ → R is forced: 1 must go to the unit of R. (The zero ring is terminal.)", ja: "ℤ → R は 1 を R の単位元へ送るので一意に決まる。（零環が終対象。）" } },
+  { q: { en: "In <b>Ab</b>, the zero group 0 is…", ja: "<b>Ab</b> で零群 0 は…" },
+    a: [[{ en: "initial only", ja: "始対象のみ" }, false], [{ en: "null object", ja: "ヌル対象" }, true], [{ en: "neither", ja: "どちらでもない" }, false]],
+    e: { en: "Ab and R-Mod have null objects, namely 0.", ja: "Ab と R-Mod はヌル対象（すなわち 0）を持つ。" } },
+  { q: { en: "In <b>Set<sub>*</sub></b> (pointed sets), the one-point set {∗} is…", ja: "<b>Set<sub>*</sub></b>（基点付き集合）で一点集合 {∗} は…" },
+    a: [[{ en: "terminal only", ja: "終対象のみ" }, false], [{ en: "null object", ja: "ヌル対象" }, true], [{ en: "initial only", ja: "始対象のみ" }, false]],
+    e: { en: "A base-point-preserving map out of {∗} must send ∗ to the base point: unique. Into {∗}: unique too.", ja: "{∗} からの基点を保つ写像は ∗ を基点へ送るしかなく一意。{∗} への写像も一意。" } },
+  { q: { en: "If t is terminal, how many arrows t → t are there?", ja: "t が終対象のとき、射 t → t はいくつある？" },
+    a: [["0", false], [{ en: "exactly one: the identity", ja: "ちょうど一つ：恒等射" }, true], [{ en: "it depends", ja: "場合による" }, false]],
+    e: { en: "There is exactly one arrow into t from any object — including t itself, and 1<sub>t</sub> is one.", ja: "任意の対象から t への射はちょうど一つ —— t 自身からも。1<sub>t</sub> がそれ。" } },
+  { q: { en: "In a category with a null object, a composite g∘0 with a zero arrow is…", ja: "ヌル対象をもつ圏で、ゼロ射との合成 g∘0 は…" },
+    a: [[{ en: "a zero arrow", ja: "ゼロ射" }, true], [{ en: "equal to g", ja: "g に等しい" }, false], [{ en: "undefined", ja: "定義されない" }, false]],
+    e: { en: "a → z → b → c factors through z, so it is the zero arrow a → c.", ja: "a → z → b → c は z を経由するので、ゼロ射 a → c である。" } },
+  { q: { en: "Two terminal objects t, t′ of a category are always…", ja: "圏の二つの終対象 t, t′ は常に…" },
+    a: [[{ en: "equal", ja: "等しい" }, false], [{ en: "isomorphic", ja: "同型" }, true], [{ en: "unrelated", ja: "無関係" }, false]],
+    e: { en: "The unique arrows t → t′ and t′ → t compose to identities, by uniqueness.", ja: "一意的な射 t → t′ と t′ → t の合成は一意性により恒等射になる。" } },
+  { q: { en: "Does <b>Set</b> have a null object?", ja: "<b>Set</b> はヌル対象をもつか？" },
+    a: [[{ en: "Yes, ∅", ja: "はい、∅" }, false], [{ en: "Yes, {∗}", ja: "はい、{∗}" }, false], [{ en: "No", ja: "いいえ" }, true]],
+    e: { en: "∅ is not terminal (no function {∗} → ∅) and {∗} is not initial (two maps {∗} → {0,1}).", ja: "∅ は終対象でない（{∗} → ∅ がない）、{∗} は始対象でない（{∗} → {0,1} が二つある）。" } },
+];
+
+function drawFrom(bank, k) {
+  if (k === 0) Game.used = new Set();
+  let idx;
+  do { idx = rnd(bank.length); } while (Game.used.has(idx) && Game.used.size < bank.length);
+  Game.used.add(idx);
+  return bank[idx];
+}
+
+function makeObjectsRound(k) {
+  const item = drawFrom(OBJECT_QUESTIONS, k);
+  const opts = shuffle(item.a);
+  return {
+    mode: "choice",
+    html: () => `<div class="question">${t(item.q)}</div>`,
+    choices: opts.map(([lab, ok]) => ({ label: () => (typeof lab === "string" ? lab : t(lab)), correct: ok })),
+    explain: () => t(item.e)
+  };
+}
+
+const BOSS_QUESTIONS = [
+  { q: { en: "The composite of two monics is monic.", ja: "二つのモニック射の合成はモニックである。" }, ans: true,
+    e: { en: "Exercise 2: cancel the outer arrow first, then the inner one.", ja: "演習問題 2：外側の射を先に、次に内側の射を簡約する。" } },
+  { q: { en: "The composite of two epis is epi.", ja: "二つのエピ射の合成はエピである。" }, ans: true,
+    e: { en: "Exercise 2, dually.", ja: "演習問題 2 の双対。" } },
+  { q: { en: "If g∘f is monic, then f is monic.", ja: "g∘f がモニックならば f はモニックである。" }, ans: true,
+    e: { en: "Exercise 3: f∘u = f∘v ⇒ g∘f∘u = g∘f∘v ⇒ u = v.", ja: "演習問題 3：f∘u = f∘v ⇒ g∘f∘u = g∘f∘v ⇒ u = v。" } },
+  { q: { en: "If g∘f is monic, then g is monic.", ja: "g∘f がモニックならば g はモニックである。" }, ans: false,
+    e: { en: "Exercise 3: in Set take f : 1 → 2 and g : 2 → 1. Then g∘f = 1 is monic but g is not.", ja: "演習問題 3：Set で f : 1 → 2, g : 2 → 1 とすると g∘f = 1 はモニックだが g はそうでない。" } },
+  { q: { en: "The inclusion ℤ → ℚ is epi in Rng.", ja: "包含 ℤ → ℚ は Rng でエピである。" }, ans: true,
+    e: { en: "Exercise 4: a ring map out of ℚ is determined by its values on ℤ — even though ℤ → ℚ is not onto!", ja: "演習問題 4：ℚ からの環準同型は ℤ 上の値で決まる —— ℤ → ℚ は全射でないのに！" } },
+  { q: { en: "In Rng, every epi is surjective.", ja: "Rng ではすべてのエピ射は全射である。" }, ans: false,
+    e: { en: "ℤ → ℚ is epi but not surjective.", ja: "ℤ → ℚ はエピだが全射でない。" } },
+  { q: { en: "In Set, every epi has a right inverse (section).", ja: "Set ではすべてのエピ射が右逆射（断面）をもつ。" }, ans: true,
+    e: { en: "Choose a preimage for each point (axiom of choice).", ja: "各点について逆像の点を選ぶ（選択公理）。" } },
+  { q: { en: "In Grp, every epi has a right inverse.", ja: "Grp ではすべてのエピ射が右逆射をもつ。" }, ans: false,
+    e: { en: "ℤ → ℤ/2 is onto, but every homomorphism ℤ/2 → ℤ is zero, so there is no section.", ja: "ℤ → ℤ/2 は全射だが、準同型 ℤ/2 → ℤ はすべて零なので断面はない。" } },
+  { q: { en: "Any arrow with a left inverse is monic.", ja: "左逆射をもつ射はすべてモニックである。" }, ans: true,
+    e: { en: "If g∘h = 1 and h∘u = h∘v then u = g∘h∘u = g∘h∘v = v.", ja: "g∘h = 1 かつ h∘u = h∘v ならば u = g∘h∘u = g∘h∘v = v。" } },
+  { q: { en: "In Set, every idempotent splits.", ja: "Set ではすべての冪等射が分裂する。" }, ans: true,
+    e: { en: "Exercise 6: split through the image.", ja: "演習問題 6：像を経由して分裂させる。" } },
+  { q: { en: "If T is faithful and T f is monic, then f is monic.", ja: "T が忠実で T f がモニックならば f はモニックである。" }, ans: true,
+    e: { en: "Exercise 9: f∘u = f∘v ⇒ Tf∘Tu = Tf∘Tv ⇒ Tu = Tv ⇒ u = v.", ja: "演習問題 9：f∘u = f∘v ⇒ Tf∘Tu = Tf∘Tv ⇒ Tu = Tv ⇒ u = v。" } },
+  { q: { en: "An arrow that is both monic and epi must be invertible (in every category).", ja: "モニックかつエピな射は（どの圏でも）可逆である。" }, ans: false,
+    e: { en: "Exercise 1: ℤ → ℚ in Rng is monic and epi but not invertible.", ja: "演習問題 1：Rng の ℤ → ℚ はモニックかつエピだが可逆でない。" } },
+];
+
+function makeBossRound(k) {
+  const item = drawFrom(BOSS_QUESTIONS, k);
+  return {
+    mode: "choice",
+    html: () => `<div class="question">${EN() ? "True or false?" : "正しい？誤り？"}<br><b>${t(item.q)}</b></div>`,
+    choices: [{ label: () => t(TEXT.tTrue), correct: item.ans }, { label: () => t(TEXT.tFalse), correct: !item.ans }],
+    explain: () => t(item.e)
+  };
+}
+
+/* ===================== Game engine ===================== */
+function loadJSON(key, dflt) { try { return JSON.parse(localStorage.getItem(key)) ?? dflt; } catch (e) { return dflt; } }
+const Game = {
+  lang: loadJSON("aq-lang", "en"),
+  progress: loadJSON("aq-progress", {}),   // stageId -> best stars
+  score: loadJSON("aq-score", 0),
+  view: "home", stageIdx: 0, roundIdx: 0, round: null, hearts: 3, mistakes: 0,
+  locked: false, feedback: null, used: new Set(), order: [],
+
+  save() {
+    try {
+      localStorage.setItem("aq-lang", JSON.stringify(this.lang));
+      localStorage.setItem("aq-progress", JSON.stringify(this.progress));
+      localStorage.setItem("aq-score", JSON.stringify(this.score));
+    } catch (e) { /* storage unavailable: play without saving */ }
+  },
+  toggleLang() { this.lang = this.lang === "en" ? "ja" : "en"; this.save(); this.rerender(); },
+  resetProgress() { this.progress = {}; this.score = 0; this.save(); this.rerender(); },
+  unlocked(i) { return i === 0 || this.progress[STAGES[i - 1].id] !== undefined; },
+
+  home() { this.view = "home"; this.rerender(); },
+  openStage(i) { if (!this.unlocked(i)) return; this.stageIdx = i; this.view = "lesson"; this.rerender(); },
+  beginStage() { this.view = "round"; this.roundIdx = 0; this.hearts = 3; this.mistakes = 0; this.newRound(); },
+  newRound() {
+    this.locked = false; this.feedback = null;
+    this.round = STAGES[this.stageIdx].make(this.roundIdx);
+    this.rerender();
+  },
+  choose(i) {
+    if (this.locked) return;
+    const r = this.round;
+    const msg = r.explain();
+    if (r.choices[i].correct) {
+      const cont = r.onCorrect ? r.onCorrect() : "done";
+      if (cont === "continue") {            // multi-part round: partial credit, keep going
+        this.score += 5; this.feedback = { ok: true, msg }; this.save(); this.rerender(); return;
+      }
+      this.resolve(true, msg);
+    } else this.resolve(false, msg);
+  },
+  onDot(side, i) { if (!this.locked && this.round && this.round.onDot) this.round.onDot(side, i); },
+  /* ok: success; msg: explanation; retryable: the player may keep trying the same round */
+  resolve(ok, msg, retryable = false) {
+    if (ok) { this.score += 10; this.locked = true; }
+    else {
+      this.hearts--; this.mistakes++;
+      if (this.hearts <= 0) { this.locked = true; this.feedback = { ok: false, msg }; this.save(); this.view = "failed"; this.rerender(); return; }
+      if (retryable) { if (this.round.resetPartial) this.round.resetPartial(); }
+      else this.locked = true;
+    }
+    this.feedback = { ok, msg };
+    this.save(); this.rerender();
+  },
+  nextRound() {
+    this.roundIdx++;
+    if (this.roundIdx >= STAGES[this.stageIdx].rounds) {
+      const stars = this.mistakes === 0 ? 3 : this.mistakes === 1 ? 2 : 1;
+      const id = STAGES[this.stageIdx].id;
+      this.progress[id] = Math.max(this.progress[id] || 0, stars);
+      this.lastStars = stars;
+      this.save();
+      this.view = this.stageIdx === STAGES.length - 1 ? "victory" : "cleared";
+      this.rerender(); return;
+    }
+    this.newRound();
+  },
+
+  rerender() {
+    document.documentElement.lang = this.lang;
+    document.getElementById("brand").innerHTML = t(TEXT.brand);
+    document.getElementById("lang-btn").textContent = t(TEXT.langBtn);
+    document.getElementById("hud-score").textContent = `${t(TEXT.score)}: ${this.score}`;
+    const h = Math.min(3, Math.max(this.hearts, 0));
+    document.getElementById("hud-hearts").textContent = this.view === "round" ? "♥".repeat(h) + "♡".repeat(3 - h) : "";
+    document.getElementById("footer").innerHTML = t(TEXT.footer);
+    document.getElementById("app").innerHTML = this["render_" + this.view]();
+  },
+
+  render_home() {
+    const cards = STAGES.map((s, i) => {
+      const st = this.progress[s.id];
+      const stars = st ? "★".repeat(st) + "☆".repeat(3 - st) : "☆☆☆";
+      const un = this.unlocked(i);
+      return `<button class="stage-card" ${un ? "" : "disabled"} onclick="Game.openStage(${i})">
+        <div class="num">${t(TEXT.stage)} ${i + 1}</div>
+        <div class="ttl">${t(s.title)}</div>
+        <div class="sub" style="margin:0 0 6px">${un ? t(s.blurb) : t(TEXT.locked)}</div>
+        <div class="stars">${stars}</div></button>`;
+    }).join("");
+    return `<div class="panel center"><div class="big">➶</div><h1>${t(TEXT.title)}</h1>
+      <div class="sub">${t(TEXT.subtitle)}</div></div>
+      <div class="grid">${cards}</div>
+      <div class="panel"><div class="sub" style="margin:0 0 8px">${t(TEXT.expansion)}</div><a href="boss.html"><button class="primary">${t(TEXT.expansionBtn)}</button></a></div>
+      <div class="choices" style="justify-content:flex-end"><button class="small" onclick="Game.resetProgress()">${t(TEXT.reset)}</button></div>`;
+  },
+  render_lesson() {
+    const s = STAGES[this.stageIdx];
+    return `<div class="panel lesson"><h2>${t(TEXT.stage)} ${this.stageIdx + 1}: ${t(s.title)}</h2>${t(s.lesson)}
+      <div class="choices"><button onclick="Game.home()">${t(TEXT.back)}</button>
+      <button class="primary" onclick="Game.beginStage()">${t(TEXT.begin)}</button></div>
+      ${s.id === "boss" ? `<div class="def" style="margin-top:14px">${t(TEXT.expansion)}<div class="choices"><a href="boss.html"><button class="small">${t(TEXT.expansionBtn)}</button></a></div></div>` : ""}</div>`;
+  },
+  render_round() {
+    const s = STAGES[this.stageIdx], r = this.round;
+    const pct = 100 * this.roundIdx / s.rounds;
+    let body = r.html();
+    if (r.mode === "choice")
+      body += `<div class="choices">${r.choices.map((c, i) =>
+        `<button ${this.locked ? "disabled" : ""} onclick="Game.choose(${i})">${c.label()}</button>`).join("")}</div>`;
+    let fb = "";
+    if (this.feedback) {
+      const f = this.feedback;
+      fb = `<div class="feedback ${f.ok ? "good" : "bad"}"><b>${f.ok ? t(TEXT.correct) : t(TEXT.wrong)}</b> ${f.msg}</div>`;
+    }
+    if (this.locked) fb += `<div class="choices"><button class="primary" onclick="Game.nextRound()">${t(TEXT.next)}</button></div>`;
+    return `<div class="panel"><h2>${t(s.title)} <span class="tag">${this.roundIdx + 1} / ${s.rounds}</span></h2>
+      <div class="progress"><div style="width:${pct}%"></div></div>${body}${fb}</div>
+      <div class="choices"><button class="small" onclick="Game.openStage(${this.stageIdx})">${t(TEXT.back)}</button></div>`;
+  },
+  render_cleared() {
+    return `<div class="panel center"><div class="big">${"★".repeat(this.lastStars)}${"☆".repeat(3 - this.lastStars)}</div>
+      <h1>${t(TEXT.cleared)}</h1><div class="choices" style="justify-content:center">
+      <button onclick="Game.home()">${t(TEXT.back)}</button>
+      <button class="primary" onclick="Game.openStage(${this.stageIdx + 1})">${t(TEXT.next)}</button></div></div>`;
+  },
+  render_failed() {
+    const f = this.feedback;
+    return `<div class="panel center"><div class="big">💔</div><h1>${t(TEXT.failed)}</h1>
+      ${f ? `<div class="feedback bad" style="text-align:left">${f.msg}</div>` : ""}
+      <div class="sub" style="margin-top:12px">${t(TEXT.failedMsg)}</div>
+      <div class="choices" style="justify-content:center"><button onclick="Game.home()">${t(TEXT.back)}</button>
+      <button class="primary" onclick="Game.openStage(${this.stageIdx})">${t(TEXT.retry)}</button></div></div>`;
+  },
+  render_victory() {
+    return `<div class="panel center"><div class="big">🎓</div><h1>${t(TEXT.allClear)}</h1>
+      <div class="sub">${t(TEXT.allClearMsg)}</div><div class="big" style="font-size:40px">${t(TEXT.score)}: ${this.score}</div>
+      <div class="choices" style="justify-content:center"><button onclick="Game.home()">${t(TEXT.back)}</button>
+      <a href="boss.html"><button class="primary">${t(TEXT.expansionBtn)}</button></a></div></div>`;
+  }
+};
+
+Game.rerender();
+</script>
+</body>
+</html>

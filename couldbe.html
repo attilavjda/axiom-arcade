@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Could-Be Ω: truth in a topos (Goldblatt, Topoi ch. 4, with Langer's mindful learning)</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #e9e2cc; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas {
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    width: min(96vw, calc(96vh * 320 / 200)); aspect-ratio: 320 / 200;
+    touch-action: none; box-shadow: 0 0 0 4px #2b2350, 0 8px 32px #0003; cursor: default;
+  }
+  canvas.hot { cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="screen" aria-label="Could-Be Omega, a pixel game about subobject classifiers and truth values in a topos. Fully playable with the keyboard; press ? for help."></canvas>
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// COULD-BE Ω: truth in a topos.
+//   Robert Goldblatt, "Topoi: The Categorial Analysis of Logic", chapter 4
+//   (§4.1 subobjects, §4.2 the subobject classifier, §4.4 Set² and Set→, §4.5 bundles,
+//    §4.6 monoid actions, §4.7 power objects), played through the seven myths of
+//   Ellen J. Langer, "The Power of Mindful Learning".
+// Built from game/src_couldbe/ by build.py. Every round is generated at random.
+// ---------------------------------------------------------------------------
+const FONT = {
+  A:"010101111101101", B:"110101110101110", C:"011100100100011", D:"110101101101110",
+  E:"111100110100111", F:"111100110100100", G:"011100101101011", H:"101101111101101",
+  I:"111010010010111", J:"001001001101010", K:"101101110101101", L:"100100100100111",
+  M:"101111111101101", N:"110101101101101", O:"010101101101010", P:"110101110100100",
+  Q:"010101101110011", R:"110101110101101", S:"011100010001110", T:"111010010010010",
+  U:"101101101101111", V:"101101101101010", W:"101101111111101", X:"101101010101101",
+  Y:"101101010010010", Z:"111001010100111",
+  "0":"111101101101111", "1":"010110010010111", "2":"110001010100111", "3":"110001010001110",
+  "4":"101101111001001", "5":"111100110001110", "6":"011100111101111", "7":"111001010010010",
+  "8":"111101111101111", "9":"111101111001110",
+  " ":"000000000000000", ":":"000010000010000", "-":"000000111000000", ">":"100010001010100",
+  "<":"001010100010001", "!":"010010010000010", ".":"000000000000010", ",":"000000000010100",
+  "(":"001010010010001", ")":"100010010010100", "/":"001001010100100", "?":"110001010000010",
+  "=":"000111000111000", "+":"000010111010000", "'":"010010000000000", "|":"010010010010010",
+  "*":"101010101000000", "·":"000000010000000", "{":"011010110010011", "}":"110010011010110",
+  "a":"000011101101011", "b":"100110101101110", "f":"011010111010010", "i":"010000010010010",
+  "x":"000000101010101", "y":"000101101011110",
+  "Σ":"111100010100111", "Π":"111101101101101", "∃":"111001111001111", "∀":"101101111101010",
+  "σ":"000111101101010", "↓":"0010000100101010111000100", "∘":"000010101010000", "⊆":"011100011000111",
+  "⊣":"001001111001001", "⁻":"000111000000000", "¹":"010110010000000", "∈":"011100111100011",
+  "≠":"001111010111100", "✓":"000001001101010",
+  "→":"0010000010111110001000100", "←":"0010001000111110100000100",
+  "ℰ":"0111010000111001000001111",
+};
+Object.assign(FONT, {
+  "g":"011101011001110", "h":"100100110101101", "e":"000011111100011",
+  "ε":"011100110100011", "[":"110100100100110", "]":"011001001001011",
+  "≅":"0110110010111110000011111", "⇒":"0010011110000011111000100",
+  "↦":"1010010010111111001010100",
+  "≤":"0011011000001100000011110", "≥":"0110000011011000000001111",
+  "⇄":"0001011111000001111101000", "⇉":"0001011111000001111100010",
+  "⇐":"0010001111100000111100100", "×":"000101010101000",
+  "Ω":"0111010001100010101011011", "∅":"0000101110101010111010000",
+  "§":"011110101011110",
+});
+// ---- extra glyphs for this game: lower-case letters and a few symbols ----
+Object.assign(FONT, {
+  "c":"000011100100011", "d":"001011101101011", "k":"100101110101101", "l":"100100100100011",
+  "m":"000111111101101", "n":"000110101101101", "o":"000010101101010", "p":"000110101110100",
+  "q":"000011101011001", "r":"000011100100100", "s":"000011110011110", "t":"010111010010011",
+  "u":"000101101101011", "v":"000101101101010", "w":"000101101111111", "z":"000111001100111",
+  "j":"001000001001110",
+  "⟨":"010100100100010", "⟩":"010001001001010", "∪":"000101101101111", "∩":"000111101101101",
+  "λ":"100010010101101", "^":"010101000000000", "↪":"0000000010100111010100010",
+});
+
+Object.assign(FONT, {
+  "★":"0010001110111110111001010", "♪":"0011100101001011100011000",
+  "~":"000000011110000", "&":"010101010101011", ";":"000010000010100",
+  "↔":"0000001010111110101000000", "·":"000000010000000", "Σ":"111100010100111",
+});
+
+// ---- a few more glyphs for this game ----
+Object.assign(FONT, {
+  "↑":"0010001110101010010000100", "↠":"0010000010111110001000101", "#":"101111101111101",
+});
+
+// ---- glyphs added for Could-Be Ω ----
+Object.assign(FONT, {
+  "∞":"0000001010101010101000000", "ψ":"101101111010010", "χ":"000101010101101",
+  "≃":"0100010101000101111100000", "⊔":"101101101101111", "ω":"000000101111111",
+  "%":"101001010100101", "_":"000000000000111", "\"":"101101000000000", "@":"0111010001101111011001111",
+  "·":"000000010000000", "μ":"000101101111100",
+});
+Object.assign(FONT, {
+  "²":"110001010111000", "¬":"000111001000000", "∉":"0111110010111111010001111",
+});
+// ===========================================================================
+// ENGINE: pure logic for COULD-BE Ω (no drawing, no input).
+// Every round is generated from a seeded random generator. A round carries
+//   prompt / lens captions / hint / notice  (text),
+//   d      (diagram: points, wires, boxes, texts, tables, all in screen pixels),
+//   cells  (points whose value the player sets), choices (multiple choice),
+//   check(ans) -> {ok, msg, notice?}, solve() -> one correct answer.
+// An answer is {cells: [value index per cell, -1 = unset], choice: index or -1}.
+// ===========================================================================
+
+const W = 320, H = 200;
+
+function RNG(seed) {
+  let s = (seed >>> 0) || 1;
+  const f = () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const int = (a, b) => a + Math.floor(f() * (b - a + 1));
+  const pick = a => a[Math.floor(f() * a.length)];
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(f() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  return { f, int, pick, shuffle, bool: p => f() < (p == null ? 0.5 : p) };
+}
+
+const range = n => Array.from({ length: n }, (_, i) => i);
+const LC = "abcdefghjkmn".split("");
+const DG = "1234567".split("");
+const BN = ["p", "q", "r"];
+function fact(n) { return n <= 1 ? 1 : n * fact(n - 1); }
+function randInj(rng, k, n) { return rng.shuffle(range(n)).slice(0, k); }
+function randSubset(rng, n, kmin, kmax) { const k = rng.int(kmin, kmax); return new Set(rng.shuffle(range(n)).slice(0, k)); }
+function setStr(labs, set) { const a = [...set].sort((x, y) => x - y).map(i => labs[i]); return a.length ? "{" + a.join(",") + "}" : "∅"; }
+function rowX(n, x0, x1, maxStep) {
+  if (n <= 1) return [Math.round((x0 + x1) / 2)];
+  const step = Math.min(maxStep || 40, (x1 - x0) / (n - 1));
+  const start = (x0 + x1) / 2 - step * (n - 1) / 2;
+  return range(n).map(i => Math.round(start + i * step));
+}
+function mapStr(srcLabs, tgtLabs, f) { return srcLabs.map((s, i) => s + "↦" + tgtLabs[f[i]]).join(" "); }
+
+// ---- diagram builder ----
+function Diagram() {
+  const d = { pts: [], wires: [], boxes: [], texts: [], tables: [], marks: [] };
+  d.pt = (x, y, lab, lp, o) => { d.pts.push(Object.assign({ x, y, lab, lp: lp || "u", ring: false, col: "ink", cell: -1, kind: "dot" }, o || {})); return d.pts.length - 1; };
+  d.wire = (a, b, o) => { d.wires.push(Object.assign({ a, b, col: "blue", dash: false }, o || {})); };
+  d.text = (x, y, s, col, align) => { d.texts.push({ x, y, s, col: col || "ink", align: align || "left" }); };
+  d.box = (x, y, w, h, lab, col) => { d.boxes.push({ x, y, w, h, lab: lab || "", col: col || "faint" }); };
+  return d;
+}
+function addCell(r, pt, vals, labs, o) {
+  const c = Object.assign({ pt, vals, labs, style: "val", targets: null }, o || {});
+  r.cells.push(c); r.d.pts[pt].cell = r.cells.length - 1;
+  return c;
+}
+function blank(r) {
+  return { cells: r.cells.map(c => (c.style === "mark" ? 0 : -1)), choice: -1 };
+}
+function cellVal(r, ans, i) { const v = ans.cells[i]; return v < 0 ? undefined : r.cells[i].vals[v]; }
+function idxOf(c, val) { return c.vals.indexOf(val); }
+
+function mkRound(kind, o) {
+  return Object.assign({ kind, prompt: [], lens: { MATH: [], STORY: [], TABLE: [] }, hint: [], notice: [],
+    cells: [], choices: null, open: false, d: Diagram() }, o || {});
+}
+
+// Fill in the "cells" part of a round whose answer is a fixed vector of values.
+function fixedAnswer(r, want, explain) {
+  r.want = want;
+  r.solve = () => ({ cells: r.cells.map((c, i) => idxOf(c, want[i])), choice: -1 });
+  r.check = ans => {
+    for (let i = 0; i < r.cells.length; i++) if (ans.cells[i] < 0) return { ok: false, unset: true, msg: ["Some points still show ?. Give each one a value first."] };
+    for (let i = 0; i < r.cells.length; i++) if (cellVal(r, ans, i) !== want[i]) return { ok: false, at: i, msg: explain(i, cellVal(r, ans, i)) };
+    return { ok: true, msg: ["Yes. That is the one value each point could take here."] };
+  };
+}
+function choiceRound(r, choices, ans, explain) {
+  r.choices = choices; r.answer = ans;
+  r.solve = () => ({ cells: [], choice: ans });
+  r.check = a => (a.choice === ans ? { ok: true, msg: ["Yes: " + choices[ans] + "."] } :
+    { ok: false, msg: explain ? explain(a.choice) : ["Not this time. One more look at the picture could help."] });
+}
+
+// ---- small helpers used by several worlds ----
+function terminalAndOmega(r, y, x0, x1, trueAt, labs) {
+  // Ω = {0,1} at (x0,y),(x1,y); the terminal 1 = {0} to the right with the arrow true.
+  const d = r.d;
+  const o0 = d.pt(x0, y, labs ? labs[0] : "0", "d", { col: "purple" });
+  const o1 = d.pt(x1, y, labs ? labs[1] : "1", "d", { col: "purple" });
+  d.text(x0 - 22, y - 2, "Ω:", "purple");
+  const t = d.pt(x1 + 56, y, "1={0}", "d", { kind: "term" });
+  d.wire(t, trueAt === 0 ? o0 : o1, { col: "gold", lab: trueAt === 0 ? "true'" : "true" });
+  return [o0, o1];
+}
+
+// ===========================================================================
+// WORLD 1  §4.1 SUBOBJECTS
+// ===========================================================================
+const GEN = {};
+
+GEN.sub_image = rng => {
+  const r = mkRound("sub_image");
+  const n = rng.int(4, 7), k = rng.int(1, Math.min(4, n - 1)), f = randInj(rng, k, n);
+  const d = r.d, ax = rowX(k, 40, 280, 44), dx = rowX(n, 30, 290, 40);
+  const A = range(k).map(i => d.pt(ax[i], 46, LC[i], "u", { col: "blue" }));
+  const D = range(n).map(j => d.pt(dx[j], 112, DG[j], "d"));
+  d.text(12, 44, "A", "blue"); d.text(12, 110, "D", "ink");
+  A.forEach((p, i) => d.wire(p, D[f[i]], { col: "blue" }));
+  D.forEach(p => addCell(r, p, [0, 1], ["", ""], { style: "mark" }));
+  const img = new Set(f);
+  fixedAnswer(r, range(n).map(j => (img.has(j) ? 1 : 0)), (j, got) => {
+    const i = f.indexOf(j);
+    return i >= 0 ? [`Look again at ${DG[j]}: f sends ${LC[i]} to it, so ${DG[j]} is in the image.`]
+      : [`Nothing in A lands on ${DG[j]}, so ${DG[j]} is outside the image of f.`];
+  });
+  r.prompt = ["A monic f: A → D could be seen as a part of D.", "Mark the points of D that f hits: its image."];
+  r.lens = {
+    MATH: ["§4.1: a subobject of D is a monic into D, taken up to ≃.", "In Set, f ≃ g exactly when f and g have the same image."],
+    STORY: ["A = guests, D = chairs, f = who sits where. No two guests share a chair.", "Which chairs are taken?"],
+    TABLE: ["f: " + mapStr(LC.slice(0, k), DG, f)],
+  };
+  r.hint = ["Follow each wire from A down to D.", "Mark a point of D when some wire ends on it."];
+  r.notice = ["Notice: the names in A played no part in the answer.", "Any monic with the same image names the same subobject."];
+  r.data = { n, f };
+  return r;
+};
+
+GEN.sub_compare = rng => {
+  const r = mkRound("sub_compare");
+  const n = rng.int(4, 7);
+  const cs = rng.pick(["eq", "fg", "gf", "none"]);
+  let S, T;
+  for (let tries = 0; ; tries++) {
+    if (cs === "eq") { S = randSubset(rng, n, 1, Math.min(4, n)); T = new Set(S); }
+    else if (cs === "fg" || cs === "gf") {
+      const big = randSubset(rng, n, 2, Math.min(4, n));
+      const arr = rng.shuffle([...big]); const small = new Set(arr.slice(0, rng.int(1, arr.length - 1)));
+      if (cs === "fg") { S = small; T = big; } else { S = big; T = small; }
+    } else {
+      S = randSubset(rng, n, 1, 3); T = randSubset(rng, n, 1, 3);
+      if (![...S].every(x => T.has(x)) && ![...T].every(x => S.has(x))) break;
+      continue;
+    }
+    break;
+  }
+  const fS = rng.shuffle([...S]), gT = rng.shuffle([...T]);
+  const d = r.d;
+  const ax = rowX(fS.length, 50, 270, 44), bx = rowX(gT.length, 50, 270, 44), dx = rowX(n, 30, 290, 40);
+  const A = fS.map((_, i) => d.pt(ax[i], 40, LC[i], "u", { col: "blue" }));
+  const D = range(n).map(j => d.pt(dx[j], 84, DG[j], "l"));
+  const B = gT.map((_, i) => d.pt(bx[i], 128, BN[i] || LC[i + 6], "d", { col: "orange" }));
+  d.text(12, 38, "A", "blue"); d.text(12, 82, "D"); d.text(12, 126, "B", "orange");
+  A.forEach((p, i) => d.wire(p, D[fS[i]], { col: "blue" }));
+  B.forEach((p, i) => d.wire(p, D[gT[i]], { col: "orange", dash: true }));
+  const fg = [...S].every(x => T.has(x)), gf = [...T].every(x => S.has(x));
+  const ans = fg && gf ? 2 : fg ? 0 : gf ? 1 : 3;
+  const choices = ["f ≤ g, but not g ≤ f", "g ≤ f, but not f ≤ g", "f ≃ g: both ways", "neither way"];
+  const why = () => {
+    const out = [];
+    const miss1 = [...S].find(x => !T.has(x)), miss2 = [...T].find(x => !S.has(x));
+    out.push(fg ? "f ≤ g holds: every point f hits, g hits too." : `f ≤ g fails: f hits ${DG[miss1]}, but g does not.`);
+    out.push(gf ? "g ≤ f holds: every point g hits, f hits too." : `g ≤ f fails: g hits ${DG[miss2]}, but f does not.`);
+    return out;
+  };
+  choiceRound(r, choices, ans, why);
+  r.prompt = ["f: A → D (solid) and g: B → D (dashed) are monics. f ≤ g if f factors", "through g; in Set that means: image of f ⊆ image of g. Which holds?"];
+  r.lens = {
+    MATH: ["§4.1: f ⊆ g iff f = g ∘ h for some h; f ≃ g iff f ⊆ g and g ⊆ f.", "Sub(D) is the set of ≃-classes, ordered by ⊆."],
+    STORY: ["Two seating plans for the same hall D. Plan f ≤ plan g when", "every chair f uses is also used by g."],
+    TABLE: ["f: " + mapStr(LC.slice(0, fS.length), DG, fS), "g: " + mapStr(gT.map((_, i) => BN[i] || LC[i + 6]), DG, gT)],
+  };
+  r.hint = ["List the points of D hit by f, then the points hit by g.", "Compare the two lists."];
+  r.notice = ans === 2 ? ["Notice: different sets, different wires, and still one subobject."]
+    : ans === 3 ? ["Notice: ≤ is only a partial order. Two parts of D", "need not be comparable at all."]
+      : ["Notice: the smaller part factors through the bigger one: there is", "an arrow h between the domains with (bigger) ∘ h = (smaller)."];
+  r.data = { n, S: [...S], T: [...T] };
+  return r;
+};
+
+GEN.sub_couldbe = rng => {
+  const r = mkRound("sub_couldbe");
+  const n = rng.int(5, 7), k = rng.int(2, 3), S = [...randSubset(rng, n, k, k)].sort((a, b) => a - b);
+  const d = r.d, bx = rowX(k, 80, 240, 60), dx = rowX(n, 30, 290, 40);
+  const B = range(k).map(i => d.pt(bx[i], 50, BN[i], "u", { col: "orange" }));
+  const D = range(n).map(j => d.pt(dx[j], 122, DG[j], "d", { ring: S.includes(j) }));
+  d.text(12, 48, "B", "orange"); d.text(12, 120, "D");
+  B.forEach(p => addCell(r, p, range(n), DG.slice(0, n), { targets: D }));
+  r.open = true;
+  r.solve = () => ({ cells: S.map(j => j), choice: -1 });
+  r.check = ans => {
+    if (ans.cells.some(v => v < 0)) return { ok: false, unset: true, msg: ["Give every point of B a target in D (click it, or type the digit)."] };
+    const t = ans.cells.map((v, i) => r.cells[i].vals[v]);
+    for (let i = 0; i < k; i++) for (let j = i + 1; j < k; j++)
+      if (t[i] === t[j]) return { ok: false, msg: [`${BN[i]} and ${BN[j]} both go to ${DG[t[i]]}: then g would not be monic.`] };
+    for (let i = 0; i < k; i++) if (!S.includes(t[i])) return { ok: false, msg: [`g sends ${BN[i]} to ${DG[t[i]]}, but ${DG[t[i]]} is not in the gold part.`] };
+    return { ok: true, msg: ["Yes. Your g is a monic onto the gold part: g ≃ the inclusion."] };
+  };
+  r.prompt = [`The gold part of D could be named by many monics. Wire a monic g: B → D`, "whose image is exactly the gold part. Any such g will do."];
+  r.lens = {
+    MATH: ["§4.1: [f] = {g : g ≃ f}. Each class has many members;", "in Set they are the bijections onto the same subset, followed by inclusion."],
+    STORY: ["Three new guests p, q, r and some reserved gold chairs.", "Seat them so that exactly the gold chairs are used."],
+    TABLE: ["gold part: " + setStr(DG, new Set(S)), "B = {" + BN.slice(0, k).join(",") + "}"],
+  };
+  r.hint = ["Each point of B needs its own gold point.", "There is no single right wiring here."];
+  r.notice = [`Notice: there were ${fact(k)} correct wirings. Each could be "the" subobject:`, "they are all ≃, so they name the same part of D."];
+  r.data = { n, S };
+  return r;
+};
+
+// ===========================================================================
+// WORLD 2  §4.2 CLASSIFYING SUBOBJECTS (in Set)
+// ===========================================================================
+function chiPaint(rng, swap, remix) {
+  const r = mkRound(swap ? "chi_swap" : "chi_paint");
+  const n = rng.int(4, 7), k = rng.int(1, n - 1), f = randInj(rng, k, n);
+  const d = r.d, ax = rowX(k, 40, 280, 44), dx = rowX(n, 30, 290, 40);
+  const vl = remix ? ["F", "T"] : ["0", "1"];
+  const A = range(k).map(i => d.pt(ax[i], 40, LC[i], "u", { col: "blue" }));
+  const D = range(n).map(j => d.pt(dx[j], 84, DG[j], "l"));
+  d.text(12, 38, "A", "blue"); d.text(12, 82, "D");
+  A.forEach((p, i) => d.wire(p, D[f[i]], { col: "blue" }));
+  const om = terminalAndOmega(r, 128, 110, 190, swap ? 0 : 1, vl);
+  D.forEach(p => addCell(r, p, [0, 1], vl, { targets: om }));
+  const img = new Set(f), tv = swap ? 0 : 1;
+  fixedAnswer(r, range(n).map(j => (img.has(j) ? tv : 1 - tv)), j => {
+    const i = f.indexOf(j);
+    return i >= 0 ? [`f sends ${LC[i]} to ${DG[j]}, so ${DG[j]} is in the subobject:`, `χ(${DG[j]}) must be the value that ${swap ? "true'" : "true"} picks, ${vl[tv]}.`]
+      : [`Nothing in A lands on ${DG[j]}, so χ(${DG[j]}) is the other value, ${vl[1 - tv]}.`];
+  });
+  r.prompt = swap
+    ? ["A second classifier: same Ω, but now true' picks " + vl[0] + ". Paint χ': D → Ω", "so that pulling true' back along χ' gives the image of f."]
+    : ["Paint the characteristic arrow χ: D → Ω of the monic f. Then", "pulling true back along χ gives exactly the image of f."];
+  r.lens = {
+    MATH: swap ? ["§4.2: a classifier is unique only up to iso. Here χ' = ¬ ∘ χ,", "where ¬ swaps the two values: an iso Ω → Ω."]
+      : ["§4.2, Ω-axiom: for each monic f there is one and only one χ", "making the square with true a pullback."],
+    STORY: swap ? ["The same guest list, but now the host writes " + vl[0] + " for \"taken\".", "The marks flip; the seating does not."]
+      : ["Each chair gets a tag: 1 = someone sits here, 0 = empty.", "The tags remember the seating plan."],
+    TABLE: ["f: " + mapStr(LC.slice(0, k), DG, f), (swap ? "true'" : "true") + ": 0 ↦ " + vl[tv]],
+  };
+  r.hint = ["A point of D in the image of f goes where true points.", "Every other point goes to the other value."];
+  r.notice = swap ? ["Notice: \"the\" right χ depended on which arrow we called true.", "Both answers classify the same subobject."]
+    : ["Notice: there was exactly one χ that works. The Ω-axiom says", "this happens for every monic: Sub(D) ≅ Set(D, Ω)."];
+  r.data = { n, f, swap };
+  return r;
+}
+GEN.chi_paint = rng => chiPaint(rng, false, false);
+GEN.chi_swap = rng => chiPaint(rng, true, false);
+GEN.chi_swap_remix = rng => { const r = chiPaint(rng, true, true); r.kind = "chi_swap_remix"; return r; };
+
+GEN.chi_pull = rng => {
+  const r = mkRound("chi_pull");
+  const n = rng.int(4, 7);
+  let chi;
+  do chi = range(n).map(() => rng.int(0, 1)); while (chi.every(v => v === chi[0]) && rng.bool(0.85));
+  const d = r.d, dx = rowX(n, 30, 290, 40);
+  const D = range(n).map(j => d.pt(dx[j], 56, DG[j], "u"));
+  d.text(12, 54, "D");
+  const om = terminalAndOmega(r, 122, 110, 190, 1);
+  D.forEach((p, j) => d.wire(p, om[chi[j]], { col: "purple" }));
+  D.forEach(p => addCell(r, p, [0, 1], ["", ""], { style: "mark" }));
+  fixedAnswer(r, chi.slice(), j => (chi[j] === 1 ? [`χ(${DG[j]}) = 1 = true(0), so ${DG[j]} is in the pullback.`] : [`χ(${DG[j]}) = 0, so ${DG[j]} is not in the pullback of true.`]));
+  r.prompt = ["Pull true back along χ: D → Ω.", "Mark the subset of D that χ classifies: {d : χ(d) = 1}."];
+  r.lens = {
+    MATH: ["§4.2: A_f = f⁻¹({1}) is the pullback of true: 1 → 2 along f.", "So every arrow D → 2 is the character of exactly one subset."],
+    STORY: ["Each chair already carries a tag 0 or 1.", "Which chairs could someone be sitting on?"],
+    TABLE: ["χ: " + mapStr(DG.slice(0, n), ["0", "1"], chi)],
+  };
+  r.hint = ["Follow the wires from D into Ω.", "Mark the points whose wire ends at 1."];
+  r.notice = ["Notice: you went the other way round, from χ back to a part of D.", "The two directions are inverse: a bijection Sub(D) ≅ Set(D, Ω)."];
+  r.data = { chi };
+  return r;
+};
+
+GEN.chi_count = rng => {
+  const r = mkRound("chi_count");
+  const n = rng.int(1, 6), ans = 2 ** n;
+  const q = rng.pick(["sub", "arr"]);
+  const d = r.d, dx = rowX(n, 40, 280, 40);
+  dx.forEach((x, j) => d.pt(x, 76, DG[j], "d"));
+  d.text(12, 74, "D");
+  const dist = [n + 1, 2 * n, n * n, 2 ** n - 1, 2 ** (n + 1), fact(n), 3 ** n].filter(v => v !== ans && v > 0);
+  const pool = [...new Set(dist)];
+  const opts = rng.shuffle([ans].concat(rng.shuffle(pool).slice(0, 3)));
+  choiceRound(r, opts.map(String), opts.indexOf(ans), () => [`Each of the ${n} points chooses 0 or 1 on its own: 2^${n} = ${ans}.`]);
+  r.prompt = q === "sub" ? [`D has ${n} point${n > 1 ? "s" : ""}. How many subobjects could D have (up to ≃)?`]
+    : [`D has ${n} point${n > 1 ? "s" : ""}. How many arrows D → Ω are there in Set?`];
+  r.lens = {
+    MATH: ["§4.2: Sub(D) ≅ Set(D, Ω), and Set(D, 2) has 2^|D| members.", "§4.7: so the power object of D is Ω^D."],
+    STORY: ["Every chair could be taken or free, independently."],
+    TABLE: ["|D| = " + n, "Ω = {0, 1}"],
+  };
+  r.hint = ["Count arrows D → {0,1}: one free choice per point."];
+  r.notice = ["Notice: counting subobjects and counting characters gave one number.", "That is the Ω-axiom seen as arithmetic."];
+  r.data = { n };
+  return r;
+};
+
+// ===========================================================================
+// WORLD 3  §4.4 Example 4: Set², pairs of sets
+// ===========================================================================
+function pairBase(rng, r, withA) {
+  const d = r.d, half = [[14, 152], [168, 306]];
+  const parts = [0, 1].map(h => {
+    const n = rng.int(2, 4), k = withA ? rng.int(0, n - 1) : 0, f = randInj(rng, k, n);
+    const [x0, x1] = half[h];
+    const ax = rowX(k, x0 + 34, x1 - 6, 34), dx = rowX(n, x0 + 34, x1 - 6, 34);
+    const A = range(k).map(i => d.pt(ax[i], 40, LC[i + 4 * h], "u", { col: "blue" }));
+    const D = range(n).map(j => d.pt(dx[j], 84, DG[j], "l"));
+    A.forEach((p, i) => d.wire(p, D[f[i]], { col: "blue" }));
+    const o0 = d.pt(x0 + 40, 128, "0", "d", { col: "purple" }), o1 = d.pt(x1 - 30, 128, "1", "d", { col: "purple" });
+    d.text(x0, 82, h ? "D2" : "D1"); if (withA) d.text(x0, 38, h ? "A2" : "A1", "blue");
+    d.text(x0, 126, "Ω" + (h + 1) + ":", "purple");
+    return { n, k, f, A, D, om: [o0, o1] };
+  });
+  d.box(158, 30, 1, 112, "", "faint");
+  return parts;
+}
+
+GEN.pair_paint = rng => {
+  const r = mkRound("pair_paint");
+  let parts;
+  do { r.d = Diagram(); r.cells = []; parts = pairBase(rng, r, true); } while (parts[0].k + parts[1].k === 0);
+  const want = [];
+  parts.forEach(P => { const img = new Set(P.f); P.D.forEach((p, j) => { addCell(r, p, [0, 1], ["0", "1"], { targets: P.om }); want.push(img.has(j) ? 1 : 0); }); });
+  const n1 = parts[0].n;
+  fixedAnswer(r, want, i => {
+    const h = i < n1 ? 0 : 1, j = h ? i - n1 : i, P = parts[h];
+    return P.f.includes(j) ? [`In half ${h + 1}, ${DG[j]} is hit by A${h + 1}: its value is 1.`] : [`In half ${h + 1}, nothing lands on ${DG[j]}: its value is 0.`];
+  });
+  r.prompt = ["An object of Set² is a pair (D1, D2); a subobject is a pair of monics.", "Paint χ = (χ1, χ2): both halves at once."];
+  r.lens = {
+    MATH: ["§4.4 Ex. 4: Set² is a topos; everything is \"doubled up\" from Set.", "The classifier is (true, true): ({0},{0}) → (2, 2)."],
+    STORY: ["Two rooms, two seating plans, one evening.", "Keep an eye on both rooms at once."],
+    TABLE: parts.map((P, h) => `f${h + 1}: ` + (P.k ? mapStr(LC.slice(4 * h, 4 * h + P.k), DG, P.f) : "∅ → D" + (h + 1))),
+  };
+  r.hint = ["Do each half exactly as in Set.", "An empty A gives a χ that is 0 everywhere."];
+  r.notice = ["Notice: no new rule was needed, only attention spread over two places."];
+  r.data = { parts: parts.map(P => ({ n: P.n, f: P.f })) };
+  return r;
+};
+
+GEN.pair_pull = rng => {
+  const r = mkRound("pair_pull");
+  const parts = pairBase(rng, r, false);
+  const want = [];
+  parts.forEach(P => {
+    const chi = range(P.n).map(() => rng.int(0, 1));
+    P.D.forEach((p, j) => { r.d.wire(p, P.om[chi[j]], { col: "purple" }); addCell(r, p, [0, 1], ["", ""], { style: "mark" }); want.push(chi[j]); });
+    P.chi = chi;
+  });
+  fixedAnswer(r, want, i => (want[i] ? ["That point goes to 1 in its Ω: it is in the pulled-back pair."] : ["That point goes to 0 in its Ω: it is not in the subobject."]));
+  r.prompt = ["χ = (χ1, χ2) is given by the wires. Pull (true, true) back:", "mark the pair of subsets (A1, A2) that χ classifies."];
+  r.lens = {
+    MATH: ["§4.4 Ex. 4: pullbacks in Set² are pairs of pullbacks in Set.", "So (A1, A2) = (χ1⁻¹(1), χ2⁻¹(1))."],
+    STORY: ["Both rooms carry tags. Which chairs could be taken in each?"],
+    TABLE: parts.map((P, h) => `χ${h + 1}: ` + mapStr(DG.slice(0, P.n), ["0", "1"], P.chi)),
+  };
+  r.hint = ["Mark every point whose wire ends at 1, in both halves."];
+  r.notice = ["Notice: pulling back in Set² happened half by half, independently."];
+  r.data = { parts: parts.map(P => ({ n: P.n, chi: P.chi })) };
+  return r;
+};
+
+GEN.pair_truth = rng => {
+  const r = mkRound("pair_truth");
+  const d = r.d;
+  const q = rng.pick(["which", "which", "count"]);
+  if (q === "which") {
+    const x = rng.int(0, 1), y = rng.int(0, 1);
+    d.pt(80, 60, "1={0}", "u", { kind: "term" }); d.pt(240, 60, "1={0}", "u", { kind: "term" });
+    const o = [d.pt(60, 110, "0", "d", { col: "purple" }), d.pt(100, 110, "1", "d", { col: "purple" }),
+      d.pt(220, 110, "0", "d", { col: "purple" }), d.pt(260, 110, "1", "d", { col: "purple" })];
+    d.wire(0, o[x], { col: "gold" }); d.wire(1, o[2 + y], { col: "gold" });
+    d.text(160, 40, `the truth value (${x}, ${y}): 1 → Ω`, "ink", "center");
+    const opts = ["(∅, ∅)", "(∅, {0})", "({0}, ∅)", "({0}, {0})"];
+    choiceRound(r, opts, 2 * x + y, () => [`Pull back (true, true): half 1 gives ${x ? "{0}" : "∅"}, half 2 gives ${y ? "{0}" : "∅"}.`]);
+    r.prompt = ["1 = ({0}, {0}) is terminal in Set². Which subobject of 1", `does the truth value (${x}, ${y}) classify?`];
+    r.data = { q, x, y };
+    r.notice = ["Notice: 1 has 4 subobjects in Set², so there are 4 truth values,", "although each half on its own is the classical {0, 1}."];
+  } else {
+    const m = rng.int(1, 4), n = rng.int(1, 4), ans = 2 ** (m + n);
+    rowX(m, 30, 140, 30).forEach((x, i) => d.pt(x, 80, DG[i], "d"));
+    rowX(n, 180, 290, 30).forEach((x, i) => d.pt(x, 80, DG[i], "d"));
+    d.text(14, 60, "D1"); d.text(168, 60, "D2"); d.box(158, 40, 1, 70, "", "faint");
+    const pool = [...new Set([2 ** m + 2 ** n, 2 ** (m * n), (m + 1) * (n + 1), 2 ** (m + n + 1), m + n + 2])].filter(v => v !== ans);
+    const opts = rng.shuffle([ans].concat(rng.shuffle(pool).slice(0, 3)));
+    choiceRound(r, opts.map(String), opts.indexOf(ans), () => [`Each half chooses independently: 2^${m} · 2^${n} = 2^${m + n} = ${ans}.`]);
+    r.prompt = [`How many subobjects could (D1, D2) have in Set², with |D1| = ${m}, |D2| = ${n}?`];
+    r.data = { q, m, n };
+    r.notice = ["Notice: Sub(D1, D2) ≅ Sub(D1) × Sub(D2): the counts multiply."];
+  }
+  r.lens = {
+    MATH: ["§4.4 Ex. 4: Ω = (2, 2) and true = (true, true).", "Truth values are arrows 1 → Ω: (x, y) with x, y ∈ {0, 1}."],
+    STORY: ["Two rooms: \"is someone in room 1?\", \"is someone in room 2?\"", "Four honest answers, not two."],
+    TABLE: ["Ω = ({0,1}, {0,1})", "1 = ({0}, {0})"],
+  };
+  r.hint = ["Work out each half separately, then put the halves together."];
+  return r;
+};
+
+// ===========================================================================
+// WORLD 4  §4.4 Example 5: Set→, the category of functions
+//   ψ(x) = 1 if x ∈ A;  1/2 if x ∉ A but g(x) ∈ B;  0 if g(x) ∉ B.
+// Values are stored as 0, 1, 2 meaning 0, 1/2, 1.
+// ===========================================================================
+const TRI = ["0", "1/2", "1"];
+function psiOf(g, A, B, x) { return A.has(x) ? 2 : B.has(g[x]) ? 1 : 0; }
+function arrowObject(rng, opts) {
+  opts = opts || {};
+  const n = rng.int(opts.nmin || 4, opts.nmax || 7), m = rng.int(2, opts.mmax || 4);
+  let g, A, B;
+  for (let t = 0; t < 60; t++) {
+    g = range(n).map(() => rng.int(0, m - 1));
+    A = randSubset(rng, n, opts.amin == null ? 0 : opts.amin, Math.max(0, n - 2));
+    B = new Set([...A].map(x => g[x]));
+    range(m).forEach(j => { if (!B.has(j) && rng.bool(0.35)) B.add(j); });
+    const vals = new Set(range(n).map(x => psiOf(g, A, B, x)));
+    if (vals.size >= (t < 40 ? 3 : 2) && (opts.needOut ? B.size < m : true)) break;
+  }
+  return { n, m, g, A, B };
+}
+function drawArrowObject(r, O, opts) {
+  opts = opts || {};
+  const d = r.d, x1 = opts.x1 || 248;
+  const cx = rowX(O.n, 26, x1, 36), dx = rowX(O.m, 40, x1 - 14, 56);
+  const C = range(O.n).map(i => d.pt(cx[i], 46, (opts.labs || LC)[i], "u", { ring: !!opts.ringA && O.A.has(i), col: "blue" }));
+  const D = range(O.m).map(j => d.pt(dx[j], 112, DG[j], "d", { ring: !!opts.ringB && O.B.has(j) }));
+  C.forEach((p, i) => d.wire(p, D[O.g[i]], { col: "blue" }));
+  d.text(8, 44, opts.cname || "C", "blue"); d.text(8, 110, opts.dname || "D");
+  return { C, D };
+}
+function omegaInset(r, labs) {
+  // Ω of Set→: t: {0, 1/2, 1} → {0, 1}, drawn on the right.
+  const d = r.d; labs = labs || TRI;
+  const top = [0, 1, 2].map(v => d.pt(284, 44 + 16 * (2 - v), labs[v], "l", { col: "purple" }));
+  const bot = [0, 1].map(v => d.pt(308, 104 + 18 * (1 - v), v ? (labs === TRI ? "1" : labs[2]) : labs[0], "r", { col: "purple" }));
+  d.wire(top[0], bot[0], { col: "purple" }); d.wire(top[1], bot[1], { col: "purple" }); d.wire(top[2], bot[1], { col: "purple" });
+  d.text(282, 30, "Ω", "purple", "left"); d.text(300, 84, "t", "purple");
+}
+
+function arrPaint(rng, remix) {
+  const r = mkRound(remix ? "arr_paint_remix" : "arr_paint");
+  const O = arrowObject(rng);
+  const labs = remix ? ["N", "L", "Y"] : TRI, blabs = remix ? ["N", "Y"] : ["0", "1"];
+  const nm = remix ? { c: "X", d: "Y", l: "pqrstuvw".split("") } : { c: "C", d: "D", l: LC };
+  const P = drawArrowObject(r, O, { ringA: true, ringB: true, cname: nm.c, dname: nm.d, labs: nm.l });
+  omegaInset(r, labs);
+  P.C.forEach(p => addCell(r, p, [0, 1, 2], labs));
+  P.D.forEach(p => addCell(r, p, [0, 1], blabs));
+  const want = range(O.n).map(x => psiOf(O.g, O.A, O.B, x)).concat(range(O.m).map(j => (O.B.has(j) ? 1 : 0)));
+  fixedAnswer(r, want, i => {
+    if (i < O.n) {
+      const x = nm.l[i], gx = DG[O.g[i]];
+      if (O.A.has(i)) return [`${x} is in A (gold), so ψ(${x}) = ${labs[2]}: true now.`];
+      if (O.B.has(O.g[i])) return [`${x} is not in A, but g(${x}) = ${gx} is in B: ψ(${x}) = ${labs[1]}.`];
+      return [`${x} is not in A and g(${x}) = ${gx} is not in B: ψ(${x}) = ${labs[0]}.`];
+    }
+    const j = i - O.n;
+    return [`The bottom part is classified as in Set: χ(${DG[j]}) = ${O.B.has(j) ? blabs[1] : blabs[0]}, since ${DG[j]} is ${O.B.has(j) ? "" : "not "}in B.`];
+  });
+  r.prompt = remix
+    ? ["Same game, forgotten names: N = no, L = later, Y = yes. Paint the character", `of the gold subobject of g: ${nm.c} → ${nm.d} on both levels.`]
+    : ["In Set→ an object is a function g: C → D, and a subobject is a pair A ⊆ C,", "B ⊆ D with g(A) ⊆ B (gold). Paint its character (ψ, χ): three values on top."];
+  r.lens = {
+    MATH: ["§4.4 Ex. 5: ψ(x) = 1 if x ∈ A, 1/2 if x is not in A but g(x) ∈ B, else 0.", "Ω is t: {0, 1/2, 1} → {0, 1} with t(1/2) = t(1) = 1."],
+    STORY: ["C = students, D = their classes, A = students who have passed,", "B = classes that have passed. 1/2 = \"not yet, but my class has\"."],
+    TABLE: ["g: " + mapStr(nm.l.slice(0, O.n), DG, O.g), "A = " + setStr(nm.l, O.A) + "   B = " + setStr(DG, O.B)],
+  };
+  r.hint = [`Top: in A → ${labs[2]}; not in A but image in B → ${labs[1]}; otherwise ${labs[0]}.`, `Bottom: ${blabs[1]} on B, ${blabs[0]} elsewhere.`];
+  const halves = want.slice(0, O.n).filter(v => v === 1).length;
+  r.notice = remix ? ["Notice: with the names forgotten, the pattern was still there.", "What you kept was the structure, not the labels."]
+    : [`Notice: ${halves} point${halves === 1 ? " was" : "s were"} \"half true\": not in A, but sent into B.`, "Truth in Set→ has three values, not two."];
+  r.data = { g: O.g, A: [...O.A], B: [...O.B], n: O.n, m: O.m };
+  return r;
+}
+GEN.arr_paint = rng => arrPaint(rng, false);
+GEN.arr_paint_remix = rng => arrPaint(rng, true);
+
+GEN.arr_check = rng => {
+  const r = mkRound("arr_check");
+  const O = arrowObject(rng, { amin: 1 });
+  const yes = rng.bool();
+  if (!yes) {
+    const a = rng.pick([...O.A]);
+    O.B.delete(O.g[a]);
+  }
+  drawArrowObject(r, O, { ringA: true, ringB: true });
+  const ok = [...O.A].every(x => O.B.has(O.g[x]));
+  const bad = [...O.A].find(x => !O.B.has(O.g[x]));
+  choiceRound(r, ["Yes: g maps A into B", "No: a point of A lands outside B"], ok ? 0 : 1,
+    () => (ok ? ["Every gold point of C goes to a gold point of D: g(A) ⊆ B."] : [`${LC[bad]} is in A, but g(${LC[bad]}) = ${DG[O.g[bad]]} is not in B.`]));
+  r.prompt = ["Is the gold pair (A ⊆ C, B ⊆ D) a subobject of g: C → D in Set→?", "It is when the square commutes, i.e. when g(A) ⊆ B."];
+  r.lens = {
+    MATH: ["§4.4 Ex. 5: a subobject of g is a monic arrow (i, j): f → g,", "i.e. inclusions A ⊆ C, B ⊆ D with f = g restricted to A, landing in B."],
+    STORY: ["Can a student have passed if their class has not?", "In this story: no. Passing students sit in passing classes."],
+    TABLE: ["g: " + mapStr(LC.slice(0, O.n), DG, O.g), "A = " + setStr(LC, O.A) + "   B = " + setStr(DG, O.B)],
+  };
+  r.hint = ["Follow the wires from the gold points of C only."];
+  r.notice = ["Notice: only A's wires matter. Points outside A could go anywhere."];
+  r.data = { g: O.g, A: [...O.A], B: [...O.B] };
+  return r;
+};
+
+GEN.arr_couldbe = rng => {
+  const r = mkRound("arr_couldbe");
+  const O = arrowObject(rng, { amin: 1, needOut: true });
+  const P = drawArrowObject(r, O, { ringA: true, ringB: false });
+  omegaInset(r);
+  P.D.forEach(p => addCell(r, p, [0, 1], ["", ""], { style: "mark" }));
+  r.open = true;
+  const need = new Set([...O.A].map(x => O.g[x]));
+  r.solve = () => ({ cells: range(O.m).map(j => (need.has(j) ? 1 : 0)), choice: -1 });
+  r.check = ans => {
+    const B = new Set(range(O.m).filter(j => ans.cells[j] === 1));
+    const bad = [...O.A].find(x => !B.has(O.g[x]));
+    if (bad != null) return { ok: false, msg: [`${LC[bad]} is in A and g(${LC[bad]}) = ${DG[O.g[bad]]}, so ${DG[O.g[bad]]} has to be in B.`] };
+    const psi = range(O.n).map(x => psiOf(O.g, O.A, B, x));
+    const h = psi.filter(v => v === 1).length, hmin = range(O.n).filter(x => !O.A.has(x) && need.has(O.g[x])).length;
+    return {
+      ok: true, msg: ["Yes, that B works. With your B: ψ = " + psi.map((v, x) => LC[x] + ":" + TRI[v]).join(" ")],
+      notice: [`Notice: your B makes ${h} point${h === 1 ? "" : "s"} half true. The smallest B, g(A), makes ${hmin};`, `B = D would make ${range(O.n).filter(x => !O.A.has(x)).length}. Each B is a different, correct subobject.`],
+    };
+  };
+  r.prompt = ["A ⊆ C is gold. Choose a B ⊆ D so that (A, B) could be a subobject of g.", "Many answers could work. Pick any one."];
+  r.lens = {
+    MATH: ["§4.4 Ex. 5: (A, B) is a subobject iff g(A) ⊆ B.", "B must contain g(A); beyond that you are free."],
+    STORY: ["Which classes could count as passed, given who has passed?", "Every class with a passing student must be among them."],
+    TABLE: ["g: " + mapStr(LC.slice(0, O.n), DG, O.g), "A = " + setStr(LC, O.A)],
+  };
+  r.hint = ["Mark every image of a gold point. You may mark more."];
+  r.notice = ["Notice: more than one B was right. The choice changed which points are half true."];
+  r.data = { g: O.g, A: [...O.A], n: O.n, m: O.m };
+  return r;
+};
+
+GEN.arr_read = rng => {
+  const r = mkRound("arr_read");
+  const O = arrowObject(rng);
+  const P = drawArrowObject(r, O, {});
+  omegaInset(r);
+  const psi = range(O.n).map(x => psiOf(O.g, O.A, O.B, x));
+  P.C.forEach((p, x) => r.d.text(r.d.pts[p].x, 56, TRI[psi[x]], "purple", "center"));
+  P.D.forEach((p, j) => r.d.text(r.d.pts[p].x + 9, 110, O.B.has(j) ? "1" : "0", "purple"));
+  P.C.forEach(p => addCell(r, p, [0, 1], ["", ""], { style: "mark" }));
+  P.D.forEach(p => addCell(r, p, [0, 1], ["", ""], { style: "mark" }));
+  const want = range(O.n).map(x => (O.A.has(x) ? 1 : 0)).concat(range(O.m).map(j => (O.B.has(j) ? 1 : 0)));
+  fixedAnswer(r, want, i => {
+    if (i < O.n) return [`ψ(${LC[i]}) = ${TRI[psi[i]]}: ${psi[i] === 2 ? "only the value 1 means \"in A\"" : "only 1 means \"in A\"; " + TRI[psi[i]] + " means not in A"}.`];
+    return [`χ(${DG[i - O.n]}) = ${O.B.has(i - O.n) ? 1 : 0}, so ${DG[i - O.n]} is ${O.B.has(i - O.n) ? "" : "not "}in B.`];
+  });
+  r.prompt = ["The values of a character (ψ, χ) are written in purple. Pull true back:", "mark the A ⊆ C and the B ⊆ D that it classifies."];
+  r.lens = {
+    MATH: ["§4.4 Ex. 5: A = ψ⁻¹(1) and B = χ⁻¹(1). The square t ∘ ψ = χ ∘ g", "is what makes the pair (ψ, χ) an arrow into Ω."],
+    STORY: ["Report cards say 1, 1/2 or 0. Who has passed? Which classes have?"],
+    TABLE: ["ψ: " + psi.map((v, x) => LC[x] + "↦" + TRI[v]).join(" "), "χ: " + range(O.m).map(j => DG[j] + "↦" + (O.B.has(j) ? 1 : 0)).join(" ")],
+  };
+  r.hint = ["On top, mark only the points with value 1. Below, mark the 1s."];
+  r.notice = ["Notice: 1/2 carries real information: \"not in A, but g(x) is in B\"."];
+  r.data = { g: O.g, A: [...O.A], B: [...O.B], n: O.n, m: O.m };
+  return r;
+};
+
+GEN.arr_omega = rng => {
+  const r = mkRound("arr_omega");
+  omegaInset(r);
+  const d = r.d;
+  const q = rng.pick(["t", "count", "sub1", "sub1", "notsub"]);
+  if (q === "t") {
+    const v = rng.pick([0, 1, 2]);
+    choiceRound(r, ["0", "1"], v === 0 ? 0 : 1, () => ["t sends 1 and 1/2 to 1, and 0 to 0 (see the picture on the right)."]);
+    r.prompt = [`In Set→, Ω is the function t: {0, 1/2, 1} → {0, 1}. What is t(${TRI[v]})?`];
+    r.data = { q, v };
+  } else if (q === "count") {
+    choiceRound(r, ["2", "3", "4", "infinitely many"], 1, () => ["Arrows 1 → Ω are pairs (v, b) with t(v) = b: (0,0), (1/2,1), (1,1)."]);
+    r.prompt = ["How many truth values (arrows 1 → Ω) could Set→ have?"];
+    r.data = { q };
+  } else if (q === "sub1") {
+    const k = rng.int(0, 2);
+    const names = ["(∅, ∅)", "(∅, {0})", "({0}, {0})"];
+    const c0 = d.pt(80, 50, "0", "u", { ring: k === 2, col: "blue" }), d0 = d.pt(80, 110, "0", "d", { ring: k >= 1 });
+    d.wire(c0, d0, { col: "blue" }); d.text(40, 48, "C={0}", "blue", "right"); d.text(40, 108, "D={0}", "ink", "right");
+    choiceRound(r, ["0", "1/2", "1"], k, () => [`ψ(0) = ${TRI[k]}: 0 is ${k === 2 ? "in A" : "not in A"}${k === 1 ? ", but its image is in B" : ""}.`]);
+    r.prompt = ["1 is id: {0} → {0}. Which truth value classifies the gold", `subobject (A, B) = ${names[k]} of 1?`];
+    r.data = { q, k };
+  } else {
+    const c0 = d.pt(80, 50, "0", "u", { ring: true, col: "blue" }), d0 = d.pt(80, 110, "0", "d", { ring: false });
+    d.wire(c0, d0, { col: "blue" }); d.text(40, 48, "C={0}", "blue", "right"); d.text(40, 108, "D={0}", "ink", "right");
+    choiceRound(r, ["Yes", "No: 0 ∈ A, but g(0) = 0 is not in B"], 1, () => ["A subobject needs g(A) ⊆ B, and here g(A) = {0} while B = ∅."]);
+    r.prompt = ["Could (A, B) = ({0}, ∅) be a subobject of 1 = id: {0} → {0} in Set→?"];
+    r.data = { q };
+  }
+  r.lens = {
+    MATH: ["§4.4 Ex. 5: true = (true at 1, true): id{0} → t.", "Subobjects of 1 ↔ truth values: here there are three."],
+    STORY: ["\"Passed\", \"not yet, but on the way\", \"no\"."],
+    TABLE: ["t: 0↦0  1/2↦1  1↦1"],
+  };
+  r.hint = ["Look at the picture of Ω on the right."];
+  r.notice = ["Notice: one of the three truth values is neither true nor false."];
+  return r;
+};
+
+// ===========================================================================
+// WORLD 5  §4.5 BUNDLES over a set I:  Ω = pr: 2 × I → I,  χ(x) = (χ_A(x), p(x))
+// ===========================================================================
+function bundle(rng, nonEmpty) {
+  const I = rng.int(3, 4), stalks = [];
+  let c = 0;
+  for (let i = 0; i < I; i++) { const s = rng.int(nonEmpty ? 1 : 0, 3); stalks.push(range(s).map(() => c++)); }
+  if (c < 3) return bundle(rng, nonEmpty);
+  return { I, stalks, X: c };
+}
+function drawBundle(r, Bd, A, withOmega, yb) {
+  yb = yb || 140;
+  const d = r.d, bx = rowX(Bd.I, 46, 262, 72), y0 = yb - 22;
+  const base = range(Bd.I).map(i => d.pt(bx[i], yb, DG[i], "d"));
+  const germ = [], om = [];
+  Bd.stalks.forEach((s, i) => {
+    s.forEach((x, k) => { germ[x] = d.pt(bx[i], y0 - 22 * k, LC[x], "l", { ring: !!A && A.has(x), col: "blue" }); });
+    if (s.length) d.box(bx[i], y0 - 22 * (s.length - 1), 1, 22 * (s.length - 1) + 22, "", "faint");
+    else d.box(bx[i], y0 + 8, 1, 8, "", "faint");
+    if (withOmega) om[i] = [d.pt(bx[i] + 24, y0, "0", "r", { col: "purple" }), d.pt(bx[i] + 24, y0 - 22, "1", "r", { col: "purple" })];
+  });
+  d.text(8, yb - 2, "I"); d.text(8, y0 - 2, "X", "blue");
+  if (withOmega) d.text(300, 80, "Ω", "purple");
+  return { base, germ, om, bx };
+}
+function germBase(Bd, x) { return Bd.stalks.findIndex(s => s.includes(x)); }
+
+GEN.bun_paint = rng => {
+  const r = mkRound("bun_paint");
+  const Bd = bundle(rng, false);
+  const A = randSubset(rng, Bd.X, 0, Math.max(1, Bd.X - 1));
+  const P = drawBundle(r, Bd, A, true);
+  range(Bd.X).forEach(x => addCell(r, P.germ[x], [0, 1], ["0", "1"], { targets: P.om[germBase(Bd, x)] }));
+  fixedAnswer(r, range(Bd.X).map(x => (A.has(x) ? 1 : 0)), x => {
+    const i = germBase(Bd, x);
+    return A.has(x) ? [`${LC[x]} is in A, so χ(${LC[x]}) = (1, ${DG[i]}): the 1 in the Ω-stalk over ${DG[i]}.`] : [`${LC[x]} is not in A, so χ(${LC[x]}) = (0, ${DG[i]}).`];
+  });
+  r.prompt = ["A bundle p: X → I is a family of stalks over the points of I; A (gold)", "is a sub-bundle. Paint χ(x) = (χ_A(x), p(x)): a germ of Ω over p(x)."];
+  r.lens = {
+    MATH: ["§4.5: Ω = pr: 2 × I → I, a bundle of two-point stalks,", "and true: I → 2 × I is i ↦ (1, i), a bundle of copies of true."],
+    STORY: ["I = gardens, the stalks = asparagus spears growing in each.", "Each spear is tagged, inside its own garden: picked (1) or not (0)."],
+    TABLE: ["p: " + range(Bd.X).map(x => LC[x] + "↦" + DG[germBase(Bd, x)]).join(" "), "A = " + setStr(LC, A)],
+  };
+  r.hint = ["A germ in A goes to the 1 of its own Ω-stalk, others to the 0."];
+  r.notice = ["Notice: the classifier of Bn(I) is \"a bundle of Set-classifiers\":", "the Set answer, repeated stalk by stalk."];
+  r.data = { stalks: Bd.stalks, A: [...A] };
+  return r;
+};
+
+GEN.bun_section = rng => {
+  const r = mkRound("bun_section");
+  const Bd = bundle(rng, true);
+  const P = drawBundle(r, Bd, null, false);
+  P.base.forEach((p, i) => addCell(r, p, Bd.stalks[i].slice(), Bd.stalks[i].map(x => LC[x]), { targets: Bd.stalks[i].map(x => P.germ[x]) }));
+  r.open = true;
+  r.solve = () => ({ cells: Bd.stalks.map(() => 0), choice: -1 });
+  r.check = ans => (ans.cells.some(v => v < 0) ? { ok: false, unset: true, msg: ["Every point of I needs a germ chosen from its own stalk."] }
+    : { ok: true, msg: ["Yes: s(i) lies over i for every i, so p ∘ s = id. That is a section."] });
+  const cnt = Bd.stalks.reduce((a, s) => a * s.length, 1);
+  r.prompt = ["A section s: I → X picks one germ from each stalk, so that p ∘ s = id.", "Build one: for each point of I choose a germ above it. Any choice works."];
+  r.lens = {
+    MATH: ["§4.5: a section is an arrow 1 → (X, p) in Bn(I): an element", "of a bundle is a bundle of ordinary elements."],
+    STORY: ["Pick one spear from every garden for the basket."],
+    TABLE: Bd.stalks.map((s, i) => `stalk over ${DG[i]}: {${s.map(x => LC[x]).join(",")}}`).slice(0, 2),
+  };
+  r.hint = ["Click a point of I to cycle through the germs above it."];
+  r.notice = [`Notice: there were ${cnt} sections in all; you could have built any of them.`, "If a stalk were empty, there would be none at all."];
+  r.data = { stalks: Bd.stalks };
+  return r;
+};
+
+GEN.bun_truth = rng => {
+  const r = mkRound("bun_truth");
+  const I = rng.int(1, 5), ans = 2 ** I;
+  const d = r.d, bx = rowX(I, 50, 270, 46);
+  bx.forEach((x, i) => { d.pt(x, 120, DG[i], "d"); d.pt(x, 96, "1", "r", { col: "purple" }); d.pt(x, 74, "0", "r", { col: "purple" }); });
+  d.text(10, 118, "I"); d.text(10, 84, "Ω", "purple");
+  const pool = [...new Set([2, I + 1, 2 * I, I * I, 2 ** I - 1, 2 ** (I + 1)])].filter(v => v !== ans && v > 0);
+  const opts = rng.shuffle([ans].concat(rng.shuffle(pool).slice(0, 3)));
+  choiceRound(r, opts.map(String), opts.indexOf(ans), () => [`A truth value is a section of Ω: one of 2 germs over each of ${I} points, 2^${I} = ${ans}.`]);
+  r.prompt = [`|I| = ${I}. How many truth values (arrows 1 → Ω) could Bn(I) have?`];
+  r.lens = {
+    MATH: ["§4.5: truth values of Bn(I) ↔ subobjects of 1 = id_I ↔ subsets of I.", "So Bn(I) has 2^|I| truth values."],
+    STORY: ["A truth value says, garden by garden, yes or no."],
+    TABLE: ["Ω = 2 × I → I", "|I| = " + I],
+  };
+  r.hint = ["A section of Ω chooses 0 or 1 above every point of I."];
+  r.notice = ["Notice: with |I| = 1 we are back in Set, with 2 truth values."];
+  r.data = { I };
+  return r;
+};
+
+GEN.bun_context = rng => {
+  const r = mkRound("bun_context");
+  const O = arrowObject(rng, { amin: 1 });
+  O.B = new Set([...O.A].map(x => O.g[x]));
+  const types = range(O.n).map(x => psiOf(O.g, O.A, O.B, x));
+  const want = rng.pick([...new Set(types)].concat(types.includes(1) ? [1, 1] : []));
+  const xs = range(O.n).filter(x => types[x] === want), x = rng.pick(xs);
+  const P = drawArrowObject(r, O, { ringA: true, ringB: true });
+  r.d.marks.push({ pt: P.C[x] });
+  const opts = rng.shuffle(["1/2 in Set→, 0 in Bn(D)", "1/2 in Set→, 1 in Bn(D)", "0 in both", "1 in both"]);
+  const right = want === 2 ? "1 in both" : want === 1 ? "1/2 in Set→, 0 in Bn(D)" : "0 in both";
+  choiceRound(r, opts, opts.indexOf(right), () => [want === 1
+    ? `In Set→, ${LC[x]} is not in A but g(${LC[x]}) is in B: 1/2. As a bundle over D: 0.` : want === 2 ? `${LC[x]} is in A: true in both readings.` : `${LC[x]} is not in A and g(${LC[x]}) is not in B: 0 in both.`]);
+  r.prompt = [`The same g: C → D, read two ways: in Set→ (with B = g(A)) and as a bundle`, `over D (with sub-bundle A). What is the truth value at the marked point ${LC[x]}?`];
+  r.lens = {
+    MATH: ["§4.5: \"to construe a function as a bundle is to offer a new,", "and provocative, perspective\". Bn(D) fixes D; Set→ lets D vary."],
+    STORY: ["Same students and classes. In Set→ a class can pass; in Bn(D)", "the classes are just the places where students live."],
+    TABLE: ["g: " + mapStr(LC.slice(0, O.n), DG, O.g), "A = " + setStr(LC, O.A) + "   B = g(A) = " + setStr(DG, O.B)],
+  };
+  r.hint = ["In Bn(D) only A matters: in A → 1, otherwise 0.", "In Set→ look at B too."];
+  r.notice = ["Notice: one picture, two categories, two answers.", "The context decided which answer was right."];
+  r.data = { g: O.g, A: [...O.A], x };
+  return r;
+};
+
+// ===========================================================================
+// WORLD 6  §4.6 MONOID ACTIONS: Ω = left ideals of M, χ(y) = {m : m·y ∈ X}
+// ===========================================================================
+const MONOIDS = [
+  { name: "Z2", els: ["e", "r"], t: [[0, 1], [1, 0]], about: "a group: r·r = e" },
+  { name: "Z3", els: ["e", "r", "s"], t: [[0, 1, 2], [1, 2, 0], [2, 0, 1]], about: "a group of rotations" },
+  { name: "RESET", els: ["e", "z"], t: [[0, 1], [1, 1]], about: "z is a reset: z·z = z" },
+  { name: "CAP", els: ["0", "1", "2"], t: [[0, 1, 2], [1, 2, 2], [2, 2, 2]], about: "steps, capped at 2" },
+  { name: "LEFT-ZERO", els: ["e", "a", "b"], t: [[0, 1, 2], [1, 1, 1], [2, 2, 2]], about: "a·x = a, b·x = b" },
+  { name: "RIGHT-ZERO", els: ["e", "a", "b"], t: [[0, 1, 2], [1, 1, 2], [2, 1, 2]], about: "x·a = a, x·b = b" },
+];
+function isLeftIdeal(M, S) { for (const b of S) for (let m = 0; m < M.els.length; m++) if (!S.has(M.t[m][b])) return false; return true; }
+function leftIdeals(M) {
+  const n = M.els.length, out = [];
+  for (let mask = 0; mask < (1 << n); mask++) { const S = new Set(range(n).filter(i => mask >> i & 1)); if (isLeftIdeal(M, S)) out.push(S); }
+  return out;
+}
+function drawTable(r, x, y, head, colHead, rows, o) {
+  r.d.tables.push(Object.assign({ x, y, head, colHead, rows, cw: 12, rh: 9 }, o || {}));
+}
+function monTable(r, M, x, y) {
+  drawTable(r, x, y, "*", M.els, M.els.map((m, i) => [m].concat(M.t[i].map(k => M.els[k]))), {});
+}
+
+GEN.mon_steps = rng => {
+  const r = mkRound("mon_steps");
+  const n = rng.int(5, 8);
+  let f, X, entry;
+  for (let t = 0; t < 50; t++) {
+    f = range(n).map(() => rng.int(0, n - 1));
+    X = new Set(); const seeds = rng.shuffle(range(n)).slice(0, rng.int(1, 2));
+    for (const s of seeds) { let y = s; while (!X.has(y)) { X.add(y); y = f[y]; } }
+    entry = range(n).map(y => { let z = y; for (let k = 0; k <= n; k++) { if (X.has(z)) return k; z = f[z]; } return Infinity; });
+    if (X.size < n && entry.some(k => k >= 2)) break;
+  }
+  const K = Math.max(3, ...entry.filter(isFinite));
+  const vals = range(K + 1).concat([Infinity]), labs = range(K + 1).map(String).concat(["∞"]);
+  const d = r.d, cx = 150, cy = 88, rad = 46;
+  const S = range(n).map(i => {
+    const a = -Math.PI / 2 + 2 * Math.PI * i / n;
+    const x = Math.round(cx + rad * Math.cos(a)), y = Math.round(cy + rad * Math.sin(a));
+    return d.pt(x, y, LC[i], Math.cos(a) < -0.2 ? "l" : "r", { ring: X.has(i), col: "blue" });
+  });
+  S.forEach((p, i) => (f[i] === i ? d.wire(p, p, { col: "blue", loop: true }) : d.wire(p, S[f[i]], { col: "blue", head: true })));
+  S.forEach(p => addCell(r, p, vals, labs));
+  fixedAnswer(r, entry.slice(), y => {
+    if (!isFinite(entry[y])) return [`From ${LC[y]} the steps go round forever outside X: χ(${LC[y]}) = ∅, false.`];
+    const path = [LC[y]]; let z = y; for (let k = 0; k < entry[y]; k++) { z = f[z]; path.push(LC[z]); }
+    return [`From ${LC[y]}: ${path.join(" → ")}. That is ${entry[y]} step${entry[y] === 1 ? "" : "s"} into X.`];
+  });
+  r.prompt = ["The monoid N = (0, 1, 2, ...) acts by stepping along the arrows. X (gold)", "is closed under steps. χ(y) = {n : n steps take y into X} = {n ≥ k}: set k."];
+  r.lens = {
+    MATH: ["§4.6: in M-Set, χ(y) = {m : m·y ∈ X}, a left ideal of M.", "For M = N the left ideals are ∅ and {n ≥ k}: k = 0 is true, ∅ is false."],
+    STORY: ["A board game: every turn moves your token one arrow.", "The value at y says how many turns until you are home (gold)."],
+    TABLE: ["step: " + mapStr(LC.slice(0, n), LC, f), "X = " + setStr(LC, X)],
+  };
+  r.hint = ["Gold points are 0. Count arrows until you first meet gold.", "Keys: digits set k, I sets ∞."];
+  r.notice = ["Notice: here \"true\" can arrive later. Each k is its own truth value:", "\"true after k steps\". Infinitely many of them."];
+  r.data = { f, X: [...X] };
+  return r;
+};
+
+GEN.mon_ideal = rng => {
+  const r = mkRound("mon_ideal");
+  const M = rng.pick(MONOIDS.slice(2)), n = M.els.length, m = rng.int(0, n - 1);
+  monTable(r, M, 40, 40);
+  const xs = rowX(n, 200, 290, 30);
+  const P = range(n).map(i => r.d.pt(xs[i], 110, M.els[i], "d", { col: "blue" }));
+  P.forEach(p => addCell(r, p, [0, 1], ["", ""], { style: "mark" }));
+  const gen = new Set(range(n).map(x => M.t[x][m]));
+  fixedAnswer(r, range(n).map(i => (gen.has(i) ? 1 : 0)), i => {
+    const x = range(n).find(x => M.t[x][m] === i);
+    return gen.has(i) ? [`${M.els[x]} * ${M.els[m]} = ${M.els[i]}, so ${M.els[i]} is in M*${M.els[m]}.`] : [`No x has x * ${M.els[m]} = ${M.els[i]}: read the column of ${M.els[m]}.`];
+  });
+  const L = leftIdeals(M).length;
+  r.d.text(200, 80, "M =", "blue");
+  r.prompt = [`M (${M.about}) is given by its table: row x, column y shows x * y.`, `Mark M*${M.els[m]} = {x * ${M.els[m]} : x in M}, the left ideal generated by ${M.els[m]}.`];
+  r.lens = {
+    MATH: ["§4.6: B ⊆ M is a left ideal if m * b ∈ B whenever b ∈ B.", "The left ideals are the truth values of M-Set; true picks M itself."],
+    STORY: ["Everything you could reach from " + M.els[m] + " by doing something first."],
+    TABLE: M.els.map((x, i) => x + " * " + M.els[m] + " = " + M.els[M.t[i][m]]).slice(0, 3),
+  };
+  r.hint = [`Read down the column headed ${M.els[m]}.`];
+  r.notice = [`Notice: this M has ${L} left ideals, so M-Set has ${L} truth values.`];
+  r.data = { M, m };
+  return r;
+};
+
+function randomMSet(rng, M) {
+  const ideals = leftIdeals(M).filter(S => S.size > 0);
+  const parts = [], ys = [];
+  const k = rng.int(1, 2);
+  for (let c = 0; c < k; c++) {
+    const I = [...rng.pick(ideals)].sort((a, b) => a - b);
+    if (ys.length + I.length > 6) break;
+    const subs = leftIdeals(M).filter(S => [...S].every(v => I.includes(v)));
+    const J = rng.pick(subs);
+    const base = ys.length;
+    I.forEach(v => ys.push({ copy: c, v, inX: J.has(v), base }));
+    parts.push({ I, base });
+  }
+  if (rng.bool(0.5)) ys.push({ copy: -1, v: -1, inX: rng.bool(), base: ys.length });
+  const act = (m, yi) => {
+    const y = ys[yi];
+    if (y.copy < 0) return yi;
+    const P = parts[y.copy];
+    return P.base + P.I.indexOf(M.t[m][y.v]);
+  };
+  return { ys, act, X: new Set(range(ys.length).filter(i => ys[i].inX)) };
+}
+
+GEN.mon_char = rng => {
+  const r = mkRound("mon_char");
+  const M = rng.pick(MONOIDS), n = M.els.length;
+  let Y;
+  for (let t = 0; t < 40; t++) { Y = randomMSet(rng, M); if (Y.X.size > 0 && Y.X.size < Y.ys.length) break; }
+  const ny = Y.ys.length, ylabs = DG.slice(0, ny);
+  const yi = rng.pick(range(ny).filter(i => !Y.X.has(i)).concat(range(ny)));
+  drawTable(r, 20, 40, "·", ylabs, M.els.map((m, i) => [m].concat(range(ny).map(y => ylabs[Y.act(i, y)]))), { gold: Y.X, sel: yi });
+  const xs = rowX(n, 210, 290, 30);
+  const P = range(n).map(i => r.d.pt(xs[i], 110, M.els[i], "d", { col: "blue" }));
+  P.forEach(p => addCell(r, p, [0, 1], ["", ""], { style: "mark" }));
+  r.d.text(200, 80, `χ(${ylabs[yi]}) =`, "blue");
+  const want = range(n).map(m => (Y.X.has(Y.act(m, yi)) ? 1 : 0));
+  fixedAnswer(r, want, m => [`${M.els[m]}·${ylabs[yi]} = ${ylabs[Y.act(m, yi)]}, which is ${want[m] ? "" : "not "}in X: ${M.els[m]} is ${want[m] ? "" : "not "}in χ(${ylabs[yi]}).`]);
+  r.prompt = [`M = ${M.name} (${M.about}) acts on Y; row m, column y shows m·y.`, `X (gold columns) is a sub-M-set. Mark χ(${ylabs[yi]}) = {m : m·${ylabs[yi]} ∈ X}.`];
+  r.lens = {
+    MATH: ["§4.6: the character of X ⊆ Y sends y to {m : m·y ∈ X},", "a left ideal; it is all of M exactly when y ∈ X."],
+    STORY: [`Which moves could bring ${ylabs[yi]} into X?`, "The truth value is the set of moves that make it true."],
+    TABLE: ["X = " + setStr(ylabs, Y.X), M.els.map((m, i) => m + "·" + ylabs[yi] + "=" + ylabs[Y.act(i, yi)]).join("  ")],
+  };
+  r.hint = [`Read down the column of ${ylabs[yi]}: mark m when the entry is gold.`];
+  r.notice = [want.every(v => v) ? `Notice: χ(${ylabs[yi]}) = M, the truth value true: ${ylabs[yi]} is already in X.` : want.some(v => v) ? "Notice: a value strictly between ∅ and M: partly true." : "Notice: χ = ∅, false: no move brings it into X."];
+  r.data = { M, table: M.els.map((_, i) => range(ny).map(y => Y.act(i, y))), X: [...Y.X], yi };
+  return r;
+};
+
+GEN.mon_count = rng => {
+  const r = mkRound("mon_count");
+  const M = rng.pick(MONOIDS), ans = leftIdeals(M).length;
+  monTable(r, M, 110, 46);
+  const opts = rng.shuffle([2, 3, 4, 5].includes(ans) ? [2, 3, 4, 5] : [ans, 2, 3, 4]);
+  choiceRound(r, opts.map(String), opts.indexOf(ans), () => ["The left ideals are " + leftIdeals(M).map(S => setStr(M.els, S)).join(", ") + "."]);
+  r.prompt = [`M = ${M.name}: ${M.about}. How many truth values could M-Set have?`, "(Count the left ideals of M, ∅ and M included.)"];
+  r.lens = {
+    MATH: ["§4.6: Ω = (L_M, ω) with L_M the set of left ideals, ω(m, B) = {n : n*m ∈ B}.", "In a group the only left ideals are ∅ and M: classical truth."],
+    STORY: ["How many different \"degrees of reachable\" are there?"],
+    TABLE: M.els.map((x, i) => x + ": " + M.t[i].map(k => M.els[k]).join(" ")),
+  };
+  r.hint = ["Try each subset: is it closed under multiplying on the left?"];
+  r.notice = [ans === 2 ? "Notice: a group gives back two-valued truth." : `Notice: ${ans} truth values. The monoid shapes the logic.`];
+  r.data = { M };
+  return r;
+};
+
+// ===========================================================================
+// WORLD 7  §4.7 POWER OBJECTS, counting, and remixes
+// ===========================================================================
+function countArrowSubs(g, n, m) {
+  let c = 0;
+  for (let a = 0; a < (1 << n); a++) for (let b = 0; b < (1 << m); b++) {
+    let ok = true; for (let x = 0; x < n; x++) if ((a >> x & 1) && !(b >> g[x] & 1)) { ok = false; break; }
+    if (ok) c++;
+  }
+  return c;
+}
+function countClosed(f, n) {
+  let c = 0;
+  for (let a = 0; a < (1 << n); a++) { let ok = true; for (let x = 0; x < n; x++) if ((a >> x & 1) && !(a >> f[x] & 1)) { ok = false; break; } if (ok) c++; }
+  return c;
+}
+function distractors(rng, ans, extra) {
+  const pool = [...new Set(extra.concat([ans + 1, ans - 1, ans * 2, Math.max(1, Math.floor(ans / 2))]))].filter(v => v !== ans && v > 0);
+  return rng.shuffle([ans].concat(rng.shuffle(pool).slice(0, 3)));
+}
+
+GEN.cnt_sub = rng => {
+  const r = mkRound("cnt_sub");
+  const d = r.d;
+  const which = rng.pick(["set", "pair", "arrow", "arrow", "bundle", "nset"]);
+  let ans, why, name;
+  if (which === "set") {
+    const n = rng.int(1, 6); rowX(n, 40, 280, 40).forEach((x, i) => d.pt(x, 80, DG[i], "d"));
+    ans = 2 ** n; name = "Set"; r.data = { n }; why = [`2^${n} = ${ans}: each point is in or out.`];
+  } else if (which === "pair") {
+    const m = rng.int(1, 3), n = rng.int(1, 3);
+    rowX(m, 30, 140, 30).forEach((x, i) => d.pt(x, 80, DG[i], "d")); rowX(n, 180, 290, 30).forEach((x, i) => d.pt(x, 80, DG[i], "d"));
+    d.box(158, 50, 1, 50, "", "faint");
+    ans = 2 ** (m + n); name = "Set²"; r.data = { m, n }; why = [`2^${m} · 2^${n} = ${ans}.`];
+  } else if (which === "arrow") {
+    const n = rng.int(2, 5), m = rng.int(1, 3), g = range(n).map(() => rng.int(0, m - 1));
+    drawArrowObject(r, { n, m, g, A: new Set(), B: new Set() }, { x1: 290 });
+    ans = countArrowSubs(g, n, m); name = "Set→"; r.data = { g, n, m };
+    const fib = range(m).map(j => g.filter(v => v === j).length);
+    why = ["Over each d: d not in B (1 way), or d in B and any part of g⁻¹(d) in A (2^k).", "Product: " + fib.map(k => `(1+2^${k})`).join("·") + ` = ${ans}.`];
+  } else if (which === "bundle") {
+    const Bd = bundle(rng, false); drawBundle(r, Bd, null, false, 126);
+    ans = 2 ** Bd.X; name = "Bn(I)"; r.data = { X: Bd.X }; why = [`A sub-bundle is any subset of X: 2^${Bd.X} = ${ans}.`];
+  } else {
+    const n = rng.int(3, 5), f = range(n).map(() => rng.int(0, n - 1));
+    const S = range(n).map(i => d.pt(Math.round(150 + 40 * Math.cos(2 * Math.PI * i / n - Math.PI / 2)), Math.round(84 + 40 * Math.sin(2 * Math.PI * i / n - Math.PI / 2)), LC[i], "r", { col: "blue" }));
+    S.forEach((p, i) => (f[i] === i ? d.wire(p, p, { col: "blue", loop: true }) : d.wire(p, S[f[i]], { col: "blue", head: true })));
+    ans = countClosed(f, n); name = "N-Set"; r.data = { f, n }; why = ["Sub-N-sets are the subsets closed under a step; there are " + ans + "."];
+  }
+  const opts = distractors(rng, ans, [2 ** 4, 9, 12]);
+  choiceRound(r, opts.map(String), opts.indexOf(ans), () => why);
+  r.prompt = [`How many subobjects could this object of ${name} have?`, "(§4.7: they match the arrows into Ω, i.e. the points of the power object.)"];
+  r.lens = {
+    MATH: ["§4.7: Sub(d) ≅ C(d, Ω) ≅ C(1, Ω^d). In a topos Ω^d is the power object.", "Count the subobjects directly, or the characters."],
+    STORY: ["How many different ways could a part be chosen here?"],
+    TABLE: ["topos: " + name],
+  };
+  r.hint = which === "arrow" ? ["Work point by point in D: for each d, B either avoids d or contains it."] : ["Count the subobjects one choice at a time."];
+  r.notice = ["Notice: the same question had a different shape in each topos."];
+  r.topos = which;
+  return r;
+};
+
+GEN.cnt_truth = rng => {
+  const r = mkRound("cnt_truth");
+  const which = rng.pick(["Set", "Finset", "Set²", "Set→", "Bn(I)", "M-Set", "N-Set"]);
+  let ans, why, opts;
+  if (which === "Bn(I)") { const k = rng.int(1, 4); ans = String(2 ** k); r.prompt = [`How many truth values (arrows 1 → Ω) could Bn(I) have, with |I| = ${k}?`]; r.data = { k }; why = [`Subsets of I: 2^${k}.`]; opts = [ans, "2", String(k + 1), "3"].filter((v, i, a) => a.indexOf(v) === i); if (opts.length < 4) opts.push("infinitely many"); }
+  else if (which === "M-Set") {
+    const M = rng.pick(MONOIDS); monTable(r, M, 120, 56); ans = String(leftIdeals(M).length); r.data = { M };
+    r.prompt = [`M = ${M.name} (${M.about}). How many truth values could M-Set have?`]; why = ["One for each left ideal of M."]; opts = ["2", "3", "4", "5"];
+  } else {
+    const table = { "Set": ["2", "Ω = {0, 1}"], "Finset": ["2", "the same true: 1 → 2 as in Set"], "Set²": ["4", "pairs (x, y) of 0s and 1s"], "Set→": ["3", "(0,0), (1/2,1), (1,1)"], "N-Set": ["infinitely many", "∅ and every {n ≥ k}"] };
+    ans = table[which][0]; why = ["Truth values here: " + table[which][1] + "."];
+    r.prompt = [`How many truth values (arrows 1 → Ω) could ${which} have?`];
+    opts = ["2", "3", "4", "infinitely many"];
+  }
+  opts = rng.shuffle(opts);
+  choiceRound(r, opts, opts.indexOf(ans), () => why);
+  r.lens = {
+    MATH: ["§4.2, §4.4-4.6: truth values = arrows 1 → Ω ↔ subobjects of 1.", "Only some topoi have exactly two."],
+    STORY: ["\"Is it true?\" could have 2, 3, 4 or endlessly many honest answers."],
+    TABLE: ["topos: " + which],
+  };
+  r.hint = ["Count the subobjects of the terminal object 1."];
+  r.notice = ["Notice: \"true or false\" was a property of Set, not of logic itself."];
+  r.topos = which;
+  return r;
+};
+
+// ===========================================================================
+// QUIZZES (from the text of §4.1–§4.7)
+// ===========================================================================
+const QUIZ = {
+  1: [
+    ["In Set, when could monics f: A → D and g: B → D be the same subobject?", ["when they have the same image", "only when A = B", "only when f = g", "never"], 0],
+    ["Is every arrow 1 → d monic?", ["yes, any arrow out of 1 is monic", "no, only in Set", "only if d = 1"], 0],
+    ["A subobject of d is...", ["an ≃-class of monics into d", "a subset of d, nothing else", "an arrow out of d"], 0],
+  ],
+  2: [
+    ["Ω-axiom: for each monic f there is ... χ making the square a pullback.", ["exactly one", "at least one", "at most one", "two"], 0],
+    ["If true': 1 → Ω' is another subobject classifier, then Ω' is...", ["isomorphic to Ω", "equal to Ω", "bigger than Ω", "unrelated to Ω"], 0],
+    ["The character of true: 1 → Ω is...", ["1_Ω, the identity", "true", "!: Ω → 1", "there is none"], 0],
+    ["The character of 1_a: a → a is...", ["true_a = true ∘ !", "the identity", "false", "there is none"], 0],
+  ],
+  3: [
+    ["Why could Set² be a topos?", ["every construction doubles up from Set", "it has just two objects", "it is Set with a new Ω"], 0],
+    ["If C1 and C2 are topoi, the product category C1 × C2 is...", ["a topos", "never a topos", "Set"], 0],
+  ],
+  4: [
+    ["In Set→, the subobject classifier Ω is the function...", ["t: {0, 1/2, 1} → {0, 1}", "true: 1 → 2", "id: 2 → 2"], 0],
+    ["In Set→, ψ(x) = 1/2 means...", ["x is not in A, but g(x) is in B", "x is in A", "g(x) is not in B"], 0],
+    ["The terminal object of Set→ is...", ["id: {0} → {0}", "∅ → {0}", "{0, 1} → {0}"], 0],
+  ],
+  5: [
+    ["\"A bundle of sets over I\" is essentially...", ["a function with codomain I", "a subset of I", "a single set"], 0],
+    ["A section of p: A → I is an s: I → A with...", ["p ∘ s = id_I", "s ∘ p = id_A", "p = s"], 0],
+    ["The classifier of Bn(I) is...", ["pr: 2 × I → I, two germs over each point", "t: 3 → 2", "true: 1 → 2"], 0],
+  ],
+  6: [
+    ["In M-Set, the object Ω is...", ["the left ideals of M, acted on by ω", "M acting on itself", "{0, 1}"], 0],
+    ["If M is a group, how many truth values does M-Set have?", ["2", "|M|", "|M| + 1", "1"], 0],
+    ["true: 1 → Ω in M-Set picks out...", ["M, the largest left ideal", "∅", "the identity e"], 0],
+  ],
+  7: [
+    ["Sub(d) ≅ C(d, Ω) says that...", ["subobjects of d match arrows d → Ω", "d is isomorphic to Ω", "every arrow is monic"], 0],
+    ["After Mikkelsen, a topos could be defined as...", ["a Cartesian closed category with a subobject classifier", "a category with products", "any category of sets"], 0],
+    ["The power object of D in Set is...", ["the powerset P(D) = 2^D", "D × D", "{0, 1}"], 0],
+  ],
+};
+GEN.quiz = (rng, world) => {
+  const r = mkRound("quiz");
+  const [q, ch, a] = rng.pick(QUIZ[world]);
+  const order = rng.shuffle(range(ch.length));
+  const opts = order.map(i => ch[i]);
+  choiceRound(r, opts, order.indexOf(a), () => ["One reading of the book: " + ch[a] + "."]);
+  r.prompt = ["From the book: " + q.slice(0, 62), q.length > 62 ? q.slice(62) : ""].filter(Boolean);
+  if (q.length > 62) { const cut = q.lastIndexOf(" ", 62); r.prompt = ["From the book: " + q.slice(0, cut), q.slice(cut + 1)]; }
+  r.lens = { MATH: ["Goldblatt, Topoi, chapter 4."], STORY: ["A question to hold loosely: it could be asked other ways too."], TABLE: [] };
+  r.hint = ["Think of Set first, then ask what could change in other topoi."];
+  r.notice = ["Notice: the definition is the same in every topos; the answers differ."];
+  return r;
+};
+
+// ===========================================================================
+// WORLDS: Goldblatt section + Langer myth + round list
+// ===========================================================================
+const WORLDS = [
+  { id: 1, sec: "§4.1", name: "SUBOBJECTS", myth: 1,
+    rounds: ["sub_image", "sub_compare", "sub_image", "sub_couldbe", "sub_compare", "quiz", "sub_couldbe"] },
+  { id: 2, sec: "§4.2", name: "CLASSIFYING", myth: 7,
+    rounds: ["chi_paint", "chi_pull", "chi_paint", "chi_swap", "chi_count", "quiz", "chi_swap"] },
+  { id: 3, sec: "§4.4", name: "PAIRS: Set²", myth: 2,
+    rounds: ["pair_paint", "pair_pull", "pair_truth", "pair_paint", "quiz", "pair_truth"] },
+  { id: 4, sec: "§4.4", name: "ARROWS: Set→", myth: 6,
+    rounds: ["arr_paint", "arr_check", "arr_paint", "arr_couldbe", "arr_read", "arr_omega", "quiz", "arr_paint"] },
+  { id: 5, sec: "§4.5", name: "BUNDLES", myth: 4,
+    rounds: ["bun_paint", "bun_section", "bun_context", "bun_paint", "bun_truth", "quiz", "bun_context"] },
+  { id: 6, sec: "§4.6", name: "M-SETS", myth: 3,
+    rounds: ["mon_steps", "mon_ideal", "mon_char", "mon_steps", "mon_count", "quiz", "mon_char"] },
+  { id: 7, sec: "§4.7", name: "POWER & REMIX", myth: 5,
+    rounds: ["cnt_sub", "cnt_truth", "arr_paint_remix", "chi_swap_remix", "cnt_sub", "mon_steps", "cnt_truth", "quiz"] },
+];
+const ALL_KINDS = [...new Set(WORLDS.flatMap(w => w.rounds))];
+
+function makeRound(kind, seed, world) {
+  const rng = RNG(seed);
+  const r = kind === "quiz" ? GEN.quiz(rng, world) : GEN[kind](rng);
+  r.kind = kind; r.world = world; r.seed = seed;
+  return r;
+}
+// ===========================================================================
+// CONTENT: Ellen J. Langer, "The Power of Mindful Learning" (paraphrased) and
+// notes on Robert Goldblatt, "Topoi: The Categorial Analysis of Logic", ch. 4.
+// Each world pairs one section of the book with one of Langer's seven myths.
+// ===========================================================================
+
+// Langer's seven myths (Introduction), with the idea that answers each and how this game uses it.
+const MYTHS = {
+  1: { short: "basics", title: "MYTH 1: THE BASICS MUST BE SECOND NATURE", ch: "ch. 1",
+    idea: ["Overlearned basics run like a program and stop us noticing.", "Taught as \"could be\", a fact stays open to new uses."],
+    game: ["\"Subobject = subset\" is an overlearned basic. In World 1 a part", "of D could be named by many monics; you wire one of your own."] },
+  2: { short: "attention", title: "MYTH 2: ATTENTION MEANS ONE THING AT A TIME", ch: "ch. 2",
+    idea: ["Holding one image still is tiring. \"Soft vigilance\" stays open", "and notices novelty, like a relaxed rider noticing the branches."],
+    game: ["In World 3 every object is two sets at once. You paint both", "halves together, and notice that truth now has four values."] },
+  3: { short: "delay", title: "MYTH 3: DELAYING GRATIFICATION IS IMPORTANT", ch: "ch. 3",
+    idea: ["Work need not be the price of play: an activity we treat as", "play, and approach without grading, becomes involving."],
+    game: ["World 6 is a board game: N acts by steps, and a truth value is", "\"true after k steps\". There are no lives to lose anywhere."] },
+  4: { short: "rote memory", title: "MYTH 4: ROTE MEMORIZATION IS NECESSARY", ch: "ch. 4",
+    idea: ["Memorized packages (\"Hastings/1066\") stay locked in one context.", "Drawing distinctions keeps information available elsewhere."],
+    game: ["World 5 reads one function two ways, in Set→ and as a bundle.", "A memorized \"ψ-rule\" gives the wrong value in the other context."] },
+  5: { short: "forgetting", title: "MYTH 5: FORGETTING IS A PROBLEM", ch: "ch. 5",
+    idea: ["Forgetting can free us from mindsets and let us see anew;", "staying in the present beats replaying old information."],
+    game: ["World 7 forgets the names (N/L/Y, F/T, X, Y) and swaps true.", "What survives the forgetting is the structure."] },
+  6: { short: "intelligence", title: "MYTH 6: INTELLIGENCE IS KNOWING WHAT'S OUT THERE", ch: "ch. 6",
+    idea: ["Intelligence is often pictured as a fit to a fixed world.", "Mindfulness instead keeps several possible worlds in view."],
+    game: ["World 4: in Set→ there is a third truth value, 1/2, and a", "\"could be\" round where many choices of B are right."] },
+  7: { short: "right answers", title: "MYTH 7: THERE ARE RIGHT AND WRONG ANSWERS", ch: "ch. 7",
+    idea: ["\"That's right,\" said the judge to both men. An answer is right", "relative to a perspective; uncertainty invites creative thought."],
+    game: ["World 2: swap which arrow is called true, and every \"right\" χ", "flips. Both classify the same subobject (unique up to iso)."] },
+};
+
+// Short insight cards, paraphrased, with the place in the book.
+const INSIGHTS = [
+  ["\"This could be...\"", "Langer, ch. 1: objects presented as \"could be\" were used more", "creatively than those presented as \"is\"."],
+  ["1 + 1 could be 2", "Langer, Introduction: a maths lesson taught conditionally", "(\"1 plus 1 could be 2\") removed a gap on a novel test."],
+  ["Sideways learning", "Langer, ch. 1: vary the basics, notice distinctions, contexts", "and perspectives, rather than drill one fixed procedure."],
+  ["Soft vigilance", "Langer, ch. 2: attention that stays open to novelty is easier", "to keep up than attention fixed on one target."],
+  ["Work into play", "Langer, ch. 3: the fun of a puzzle is going from not knowing", "to knowing, and it is more fun when several answers work."],
+  ["Drawing distinctions", "Langer, ch. 4: facts learned with their context stay usable", "when the context changes."],
+  ["Staying in the present", "Langer, ch. 5: old, mindlessly learned facts can get in the", "way of new complexities."],
+  ["Several perspectives", "Langer, ch. 7: viewing the same information from several", "perspectives makes us more open to it, not less stable."],
+];
+
+// Notes on the book, one per world.
+const BOOK = {
+  1: ["§4.1 Subobjects", "f ⊆ g iff f factors through g; f ≃ g iff both. A subobject", "of d is an ≃-class [f]. In Set, Sub(D) ≅ P(D)."],
+  2: ["§4.2 Classifying subobjects", "Ω-axiom: each monic f has exactly one χ_f with f the pullback", "of true along χ_f. Hence Sub(d) ≅ C(d, Ω)."],
+  3: ["§4.4 Ex. 4: Set²", "Pairs of sets. Everything doubles up from Set, including", "the classifier (true, true): ({0},{0}) → (2, 2)."],
+  4: ["§4.4 Ex. 5: Set→", "Functions as objects. Ω is t: {0, 1/2, 1} → {0, 1}; the", "value 1/2 marks x not in A with g(x) in B."],
+  5: ["§4.5 Bundles", "Bn(I) = Set/I. Ω = pr: 2 × I → I, a bundle of classifiers;", "elements are sections; truth values are subsets of I."],
+  6: ["§4.6 Monoid actions", "M-Set: Ω = left ideals of M, χ(y) = {m : m·y ∈ X},", "true = M. For a group: just ∅ and M."],
+  7: ["§4.3, §4.7 Topoi, power objects", "A topos: finitely (co)complete, exponentials, and a classifier.", "Power objects: Sub(d) ≅ C(d, Ω) ≅ C(1, Ω^d)."],
+};
+
+// How the game itself follows Langer (shown in the codex).
+const DESIGN = [
+  ["Conditional language", "Prompts, hints and feedback say \"could\", not \"is\"."],
+  ["No single right answer", "\"Could be\" rounds accept every valid answer and say how many there were."],
+  ["Mistakes are information", "No lives. A wrong check says where to look; a second shows one way to see it."],
+  ["Several perspectives", "L switches lenses: the book's wording, a story, or a plain table."],
+  ["Novelty", "Every round is generated afresh; NOTICE says what is new."],
+  ["Context", "The same picture gets different truth values in different topoi."],
+];
+// ===========================================================================
+// UI: drawing, screens and input for COULD-BE Ω
+// ===========================================================================
+const cv = document.getElementById("screen");
+cv.width = W; cv.height = H;
+const ctx = cv.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+let TL = null;        // text log for the automated tests
+let SX = 0, SY = 0;   // shake offset
+
+const COL = {
+  bg: "#f6f1e3", card: "#fffdf6", navy: "#2b2350", ink: "#1f1b2e", grey: "#7c7690", light: "#ebe4d0", faint: "#cfc6ae",
+  blue: "#2f6bc7", orange: "#d9731a", purple: "#7a4cc2", gold: "#e0a100", green: "#2e9b55", red: "#d1343f",
+  paleGold: "#f9e7a8", paleGreen: "#d3eedb", paleRed: "#f6cdd0", palePurple: "#e6dcf6", paleBlue: "#d5e3f7", white: "#ffffff",
+};
+const C = k => COL[k] || k;
+
+function glyph(ch) { return FONT[ch] || FONT[ch.toUpperCase()] || FONT["?"]; }
+function glyphW(ch) { return glyph(ch).length === 25 ? 5 : 3; }
+function textWidth(s) { let w = 0; for (const ch of s) w += glyphW(ch) + 1; return Math.max(0, w - 1); }
+function text(s, x, y, color, align, scale) {
+  scale = scale || 1;
+  const tw = textWidth(s) * scale;
+  if (align === "center") x = Math.round(x - tw / 2); else if (align === "right") x = Math.round(x - tw);
+  x = Math.round(x); y = Math.round(y);
+  if (TL) TL.push({ s, x, y, w: tw, h: 5 * scale, c: color });
+  ctx.fillStyle = C(color || "ink");
+  for (const ch of s) {
+    const g = glyph(ch), gw = g.length === 25 ? 5 : 3;
+    for (let p = 0; p < g.length; p++) if (g[p] === "1") ctx.fillRect(x + SX + (p % gw) * scale, y + SY + ((p / gw) | 0) * scale, scale, scale);
+    x += (gw + 1) * scale;
+  }
+}
+function rect(x, y, w, h, c) { ctx.fillStyle = C(c); ctx.fillRect(Math.round(x) + SX, Math.round(y) + SY, Math.round(w), Math.round(h)); }
+function frame(x, y, w, h, c) { rect(x, y, w, 1, c); rect(x, y + h - 1, w, 1, c); rect(x, y, 1, h, c); rect(x + w - 1, y, 1, h, c); }
+function line(x0, y0, x1, y1, c, dash) {
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy, k = 0;
+  ctx.fillStyle = C(c);
+  for (;;) {
+    if (!dash || (k % 6) < 3) ctx.fillRect(x0 + SX, y0 + SY, 1, 1);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+    k++;
+  }
+}
+function wrap(s, maxw) {
+  const out = []; let cur = "";
+  for (const w of s.split(" ")) {
+    const t = cur ? cur + " " + w : w;
+    if (textWidth(t) > maxw && cur) { out.push(cur); cur = w; } else cur = t;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+// ---- sound ----
+let audio = null, muted = false;
+function beep(freq, dur, type, vol) {
+  if (muted) return;
+  try {
+    if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type || "square"; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || 0.04, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + dur);
+    o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime + dur);
+  } catch (e) { /* no audio */ }
+}
+const sfx = {
+  tick: () => beep(660, 0.04), ok: () => { beep(523, 0.08); setTimeout(() => beep(784, 0.12), 80); },
+  no: () => beep(196, 0.15, "triangle"), open: () => beep(440, 0.06, "triangle"),
+};
+
+// ---- save ----
+const SAVE_KEY = "couldbe-omega-v1";
+function loadSave() {
+  try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.stars) return s; } catch (e) { /* fresh */ }
+  return { stars: {}, best: 0, notebook: [], seen: {} };
+}
+let save = loadSave();
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
+
+// ---- state ----
+let screen = "title";
+let cur = null;           // current play state
+let lens = 0;             // 0 MATH, 1 STORY, 2 TABLE
+const LENSES = ["MATH", "STORY", "TABLE"];
+let cursor = 0;           // focus index on the current screen
+let codexPage = 0;
+let seedBase = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0, seedCount = 0;
+let doneInfo = null;
+let hover = -1;
+
+function nextSeed() { seedCount++; return (seedBase + seedCount * 7919) >>> 0; }
+function worldOfKind(k) { const w = WORLDS.find(w => w.rounds.includes(k)); return w ? w.id : 1; }
+
+function startWorld(w) {
+  cur = { mode: "world", w, idx: 0, score: 0 };
+  newRound(); screen = "play"; sfx.open();
+}
+function startFree() {
+  cur = { mode: "free", w: 0, idx: 0, score: 0 };
+  newRound(); screen = "play"; sfx.open();
+}
+function newRound() {
+  let kind, world;
+  if (cur.mode === "world") { const W_ = WORLDS[cur.w - 1]; kind = W_.rounds[cur.idx]; world = cur.w; }
+  else { kind = ALL_KINDS[Math.floor(RNG(nextSeed()).f() * ALL_KINDS.length)]; world = worldOfKind(kind); if (kind === "quiz") world = 1 + (seedCount % 7); }
+  cur.round = makeRound(kind, nextSeed(), world);
+  cur.ans = blank(cur.round);
+  cur.tries = 0; cur.hinted = false; cur.fb = null; cur.revealed = false; cur.showHint = false;
+  cursor = 0;
+}
+
+// ---- geometry of the play screen ----
+function cellBox(r, i) {
+  const c = r.cells[i], p = r.d.pts[c.pt];
+  const w = c.style === "mark" ? 9 : Math.max(9, Math.max(...c.labs.map(textWidth), 3) + 4);
+  return { x: p.x - Math.floor(w / 2), y: p.y - 4, w, h: 9 };
+}
+function choiceBoxes(r) {
+  if (!r.choices) return [];
+  if (r.kind === "quiz") return r.choices.map((s, i) => ({ x: 16, y: 44 + 18 * i, w: 288, h: 13 }));
+  const fits = r.choices.every(s => textWidth(s) + 14 <= 150);
+  if (fits) return r.choices.map((s, i) => ({ x: i % 2 ? 164 : 8, y: 146 + 12 * Math.floor(i / 2), w: 148, h: 11 }));
+  return r.choices.map((s, i) => ({ x: 8, y: 136 + 12 * i, w: 304, h: 11 }));
+}
+const PLAY_BTNS = [["check", "ENTER:CHECK"], ["hint", "H:HINT"], ["lens", "L:LENS"], ["codex", "K:CODEX"], ["map", "ESC:MAP"]];
+function playButtons() {
+  const out = []; let x = 4;
+  for (const [id, lab] of PLAY_BTNS) {
+    const s = id === "lens" ? "L:" + LENSES[lens] : lab, w = textWidth(s) + 8;
+    out.push({ id, s, x, y: 189, w, h: 10 }); x += w + 4;
+  }
+  return out;
+}
+function focusList() {
+  if (screen !== "play" || !cur) return [];
+  const r = cur.round, out = [];
+  r.cells.forEach((c, i) => out.push(Object.assign({ type: "cell", i }, cellBox(r, i))));
+  choiceBoxes(r).forEach((b, i) => out.push(Object.assign({ type: "choice", i }, b)));
+  playButtons().forEach(b => { if (!(b.id === "check" && r.choices)) out.push(Object.assign({ type: "btn" }, b)); });
+  return out;
+}
+
+// ---- play actions ----
+function cycleCell(i, dir) {
+  const r = cur.round, c = r.cells[i], n = c.vals.length;
+  let v = cur.ans.cells[i];
+  if (c.style === "mark") v = 1 - v;
+  else v = v < 0 ? (dir < 0 ? n - 1 : 0) : (v + (dir || 1) + n) % n;
+  cur.ans.cells[i] = v; sfx.tick();
+}
+function setCellByKey(i, key) {
+  const r = cur.round, c = r.cells[i];
+  let k = c.labs.indexOf(key);
+  if (k < 0 && (key === "/" || key === ".")) k = c.labs.indexOf("1/2");
+  if (k < 0 && key.toLowerCase() === "i") k = c.labs.indexOf("∞");
+  if (k < 0 && c.style === "mark" && (key === "0" || key === "1")) k = +key;
+  if (k < 0 && /^[a-z]$/i.test(key)) k = c.labs.indexOf(key.toLowerCase());
+  if (k < 0 && /^[0-9]$/.test(key) && c.style !== "mark" && c.labs.indexOf(key) < 0 && +key < c.vals.length && !c.labs.some(l => /^[0-9]/.test(l))) k = +key;
+  if (k >= 0) { cur.ans.cells[i] = k; sfx.tick(); return true; }
+  return false;
+}
+function submit() {
+  const r = cur.round;
+  if (cur.fb) return;
+  const res = r.check(cur.ans);
+  if (res.unset) { cur.fb = { kind: "info", msg: res.msg, notice: [] }; return; }
+  cur.tries++;
+  if (res.ok) {
+    const stars = cur.tries === 1 && !cur.hinted ? 3 : 2;
+    finishRound(stars, { kind: "ok", msg: res.msg, notice: res.notice || r.notice });
+    sfx.ok();
+  } else {
+    save.notebook.push({ w: r.world, k: r.kind, m: res.msg[0] }); if (save.notebook.length > 40) save.notebook.shift(); persist();
+    if (cur.tries >= 2) {
+      const sol = r.solve(); cur.ans = { cells: sol.cells.slice(), choice: sol.choice };
+      cur.revealed = true;
+      finishRound(1, { kind: "reveal", msg: ["One way to see it:"].concat(res.msg), notice: r.notice });
+    } else {
+      cur.fb = { kind: "no", msg: res.msg.concat(["That is information, not a verdict. Press ENTER and look again."]), notice: [] };
+    }
+    sfx.no(); SX = 2;
+  }
+}
+function finishRound(stars, fb) {
+  cur.fb = Object.assign(fb, { done: true, stars });
+  cur.score += stars;
+  if (cur.mode === "world") {
+    const k = String(cur.w); save.stars[k] = save.stars[k] || [];
+    save.stars[k][cur.idx] = Math.max(save.stars[k][cur.idx] || 0, stars);
+  } else if (cur.score > save.best) save.best = cur.score;
+  persist();
+}
+function advance() {
+  if (!cur.fb) return;
+  if (!cur.fb.done) { cur.fb = null; return; }
+  if (cur.mode === "world") {
+    cur.idx++;
+    if (cur.idx >= WORLDS[cur.w - 1].rounds.length) { doneInfo = { w: cur.w, score: cur.score, max: 3 * WORLDS[cur.w - 1].rounds.length }; save.seen[cur.w] = 1; persist(); screen = "done"; cursor = 0; return; }
+  } else cur.idx++;
+  newRound();
+}
+function playActivate(f, dir) {
+  if (!f) return;
+  if (f.type === "cell") { if (!cur.fb) cycleCell(f.i, dir); }
+  else if (f.type === "choice") { if (!cur.fb) { cur.ans.choice = f.i; submit(); } }
+  else if (f.id === "check") { if (cur.fb) advance(); else submit(); }
+  else if (f.id === "hint") toggleHint();
+  else if (f.id === "lens") { lens = (lens + 1) % 3; sfx.tick(); }
+  else if (f.id === "codex") { codexFrom = "play"; screen = "codex"; codexPage = cur.round.world; }
+  else if (f.id === "map") { screen = "map"; cursor = 0; }
+}
+function toggleHint() { if (!cur.fb) { cur.showHint = true; cur.hinted = true; sfx.tick(); } }
+let codexFrom = "map";
+function backFrom() { return codexFrom === "play" && cur ? "play" : codexFrom === "title" ? "title" : "map"; }
+
+// ---- menus ----
+function mapItems() {
+  const out = [];
+  WORLDS.forEach((w, i) => out.push({ type: "world", wid: w.id, x: i % 2 ? 164 : 8, y: 30 + 30 * Math.floor(i / 2), w_: 148, h: 26 }));
+  out.push({ type: "free", x: 164, y: 120, w_: 148, h: 26 });
+  out.push({ type: "codex", x: 8, y: 152, w_: 96, h: 14 }, { type: "help", x: 112, y: 152, w_: 96, h: 14 }, { type: "title", x: 216, y: 152, w_: 96, h: 14 });
+  return out.map(o => Object.assign(o, { w: o.w_ }));
+}
+function worldStars(w) { const a = save.stars[String(w)] || []; return a.reduce((s, v) => s + (v || 0), 0); }
+
+// ===========================================================================
+// DRAWING
+// ===========================================================================
+function drawPoint(r, p, i) {
+  const ci = p.cell;
+  if (p.ring) {
+    const rb = ci >= 0 ? cellBox(r, ci) : { x: p.x - 4, y: p.y - 3, w: 9, h: 7 };
+    frame(rb.x - 3, rb.y - 3, rb.w + 6, rb.h + 6, "gold"); frame(rb.x - 2, rb.y - 2, rb.w + 4, rb.h + 4, "gold");
+  }
+  if (ci >= 0) {
+    const b = cellBox(r, ci), c = r.cells[ci], v = cur.ans.cells[ci];
+    if (c.style === "mark") { rect(b.x, b.y, b.w, b.h, v ? "gold" : "white"); frame(b.x, b.y, b.w, b.h, "ink"); if (v) rect(b.x + 3, b.y + 3, 3, 3, "ink"); }
+    else { rect(b.x, b.y, b.w, b.h, v < 0 ? "light" : "paleBlue"); frame(b.x, b.y, b.w, b.h, "ink"); text(v < 0 ? "?" : c.labs[v], p.x, p.y - 2, v < 0 ? "grey" : "ink", "center"); }
+  } else if (p.kind === "term") {
+    rect(p.x - 3, p.y - 3, 7, 7, "navy");
+  } else {
+    rect(p.x - 2, p.y - 2, 5, 5, p.col === "ink" ? "ink" : p.col); rect(p.x - 1, p.y - 3, 3, 7, p.col === "ink" ? "ink" : p.col); rect(p.x - 3, p.y - 1, 7, 3, p.col === "ink" ? "ink" : p.col);
+  }
+  if (p.lab) {
+    const half = ci >= 0 ? Math.ceil(cellBox(r, ci).w / 2) : 4;
+    const col = p.col === "purple" ? "purple" : "ink";
+    if (p.lp === "u") text(p.lab, p.x, p.y - 12, col, "center");
+    else if (p.lp === "d") text(p.lab, p.x, p.y + 7, col, "center");
+    else if (p.lp === "l") text(p.lab, p.x - half - 3, p.y - 2, col, "right");
+    else text(p.lab, p.x + half + 3, p.y - 2, col, "left");
+  }
+}
+function drawWire(r, a, b, col, dash, head, lab, loop) {
+  const A = r.d.pts[a], B = r.d.pts[b];
+  if (loop || a === b) { frame(A.x + 5, A.y - 9, 7, 7, col); return; }
+  const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+  const sa = A.cell >= 0 ? 6 : 4, sb = B.cell >= 0 ? 7 : 5;
+  const x0 = A.x + ux * sa, y0 = A.y + uy * sa, x1 = B.x - ux * sb, y1 = B.y - uy * sb;
+  line(x0, y0, x1, y1, col, dash);
+  if (head !== false) {
+    const px = -uy, py = ux;
+    line(x1, y1, x1 - ux * 3 + px * 2, y1 - uy * 3 + py * 2, col); line(x1, y1, x1 - ux * 3 - px * 2, y1 - uy * 3 - py * 2, col);
+  }
+  if (lab) text(lab, (x0 + x1) / 2, (y0 + y1) / 2 - 8, col, "center");
+}
+function drawTableObj(t) {
+  const n = t.colHead.length;
+  rect(t.x, t.y, t.cw * (n + 1), t.rh * (t.rows.length + 1), "card");
+  if (t.gold) for (const j of t.gold) rect(t.x + t.cw * (j + 1), t.y, t.cw, t.rh * (t.rows.length + 1), "paleGold");
+  text(t.head, t.x + t.cw / 2, t.y + 2, "grey", "center");
+  t.colHead.forEach((h, j) => text(h, t.x + t.cw * (j + 1.5), t.y + 2, "blue", "center"));
+  t.rows.forEach((row, i) => row.forEach((s, j) => text(s, t.x + t.cw * (j + 0.5), t.y + t.rh * (i + 1) + 2, j === 0 ? "blue" : "ink", "center")));
+  rect(t.x, t.y + t.rh - 1, t.cw * (n + 1), 1, "faint"); rect(t.x + t.cw - 1, t.y, 1, t.rh * (t.rows.length + 1), "faint");
+  frame(t.x - 1, t.y - 1, t.cw * (n + 1) + 2, t.rh * (t.rows.length + 1) + 2, "ink");
+  if (t.sel != null) frame(t.x + t.cw * (t.sel + 1), t.y - 1, t.cw, t.rh * (t.rows.length + 1) + 2, "red");
+}
+function drawDiagram(r) {
+  const d = r.d;
+  d.boxes.forEach(b => { rect(b.x, b.y, b.w, b.h, b.col); if (b.lab) text(b.lab, b.x + 2, b.y + 2, "grey"); });
+  d.tables.forEach(drawTableObj);
+  d.wires.forEach(w => drawWire(r, w.a, w.b, w.col, w.dash, w.head, w.lab, w.loop));
+  r.cells.forEach((c, i) => { const v = cur.ans.cells[i]; if (c.targets && v >= 0 && c.targets[v] != null) drawWire(r, c.pt, c.targets[v], c.style === "mark" ? "gold" : (r.kind === "sub_couldbe" ? "orange" : "purple"), false, true); });
+  d.pts.forEach((p, i) => drawPoint(r, p, i));
+  d.marks.forEach(m => { const p = d.pts[m.pt]; frame(p.x - 9, p.y - 8, 19, 17, "red"); frame(p.x - 10, p.y - 9, 21, 19, "red"); });
+  d.texts.forEach(t => text(t.s, t.x, t.y, t.col, t.align));
+}
+function button(b, focused, label, col) {
+  rect(b.x, b.y, b.w, b.h, focused ? "paleGold" : "card"); frame(b.x, b.y, b.w, b.h, focused ? "gold" : "ink");
+  text(label, b.x + Math.round(b.w / 2), b.y + Math.round((b.h - 5) / 2), col || "ink", "center");
+}
+function header(left, right) {
+  rect(0, 0, W, 11, "navy");
+  text(left, 4, 3, "white"); if (right) text(right, W - 4, 3, "paleGold", "right");
+}
+
+function drawPlay() {
+  const r = cur.round, fl = focusList();
+  const wname = cur.mode === "world" ? `W${cur.w} ${WORLDS[cur.w - 1].sec} ${WORLDS[cur.w - 1].name}` : `FREE PLAY  W${r.world}`;
+  const prog = cur.mode === "world" ? `ROUND ${cur.idx + 1}/${WORLDS[cur.w - 1].rounds.length}  ★${cur.score}` : `ROUND ${cur.idx + 1}  ★${cur.score}  BEST ${save.best}`;
+  header(wname, prog);
+  r.prompt.slice(0, 2).forEach((s, i) => text(s, 4, 14 + 7 * i, "ink"));
+  drawDiagram(r);
+  const cb = choiceBoxes(r);
+  cb.forEach((b, i) => {
+    const f = fl.findIndex(o => o.type === "choice" && o.i === i);
+    const picked = cur.fb && cur.ans.choice === i;
+    const isAns = cur.fb && cur.fb.done && r.answer === i;
+    rect(b.x, b.y, b.w, b.h, isAns ? "paleGreen" : picked ? "paleRed" : (cursor === f || hover === f) ? "paleGold" : "card");
+    frame(b.x, b.y, b.w, b.h, cursor === f ? "gold" : "ink");
+    text((i + 1) + "", b.x + 4, b.y + Math.round((b.h - 5) / 2), "grey");
+    text(r.choices[i], b.x + 12, b.y + Math.round((b.h - 5) / 2), "ink");
+  });
+  // caption: hint or lens
+  const capY = cb.length && r.kind !== "quiz" ? (cb[cb.length - 1].y + cb[cb.length - 1].h + 2) : 172;
+  if (capY <= 181) {
+    const cap = cur.showHint ? r.hint : (r.lens[LENSES[lens]] || []);
+    const lines = cap.slice(0, capY <= 172 ? 2 : 1);
+    lines.forEach((s, i) => text(s, 4, capY + 1 + 7 * i, cur.showHint ? "orange" : "grey"));
+  }
+  // focus frame on cells
+  const f = fl[cursor];
+  if (f && f.type === "cell" && !cur.fb) frame(f.x - 2, f.y - 2, f.w + 4, f.h + 4, "red");
+  playButtons().forEach(b => {
+    if (b.id === "check" && r.choices) return;
+    const k = fl.findIndex(o => o.type === "btn" && o.id === b.id);
+    button(b, cursor === k || hover === k, b.id === "check" && cur.fb ? "ENTER:NEXT" : b.s);
+  });
+  if (cur.fb) drawFeedback();
+}
+function drawFeedback() {
+  const fb = cur.fb;
+  const lines = [];
+  fb.msg.forEach(s => wrap(s, 300).forEach(l => lines.push([l, fb.kind === "ok" ? "green" : fb.kind === "info" ? "ink" : "red"])));
+  (fb.notice || []).forEach(s => wrap(s, 300).forEach(l => lines.push([l, "purple"])));
+  const foot = fb.done ? (fb.kind === "reveal" ? "★ - kept for later. ENTER / click: next" : "★".repeat(fb.stars) + "  ENTER / click: next") : "ENTER / click: back to the round";
+  const L = lines.slice(0, 8), h = 7 * L.length + 16, y = 187 - h;
+  rect(4, y, 312, h, "card"); frame(4, y, 312, h, fb.kind === "ok" ? "green" : fb.kind === "reveal" ? "gold" : fb.kind === "info" ? "ink" : "red");
+  L.forEach(([s, c], i) => text(s, 9, y + 4 + 7 * i, c));
+  text(foot, 9, y + h - 9, "gold");
+}
+
+function drawTitle(t) {
+  rect(0, 0, W, H, "bg");
+  text("COULD-BE Ω", W / 2, 26, "navy", "center", 3);
+  text("TRUTH IN A TOPOS", W / 2, 50, "purple", "center", 2);
+  text("Goldblatt, Topoi, chapter 4  ×  Langer, The Power of Mindful Learning", W / 2, 70, "ink", "center");
+  const vals = ["0", "1/2", "1"], k = Math.floor((t || 0) / 700) % 3;
+  vals.forEach((v, i) => { const x = 110 + 50 * i; rect(x - 9, 88, 19, 13, i === k ? "paleGold" : "card"); frame(x - 9, 88, 19, 13, "purple"); text(v, x, 92, "purple", "center"); });
+  text("In Set a statement is true or false. In other topoi it could be", W / 2, 112, "grey", "center");
+  text("half true, true later, or true here but not there.", W / 2, 119, "grey", "center");
+  button({ x: 110, y: 136, w: 100, h: 14 }, true, "ENTER: PLAY");
+  text("? help   K codex   M sound " + (muted ? "off" : "on"), W / 2, 160, "grey", "center");
+  text("Mouse, touch or keyboard. No lives: mistakes are information.", W / 2, 178, "grey", "center");
+}
+function drawMap() {
+  rect(0, 0, W, H, "bg");
+  header("CHOOSE A WORLD (any order could work)", "★ " + WORLDS.reduce((s, w) => s + worldStars(w.id), 0));
+  mapItems().forEach((it, i) => {
+    const f = cursor === i || hover === i;
+    if (it.type === "world") {
+      const w = WORLDS[it.wid - 1], st = worldStars(w.id), mx = 3 * w.rounds.length;
+      rect(it.x, it.y, it.w, it.h, f ? "paleGold" : "card"); frame(it.x, it.y, it.w, it.h, f ? "gold" : "ink");
+      text(`${w.id}  ${w.sec} ${w.name}`, it.x + 5, it.y + 4, "navy");
+      text("Langer, myth " + w.myth + ": " + MYTHS[w.myth].short, it.x + 5, it.y + 11, "purple");
+      text(`★ ${st}/${mx}`, it.x + it.w - 5, it.y + 18, st === mx ? "green" : "grey", "right");
+      if (save.seen[w.id]) text("✓", it.x + 5, it.y + 18, "green");
+    } else if (it.type === "free") {
+      rect(it.x, it.y, it.w, it.h, f ? "paleGold" : "palePurple"); frame(it.x, it.y, it.w, it.h, f ? "gold" : "purple");
+      text("F  FREE PLAY", it.x + 5, it.y + 4, "purple"); text("every kind of round, endless", it.x + 5, it.y + 11, "grey");
+      text("BEST ★ " + save.best, it.x + it.w - 5, it.y + 18, "grey", "right");
+    } else button(it, f, it.type === "codex" ? "K: CODEX" : it.type === "help" ? "?: HELP" : "T: TITLE");
+  });
+  text("1-7 start a world.  Arrows + ENTER, or click.", W / 2, 176, "grey", "center");
+}
+function codexPages() {
+  const pages = [];
+  pages.push({ title: "HOW THIS GAME TRIES TO TEACH MINDFULLY", body: DESIGN.flatMap(([a, b]) => [[a, "purple"], [b, "ink"]]) });
+  WORLDS.forEach(w => {
+    const m = MYTHS[w.myth], b = BOOK[w.id];
+    pages.push({ title: `W${w.id}  ${w.sec} ${w.name}`, body: [[b[0], "navy"], [b[1], "ink"], [b[2], "ink"], ["", "ink"], [m.title + " (" + m.ch + ")", "purple"]]
+      .concat(m.idea.map(s => [s, "ink"])).concat([["In the game:", "purple"]]).concat(m.game.map(s => [s, "ink"])) });
+  });
+  for (let k = 0; k < INSIGHTS.length; k += 4) pages.push({ title: "INSIGHT CARDS", body: INSIGHTS.slice(k, k + 4).flatMap(c => [[c[0], "purple"], [c[1], "ink"], [c[2], "ink"]]) });
+  const nb = save.notebook.slice(-8).reverse();
+  pages.push({ title: "MISTAKE NOTEBOOK (newest first)", body: nb.length ? nb.flatMap(e => wrap(`W${e.w} ${e.k}: ${e.m}`, 300).slice(0, 2).map(s => [s, "ink"])) : [["No mistakes noted yet. They will be kept here as information.", "grey"]] });
+  return pages;
+}
+function drawCodex() {
+  rect(0, 0, W, H, "bg");
+  const pages = codexPages(); codexPage = Math.max(0, Math.min(codexPage, pages.length - 1));
+  const p = pages[codexPage];
+  header("CODEX " + (codexPage + 1) + "/" + pages.length, "← → turn   ESC back");
+  text(p.title, 6, 16, "navy");
+  p.body.slice(0, 22).forEach(([s, c], i) => text(s, 6, 28 + 7 * i, c));
+}
+function drawHelp() {
+  rect(0, 0, W, H, "bg");
+  header("HELP", "ESC back");
+  const L = [
+    ["Click a point (or move with the arrow keys and press SPACE) to change it.", "ink"],
+    ["Gold boxes: marked / not marked.  Blue boxes: cycle through the values.", "ink"],
+    ["Digits set a value directly; . or / sets 1/2; I sets ∞.", "ink"],
+    ["Choice rounds: click an answer or press 1-4.", "ink"],
+    ["ENTER checks.  H shows a hint.  L switches lens: MATH / STORY / TABLE.", "ink"],
+    ["K opens the codex (Langer's myths, the book, your mistake notebook).", "ink"],
+    ["ESC goes back to the map.  M switches sound.", "ink"],
+    ["", "ink"],
+    ["Stars: ★★★ first try, ★★ with a hint or a second try, ★ when shown.", "purple"],
+    ["There are no lives. A wrong check tells you where to look; a second", "purple"],
+    ["one shows one way to see the answer, and the round moves on.", "purple"],
+    ["\"Could be\" rounds accept every correct answer, not just one.", "purple"],
+  ];
+  L.forEach(([s, c], i) => text(s, 6, 18 + 8 * i, c));
+}
+function drawDone() {
+  rect(0, 0, W, H, "bg");
+  const w = WORLDS[doneInfo.w - 1], m = MYTHS[w.myth];
+  header(`WORLD ${w.id} COMPLETE`, `★ ${doneInfo.score}/${doneInfo.max}`);
+  text(w.sec + " " + w.name, W / 2, 18, "navy", "center", 2);
+  text(m.title, W / 2, 40, "purple", "center");
+  m.idea.forEach((s, i) => text(s, W / 2, 52 + 7 * i, "ink", "center"));
+  m.game.forEach((s, i) => text(s, W / 2, 74 + 7 * i, "grey", "center"));
+  const card = INSIGHTS[(w.id - 1) % INSIGHTS.length];
+  text("Insight: " + card[0], W / 2, 100, "purple", "center"); text(card[1], W / 2, 108, "ink", "center"); text(card[2], W / 2, 115, "ink", "center");
+  button({ x: 60, y: 140, w: 90, h: 14 }, cursor === 0, "ENTER: MAP");
+  button({ x: 170, y: 140, w: 90, h: 14 }, cursor === 1, "R: REPLAY");
+  text("A replay is generated afresh: new sets, new arrows.", W / 2, 164, "grey", "center");
+}
+
+function draw(t) {
+  ctx.fillStyle = C("bg"); ctx.fillRect(0, 0, W, H);
+  if (screen === "title") drawTitle(t);
+  else if (screen === "map") drawMap();
+  else if (screen === "play") { rect(0, 0, W, H, "bg"); drawPlay(); }
+  else if (screen === "codex") drawCodex();
+  else if (screen === "help") drawHelp();
+  else if (screen === "done") drawDone();
+  if (SX !== 0) SX = SX > 0 ? -(SX - 1) : -SX - 1;
+}
+
+// ===========================================================================
+// INPUT
+// ===========================================================================
+function itemsForScreen() {
+  if (screen === "play") return focusList();
+  if (screen === "map") return mapItems();
+  if (screen === "done") return [{ id: "map", x: 60, y: 140, w: 90, h: 14 }, { id: "replay", x: 170, y: 140, w: 90, h: 14 }];
+  if (screen === "title") return [{ id: "play", x: 110, y: 136, w: 100, h: 14 }];
+  return [];
+}
+function activate(it, dir) {
+  if (!it) return;
+  if (screen === "play") return playActivate(it, dir);
+  if (screen === "map") {
+    if (it.type === "world") startWorld(it.wid);
+    else if (it.type === "free") startFree();
+    else if (it.type === "codex") { codexFrom = "map"; screen = "codex"; codexPage = 0; }
+    else if (it.type === "help") { codexFrom = "map"; screen = "help"; }
+    else if (it.type === "title") screen = "title";
+    return;
+  }
+  if (screen === "done") { if (it.id === "replay") startWorld(doneInfo.w); else { screen = "map"; cursor = 0; } return; }
+  if (screen === "title") { screen = "map"; cursor = 0; sfx.open(); }
+}
+function moveCursor(dx, dy) {
+  const items = itemsForScreen();
+  if (!items.length) return;
+  if (cursor >= items.length) cursor = 0;
+  const a = items[cursor];
+  const ax = a.x + a.w / 2, ay = a.y + a.h / 2;
+  let best = -1, bd = 1e9;
+  items.forEach((b, i) => {
+    if (i === cursor) return;
+    const bx = b.x + b.w / 2, by = b.y + b.h / 2, ddx = bx - ax, ddy = by - ay;
+    if (dx && Math.sign(ddx) !== dx) return; if (dy && Math.sign(ddy) !== dy) return;
+    const main = dx ? Math.abs(ddx) : Math.abs(ddy), side = dx ? Math.abs(ddy) : Math.abs(ddx);
+    if (main < 1) return;
+    const score = main + side * 2.5;
+    if (score < bd) { bd = score; best = i; }
+  });
+  if (best < 0) best = (cursor + (dx || dy) + items.length) % items.length;
+  cursor = best;
+}
+function onKey(e) {
+  const k = e.key || "", code = e.code || "";
+  if (k === "m" || k === "M") { muted = !muted; return; }
+  if (screen === "title") {
+    if (k === "Enter" || k === " ") activate({ id: "play" });
+    else if (k === "?") { codexFrom = "title"; screen = "help"; } else if (k === "k" || k === "K") { codexFrom = "title"; screen = "codex"; codexPage = 0; }
+    return;
+  }
+  if (screen === "help") { if (k === "Escape" || k === "Enter" || k === "?") screen = backFrom(); return; }
+  if (screen === "codex") {
+    if (k === "ArrowRight") codexPage++; else if (k === "ArrowLeft") codexPage = Math.max(0, codexPage - 1);
+    else if (k === "Escape" || k === "k" || k === "K" || k === "Enter") screen = backFrom();
+    return;
+  }
+  if (screen === "done") {
+    if (k === "r" || k === "R") startWorld(doneInfo.w);
+    else if (k === "ArrowLeft" || k === "ArrowRight") cursor = 1 - cursor;
+    else if (k === "Enter" || k === " ") activate(itemsForScreen()[cursor] || { id: "map" });
+    else if (k === "Escape") { screen = "map"; cursor = 0; }
+    return;
+  }
+  if (screen === "map") {
+    if (/^[1-7]$/.test(k)) startWorld(+k);
+    else if (k === "f" || k === "F") startFree();
+    else if (k === "k" || k === "K") { codexFrom = "map"; screen = "codex"; codexPage = 0; }
+    else if (k === "?") { codexFrom = "map"; screen = "help"; }
+    else if (k === "t" || k === "T" || k === "Escape") screen = "title";
+    else if (k.startsWith("Arrow")) moveCursor(k === "ArrowLeft" ? -1 : k === "ArrowRight" ? 1 : 0, k === "ArrowUp" ? -1 : k === "ArrowDown" ? 1 : 0);
+    else if (k === "Enter" || k === " ") activate(mapItems()[cursor]);
+    return;
+  }
+  // play
+  const r = cur.round, fl = focusList();
+  if (cursor >= fl.length) cursor = 0;
+  if (cur.fb) {
+    if (k === "Enter" || k === " " || k === "Escape") { if (k === "Escape" && cur.fb.done) { advance(); return; } advance(); }
+    else if (k === "l" || k === "L") lens = (lens + 1) % 3;
+    else if (k === "k" || k === "K") { codexFrom = "play"; screen = "codex"; codexPage = r.world; }
+    return;
+  }
+  if (k === "Escape") { screen = "map"; cursor = 0; return; }
+  if (k === "Enter") { if (r.choices) { const f = fl[cursor]; if (f && f.type === "choice") activate(f); } else submit(); return; }
+  if (k === "h" || k === "H") { toggleHint(); return; }
+  if (k === "l" || k === "L") { lens = (lens + 1) % 3; return; }
+  if (k === "k" || k === "K") { codexFrom = "play"; screen = "codex"; codexPage = r.world; return; }
+  if (k === "?") { codexFrom = "play"; screen = "help"; return; }
+  if (k === "Tab") { cursor = (cursor + (e.shiftKey ? -1 : 1) + fl.length) % fl.length; return; }
+  if (k.startsWith("Arrow")) { moveCursor(k === "ArrowLeft" ? -1 : k === "ArrowRight" ? 1 : 0, k === "ArrowUp" ? -1 : k === "ArrowDown" ? 1 : 0); return; }
+  const f = fl[cursor];
+  if (k === " " || k === "Spacebar") { if (f) activate(f, e.shiftKey ? -1 : 1); return; }
+  if (r.choices && /^[1-9]$/.test(k)) { const i = +k - 1; if (i < r.choices.length) { cur.ans.choice = i; submit(); } return; }
+  if (f && f.type === "cell" && k.length === 1) {
+    if (setCellByKey(f.i, k)) { const nx = fl.findIndex((o, j) => j > cursor && o.type === "cell"); if (nx >= 0) cursor = nx; }
+  }
+  void code;
+}
+function toCanvas(e) {
+  const b = cv.getBoundingClientRect();
+  return { x: (e.clientX - b.left) * W / b.width, y: (e.clientY - b.top) * H / b.height };
+}
+function hitIndex(x, y) {
+  const items = itemsForScreen();
+  for (let i = 0; i < items.length; i++) { const b = items[i]; if (x >= b.x - 2 && x <= b.x + b.w + 2 && y >= b.y - 2 && y <= b.y + b.h + 2) return i; }
+  return -1;
+}
+function onPointerDown(e) {
+  const { x, y } = toCanvas(e);
+  if (screen === "play" && cur.fb) {
+    const i = hitIndex(x, y), it = itemsForScreen()[i];
+    if (it && it.type === "btn" && it.id !== "check") { activate(it); return; }
+    advance(); return;
+  }
+  if (screen === "codex") { if (x > W / 2) codexPage++; else if (codexPage > 0) codexPage--; else screen = backFrom(); return; }
+  if (screen === "help") { screen = backFrom(); return; }
+  const i = hitIndex(x, y);
+  if (i >= 0) { cursor = i; activate(itemsForScreen()[i], e.button === 2 ? -1 : 1); }
+  else if (screen === "title") activate({ id: "play" });
+}
+function onPointerMove(e) {
+  const { x, y } = toCanvas(e);
+  hover = hitIndex(x, y);
+  cv.className = hover >= 0 ? "hot" : "";
+}
+
+window.addEventListener("keydown", e => { if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " ", "Enter", "Tab"].includes(e.key) && e.preventDefault) e.preventDefault(); onKey(e); });
+cv.addEventListener("pointerdown", onPointerDown);
+cv.addEventListener("pointermove", onPointerMove);
+cv.addEventListener("contextmenu", e => e.preventDefault && e.preventDefault());
+function loop(t) { draw(t); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+draw(0);
+
+// ---- hooks for the automated tests ----
+window.__cb = {
+  W, H, FONT, GEN, WORLDS, ALL_KINDS, MONOIDS, QUIZ, MYTHS, INSIGHTS, makeRound, blank, leftIdeals, isLeftIdeal, RNG,
+  countArrowSubs, countClosed, psiOf,
+  draw, setTL: l => { TL = l; }, focusList, itemsForScreen, mapItems, codexPages,
+  get screen() { return screen; }, set screen(s) { screen = s; }, get cur() { return cur; }, get save() { return save; },
+  get cursor() { return cursor; }, set cursor(c) { cursor = c; }, get lens() { return lens; }, get codexPage() { return codexPage; },
+  setSeed: s => { seedBase = s >>> 0; seedCount = 0; }, startWorld, startFree,
+};
+</script>
+</body>
+</html>

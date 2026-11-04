@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arrow Atlas: a pixel tour of Mac Lane, Chapter I, sections 1-5</title>
+<style>
+  :root { --bg:#101820; --panel:#17232e; --ink:#e9e2cc; --dim:#8c86b0; --gold:#f2c14e; --green:#6cc28a; --red:#e0605a; --blue:#6fa8dc; }
+  html, body { margin:0; background:var(--bg); color:var(--ink); font: 14px/1.45 "Courier New", ui-monospace, monospace; }
+  #app { max-width: 900px; margin: 0 auto; padding: 10px; }
+  .top { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:8px; }
+  .logo { font-weight:bold; letter-spacing:3px; color:var(--gold); margin-right:12px; text-shadow: 2px 2px 0 #000; }
+  .panel { background:var(--panel); border:4px solid #3b3760; box-shadow: 0 0 0 4px #000, 6px 6px 0 4px #000; padding:12px 14px; }
+  .title { text-align:center; padding:24px 20px; }
+  h1 { font-size:40px; letter-spacing:6px; color:var(--gold); text-shadow:4px 4px 0 #000; margin:10px 0; }
+  h2 { font-size:16px; color:var(--gold); margin:4px 0 6px; }
+  .sub { color:var(--blue); letter-spacing:2px; }
+  .small { color:var(--dim); font-size:12px; }
+  .btn { font: inherit; background:#2e2b4a; color:var(--ink); border:3px solid #000; box-shadow: inset -3px -3px 0 #1b1930, inset 3px 3px 0 #4a4570; padding:4px 10px; cursor:pointer; margin:2px; }
+  .btn:hover { background:#3b3760; }
+  .btn.on { background:var(--gold); color:#000; }
+  .btn.fixed { background:#1f3b5c; color:#9cc3ea; cursor:default; }
+  .btn.big { font-weight:bold; padding:6px 16px; background:#3a5f3f; }
+  .row { display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin:6px 0; }
+  .glabel { color:var(--dim); min-width:120px; }
+  .opts { display:flex; flex-direction:column; align-items:flex-start; }
+  .tabs { display:flex; gap:4px; margin:8px 0 0; }
+  .prompt { border:3px solid #000; background:#0f0e1a; padding:10px; white-space:pre-wrap; }
+  canvas.screen { display:block; width:800px; max-width:100%; aspect-ratio: 320 / 160; image-rendering:pixelated; image-rendering:crisp-edges; margin:8px auto; border:3px solid #000; }
+  table.tbl { border-collapse:collapse; margin:8px 0; }
+  table.tbl th, table.tbl td { border:2px solid #000; padding:2px 8px; text-align:center; }
+  table.tbl th { background:#2e2b4a; color:var(--gold); } table.tbl td { background:#0f0e1a; }
+  .worlds { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:10px; }
+  .world { border:3px solid #000; background:#26233d; padding:10px; cursor:pointer; box-shadow: 4px 4px 0 #000; }
+  .world:hover { background:#34305a; }
+  .wname { color:var(--gold); font-weight:bold; } .wch { color:var(--blue); font-size:12px; } .wmu { font-size:12px; }
+  .verdict { margin-top:10px; border:3px solid #000; padding:10px; }
+  .verdict.good { background:#1d3324; } .verdict.slip { background:#33241d; }
+  .vline { font-weight:bold; } .could { color:var(--gold); margin-top:4px; } .lens { margin-top:6px; color:var(--blue); } .notice { margin-top:6px; color:var(--green); }
+  .myth { border-left:4px solid var(--gold); padding:4px 8px; margin:8px 0; background:#0f0e1a; } .mq { color:var(--gold); } .ma { margin:3px 0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// Arrow Atlas engine: finite sets, functions, preorders, monoids, functors and
+// natural transformations, as used in Mac Lane, Categories for the Working
+// Mathematician, Chapter I, sections 1-5. Pure functions only (no DOM).
+"use strict";
+var MLA = (function () {
+  var E = {};
+  // ---------------------------------------------------------------- random
+  var seed = 12345;
+  E.setSeed = function (s) { seed = (s >>> 0) || 1; };
+  E.rand = function () { seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0; return seed / 4294967296; };
+  E.ri = function (a, b) { return a + Math.floor(E.rand() * (b - a + 1)); };
+  E.pick = function (xs) { return xs[Math.floor(E.rand() * xs.length)]; };
+  E.shuffle = function (xs) { xs = xs.slice(); for (var i = xs.length - 1; i > 0; i--) { var j = Math.floor(E.rand() * (i + 1)), t = xs[i]; xs[i] = xs[j]; xs[j] = t; } return xs; };
+  E.range = function (n) { var r = []; for (var i = 0; i < n; i++) r.push(i); return r; };
+  E.eq = function (a, b) { return a.length === b.length && a.every(function (x, i) { return x === b[i]; }); };
+
+  // ---------------------------------------------------------------- functions X -> Y on X = {0..n-1}
+  // A function is an array f with f[x] in {0..m-1}; its codomain size is carried separately.
+  E.compose = function (g, f) { return f.map(function (x) { return g[x]; }); };      // g . f : first f, then g
+  E.id = function (n) { return E.range(n); };
+  E.isInjective = function (f) { var seen = {}; for (var i = 0; i < f.length; i++) { if (seen[f[i]]) return false; seen[f[i]] = 1; } return true; };
+  E.isSurjective = function (f, m) { var hit = {}; f.forEach(function (y) { hit[y] = 1; }); for (var y = 0; y < m; y++) if (!hit[y]) return false; return true; };
+  E.image = function (f, S) { var out = {}; S.forEach(function (x) { out[f[x]] = 1; }); return Object.keys(out).map(Number).sort(function (a, b) { return a - b; }); };
+  E.fibre = function (f, y) { var r = []; f.forEach(function (v, x) { if (v === y) r.push(x); }); return r; };
+  E.isIdempotent = function (f) { return f.every(function (y) { return f[y] === y; }); };
+  E.fixedPoints = function (f) { return E.range(f.length).filter(function (x) { return f[x] === x; }); };
+  E.randomFunction = function (n, m) { return E.range(n).map(function () { return E.ri(0, m - 1); }); };
+  E.randomSurjection = function (n, m) { return E.shuffle(E.range(m).concat(E.range(n - m).map(function () { return E.ri(0, m - 1); }))); }; // n >= m
+  E.randomInjection = function (n, m) { return E.shuffle(E.range(m)).slice(0, n); };                                                     // n <= m
+  E.randomBijection = function (n) { return E.shuffle(E.range(n)); };
+  E.inverse = function (f) { var g = []; f.forEach(function (y, x) { g[y] = x; }); return g; };
+  E.randomIdempotent = function (n) { // choose an image I, fix I, send everything else into I
+    var k = E.ri(1, n - 1), I = E.shuffle(E.range(n)).slice(0, k), f = [];
+    for (var x = 0; x < n; x++) f[x] = I.indexOf(x) >= 0 ? x : E.pick(I);
+    return f; };
+  E.allFunctions = function (n, m) { var out = [[]]; for (var i = 0; i < n; i++) { var nx = []; out.forEach(function (p) { for (var y = 0; y < m; y++) nx.push(p.concat([y])); }); out = nx; } return out; };
+  // monic in Set by the definition (left cancellable), tested against every pair of arrows d -> a
+  E.isMonicByDefinition = function (h, a, d) { var fs = E.allFunctions(d, a);
+    for (var i = 0; i < fs.length; i++) for (var j = 0; j < fs.length; j++) if (i !== j && E.eq(E.compose(h, fs[i]), E.compose(h, fs[j]))) return false; return true; };
+  // epi in Set by the definition (right cancellable), tested against every pair of arrows b -> c
+  E.isEpiByDefinition = function (h, b, c) { var gs = E.allFunctions(b, c);
+    for (var i = 0; i < gs.length; i++) for (var j = 0; j < gs.length; j++) if (i !== j && E.eq(E.compose(gs[i], h), E.compose(gs[j], h))) return false; return true; };
+  // sections (right inverses) r : b -> a of h : a -> b, h . r = 1_b
+  E.sectionCount = function (h, b) { var p = 1; for (var y = 0; y < b; y++) p *= E.fibre(h, y).length; return p; };
+  E.isSection = function (r, h) { return r.every(function (x, y) { return typeof x === "number" && h[x] === y; }); };
+
+  // ---------------------------------------------------------------- preorders (relation matrices R[a][b] = "there is an arrow a -> b")
+  E.emptyRel = function (n) { return E.range(n).map(function () { return E.range(n).map(function () { return false; }); }); };
+  E.closure = function (R) { var n = R.length, C = R.map(function (r) { return r.slice(); });
+    for (var i = 0; i < n; i++) C[i][i] = true;
+    for (var k = 0; k < n; k++) for (var i2 = 0; i2 < n; i2++) for (var j = 0; j < n; j++) if (C[i2][k] && C[k][j]) C[i2][j] = true;
+    return C; };
+  E.isPreorder = function (R) { var n = R.length; for (var i = 0; i < n; i++) { if (!R[i][i]) return false; for (var j = 0; j < n; j++) for (var k = 0; k < n; k++) if (R[i][j] && R[j][k] && !R[i][k]) return false; } return true; };
+  E.relEq = function (A, B) { return A.length === B.length && A.every(function (r, i) { return r.every(function (v, j) { return v === B[i][j]; }); }); };
+  E.relContains = function (A, B) { return A.every(function (r, i) { return r.every(function (v, j) { return !B[i][j] || v; }); }); }; // B ⊆ A
+  E.arrowCount = function (R) { var c = 0; R.forEach(function (r) { r.forEach(function (v) { if (v) c++; }); }); return c; };
+  E.randomGraph = function (n, extra) {
+    var R = E.emptyRel(n), order = E.shuffle(E.range(n));
+    for (var i = 0; i + 1 < n; i++) if (E.rand() < 0.8) R[order[i]][order[i + 1]] = true;
+    for (var t = 0; t < extra; t++) { var a = E.ri(0, n - 1), b = E.ri(0, n - 1); if (a !== b) R[a][b] = true; }
+    return R; };
+  E.randomPreorder = function (n, ties) { var R = E.randomGraph(n, E.ri(0, 2));
+    if (ties) { var a = E.ri(0, n - 1), b = (a + 1 + E.ri(0, n - 2)) % n; R[a][b] = R[b][a] = true; }
+    return E.closure(R); };
+  E.terminals = function (R) { var n = R.length; return E.range(n).filter(function (t) { return E.range(n).every(function (a) { return R[a][t]; }); }); };
+  E.initials = function (R) { var n = R.length; return E.range(n).filter(function (s) { return E.range(n).every(function (a) { return R[s][a]; }); }); };
+  E.isMonotone = function (F, P, Q) { for (var i = 0; i < P.length; i++) for (var j = 0; j < P.length; j++) if (P[i][j] && !Q[F[i]][F[j]]) return false; return true; };
+  E.countMonotone = function (P, Q) { return E.allFunctions(P.length, Q.length).filter(function (F) { return E.isMonotone(F, P, Q); }).length; };
+  // arrows worth drawing: a -> b (a != b) unless it factors through some c strictly between (c not isomorphic to a or b)
+  E.hasse = function (R) { var n = R.length, H = [];
+    for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) { if (i === j || !R[i][j]) continue;
+      var through = false;
+      for (var k = 0; k < n; k++) if (k !== i && k !== j && R[i][k] && R[k][j] && !R[k][i] && !R[j][k]) through = true;
+      if (!through) H.push([i, j]); }
+    return H; };
+  // natural transformation S => T between functors C -> P into a preorder P (Exercise I.4.4)
+  E.preorderNatExists = function (S, T, P) { return S.every(function (s, c) { return P[s][T[c]]; }); };
+
+  // ---------------------------------------------------------------- binary operations on {0..n-1}
+  E.tables = {
+    addMod: function (n) { return E.range(n).map(function (x) { return E.range(n).map(function (y) { return (x + y) % n; }); }); },
+    mulMod: function (n) { return E.range(n).map(function (x) { return E.range(n).map(function (y) { return (x * y) % n; }); }); },
+    max: function (n) { return E.range(n).map(function (x) { return E.range(n).map(function (y) { return Math.max(x, y); }); }); },
+    min: function (n) { return E.range(n).map(function (x) { return E.range(n).map(function (y) { return Math.min(x, y); }); }); },
+    leftZero: function (n) { return E.range(n).map(function (x) { return E.range(n).map(function () { return x; }); }); },
+    subMod: function (n) { return E.range(n).map(function (x) { return E.range(n).map(function (y) { return ((x - y) % n + n) % n; }); }); },
+    capped: function (n) { return E.range(n).map(function (x) { return E.range(n).map(function (y) { return Math.min(n - 1, x + y); }); }); }
+  };
+  // relabel a table by a bijection p (new name of x is p[x]) so the unit is not always 0
+  E.relabelTable = function (T, p) { var n = T.length, inv = E.inverse(p);
+    return E.range(n).map(function (a) { return E.range(n).map(function (b) { return p[T[inv[a]][inv[b]]]; }); }); };
+  E.isAssociative = function (T) { var n = T.length; for (var a = 0; a < n; a++) for (var b = 0; b < n; b++) for (var c = 0; c < n; c++) if (T[T[a][b]][c] !== T[a][T[b][c]]) return false; return true; };
+  E.leftUnits = function (T) { var n = T.length; return E.range(n).filter(function (u) { return E.range(n).every(function (x) { return T[u][x] === x; }); }); };
+  E.rightUnits = function (T) { var n = T.length; return E.range(n).filter(function (u) { return E.range(n).every(function (x) { return T[x][u] === x; }); }); };
+  E.units = function (T) { var r = E.rightUnits(T); return E.leftUnits(T).filter(function (u) { return r.indexOf(u) >= 0; }); };
+  E.isMonoid = function (T) { return E.isAssociative(T) && E.units(T).length === 1; };
+  E.isGroup = function (T) { if (!E.isMonoid(T)) return false; var e = E.units(T)[0], n = T.length;
+    return E.range(n).every(function (x) { return E.range(n).some(function (y) { return T[x][y] === e && T[y][x] === e; }); }); };
+  E.firstNonAssoc = function (T) { var n = T.length; for (var a = 0; a < n; a++) for (var b = 0; b < n; b++) for (var c = 0; c < n; c++) if (T[T[a][b]][c] !== T[a][T[b][c]]) return [a, b, c]; return null; };
+
+  // ---------------------------------------------------------------- arrows-only categories (composition tables, I.1)
+  // comp[g][f] = index of g.f, or -1 when the pair is not composable.
+  E.preorderCategory = function (R) { var arrows = [];
+    R.forEach(function (r, a) { r.forEach(function (v, b) { if (v) arrows.push([a, b]); }); });
+    var comp = arrows.map(function (g) { return arrows.map(function (f) { if (f[1] !== g[0]) return -1;
+      var k = -1; arrows.forEach(function (h, i) { if (h[0] === f[0] && h[1] === g[1]) k = i; }); return k; }); });
+    return { arrows: arrows, comp: comp }; };
+  E.monoidCategory = function (T) { return { arrows: T.map(function () { return [0, 0]; }), comp: T.map(function (r) { return r.slice(); }) }; };
+  E.permuteCategory = function (C, p) { // rename arrow i as p[i]
+    var n = C.comp.length, inv = E.inverse(p);
+    return { arrows: E.range(n).map(function (i) { return C.arrows[inv[i]]; }),
+      comp: E.range(n).map(function (g) { return E.range(n).map(function (f) { var v = C.comp[inv[g]][inv[f]]; return v < 0 ? -1 : p[v]; }); }) }; };
+  // identities in the arrows-only sense: u with f.u = f whenever defined, u.g = g whenever defined
+  E.arrowsOnlyIdentities = function (C) { var n = C.comp.length;
+    return E.range(n).filter(function (u) { if (C.comp[u][u] < 0) return false;
+      for (var f = 0; f < n; f++) { if (C.comp[f][u] >= 0 && C.comp[f][u] !== f) return false; if (C.comp[u][f] >= 0 && C.comp[u][f] !== f) return false; }
+      return true; }); };
+  E.arrowsOnlyAxioms = function (C) { var n = C.comp.length, k, g, f, u;
+    for (k = 0; k < n; k++) for (g = 0; g < n; g++) for (f = 0; f < n; f++) {
+      var kg = C.comp[k][g], gf = C.comp[g][f], l = kg >= 0 ? C.comp[kg][f] : -1, r = gf >= 0 ? C.comp[k][gf] : -1;
+      if (l !== r) return false;                                          // (i)
+      if (kg >= 0 && gf >= 0 && l < 0) return false;                      // (ii)
+    }
+    var ids = E.arrowsOnlyIdentities(C);
+    for (g = 0; g < n; g++) { var a = false, b = false; for (u = 0; u < ids.length; u++) { if (C.comp[ids[u]][g] >= 0) a = true; if (C.comp[g][ids[u]] >= 0) b = true; } if (!a || !b) return false; } // (iii)
+    return true; };
+
+  // ---------------------------------------------------------------- functors between one-object categories Z/n -> Z/m
+  E.gcd = function (a, b) { while (b) { var t = a % b; a = b; b = t; } return a; };
+  E.zFunctorValid = function (n, m, k) { return (k * n) % m === 0; };
+  E.zFunctorMap = function (n, m, k) { return E.range(n).map(function (x) { return (k * x) % m; }); };
+  E.zIsFunctorByTables = function (n, m, k) { var A = E.tables.addMod(n), B = E.tables.addMod(m), F = E.zFunctorMap(n, m, k);
+    if (F[0] !== 0) return false; for (var x = 0; x < n; x++) for (var y = 0; y < n; y++) if (F[A[x][y]] !== B[F[x]][F[y]]) return false; return true; };
+  E.zFaithful = function (n, m, k) { return E.isInjective(E.zFunctorMap(n, m, k)); };
+  E.zFull = function (n, m, k) { return E.isSurjective(E.zFunctorMap(n, m, k), m); };
+
+  // ---------------------------------------------------------------- natural transformations between functors 2 -> Set
+  // S = (s : S0 -> S1), T = (t : T0 -> T1); components tau0, tau1; natural iff tau1 . s = t . tau0
+  E.isNatural = function (s, t, tau0, tau1) { return E.eq(E.compose(tau1, s), E.compose(t, tau0)); };
+  E.tau1Exists = function (s, t, tau0) { for (var x = 0; x < s.length; x++) for (var y = 0; y < s.length; y++) if (s[x] === s[y] && t[tau0[x]] !== t[tau0[y]]) return false; return true; };
+  E.tau1Forced = function (s, t, tau0, n1) { var r = E.range(n1).map(function () { return null; }); s.forEach(function (y, x) { r[y] = t[tau0[x]]; }); return r; };
+  E.tau1Count = function (s, t, tau0, n1, m1) { if (!E.tau1Exists(s, t, tau0)) return 0; var free = E.tau1Forced(s, t, tau0, n1).filter(function (v) { return v === null; }).length; return Math.pow(m1, free); };
+
+  // ---------------------------------------------------------------- the # functor (I.4): #f = e_Y . f . e_X^{-1}
+  E.sharp = function (f, eX, eY) { var inv = E.inverse(eX); return E.range(f.length).map(function (i) { return eY[f[inv[i]]]; }); };
+
+  return E;
+})();
+if (typeof module !== "undefined") module.exports = MLA;
+// Arrow Atlas content: five worlds (Mac Lane I.1-I.5), round generators, and the
+// codex of Langer's seven myths. Every round is generated fresh from MLA.
+"use strict";
+var MLAC = (function () {
+  var E = MLA, C = {};
+  var COL = { f: "#6fa8dc", g: "#f2c14e", h: "#6cc28a", k: "#e0605a", t: "#c38be0", id: "#8c86b0" };
+  var LET = "abcdefghijklmnopqrstuvwxyz";
+  function setsPic(sets, maps, extra) { var p = { type: "sets", sets: sets, maps: maps }; if (extra) for (var k in extra) p[k] = extra[k]; return p; }
+  function fstr(f, nameX, nameY) { return f.map(function (y, x) { return x + "→" + y; }).join("  "); }
+  function lst(xs) { return xs.length ? "{" + xs.join(",") + "}" : "∅"; }
+  function cellsRow(label, n, values, prefix, init) { return { label: label, cells: E.range(n).map(function (i) { return { id: prefix + i, label: String(i), values: values, v: init === undefined ? 0 : init }; }) }; }
+  function nums(m) { return E.range(m).map(String); }
+  var TOG = ["·", "●"];
+  function readRow(vals, prefix, n) { return E.range(n).map(function (i) { return vals[prefix + i]; }); }
+  function toggled(vals, prefix, n) { return E.range(n).filter(function (i) { return vals[prefix + i] === 1; }); }
+  function choice(id, label, ok, could) { return { id: id, label: label, ok: ok, could: could || "" }; }
+
+  // ======================================================================= WORLD 1: §1 Axioms
+  function genCompose() {
+    var trap = E.rand() < 0.4, nx = trap ? 3 : E.ri(2, 4), ny = trap ? 3 : E.ri(2, 4), nz = trap ? 3 : E.ri(2, 4);
+    var f = E.randomFunction(nx, ny), g = E.randomFunction(ny, nz), gf = E.compose(g, f);
+    var fg = trap ? E.compose(f, g) : null;
+    if (trap && E.eq(gf, fg)) { g = E.randomBijection(3); gf = E.compose(g, f); fg = E.compose(f, g); }
+    return {
+      kind: "compose", title: "COMPOSE",
+      prompt: "f : X → Y and g : Y → Z. Fill in g∘f : X → Z, one value for each x in X.",
+      pic: setsPic([{ name: "X", n: nx, x: 40, y: 80, dir: "v" }, { name: "Y", n: ny, x: 160, y: 80, dir: "v" }, { name: "Z", n: nz, x: 280, y: 80, dir: "v" }],
+        [{ a: 0, b: 1, f: f, name: "f", col: COL.f }, { a: 1, b: 2, f: g, name: "g", col: COL.g }]),
+      widget: { type: "cells", groups: [cellsRow("(g∘f)(x) for x =", nx, nums(nz), "c")], buttons: [] },
+      check: function (vals) { var a = readRow(vals, "c", nx);
+        if (E.eq(a, gf)) return { ok: true, msg: "g∘f = " + fstr(gf) + ". Follow f first, then g." };
+        if (fg && E.eq(a, fg)) return { ok: false, msg: "Not g∘f.", could: "COULD BE f∘g: first g, then f. That is the 'diagrammatic' order, written f;g, which many authors use. Mac Lane writes g∘f for 'first f, then g', in keeping with writing f to the left of its argument." };
+        if (nx === nz && ny === nz && E.eq(a, g)) return { ok: false, msg: "Not g∘f.", could: "COULD BE g itself: you applied g to x directly and skipped f." };
+        var x = E.range(nx).filter(function (i) { return a[i] !== gf[i]; })[0];
+        return { ok: false, msg: "At x = " + x + ": f sends " + x + " to " + f[x] + ", and g sends " + f[x] + " to " + gf[x] + ".", could: "COULD BE g∘f at a different x: your value " + a[x] + " is where some other element lands." }; },
+      solve: function () { return { cells: gf.map(function (v, i) { return ["c" + i, v]; }) }; },
+      wrong: function () { return { cells: gf.map(function (v, i) { return ["c" + i, (v + 1) % nz]; }) }; },
+      views: { elements: "(g∘f)(x) = g(f(x)) for every x.", arrows: "Composition is an operation on composable pairs ⟨g, f⟩ with dom g = cod f; it yields g∘f : dom f → cod g.", book: "§I.1 Axioms for categories: composition, and the convention 'g∘f means first f, then g'." },
+      notice: E.pick(["Which values of g never mattered, because f never reached them?", "If f were changed at one point, how many values of g∘f could change?", "Could two different pairs (f, g) give the same g∘f?"])
+    };
+  }
+
+  function genCommute() {
+    var na = E.ri(2, 4), nb = E.ri(2, 3), nc = E.ri(na, 4), nd = E.ri(2, 3), want = E.rand() < 0.45;
+    var f, g, h, k, gf, kh, tries = 0;
+    do { f = E.randomFunction(na, nb); g = E.randomFunction(nb, nd);
+      h = want ? E.randomInjection(na, nc) : E.randomFunction(na, nc); gf = E.compose(g, f);
+      k = E.randomFunction(nc, nd); if (want) h.forEach(function (c, x) { k[c] = gf[x]; });
+      kh = E.compose(k, h); tries++;
+    } while (!want && E.eq(gf, kh) && tries < 50);
+    var commutes = E.eq(gf, kh), bad = E.range(na).filter(function (x) { return gf[x] !== kh[x]; });
+    var ch = [choice("yes", "THE SQUARE COMMUTES", commutes, "COULD BE commutative at most points, but at a = " + bad[0] + " the paths give g(f(a)) = " + gf[bad[0]] + " and k(h(a)) = " + kh[bad[0]] + ".")];
+    E.range(na).forEach(function (x) { ch.push(choice("x" + x, "IT FAILS AT a = " + x, gf[x] !== kh[x], "COULD BE a failure point for a different square; here both paths send " + x + " to " + gf[x] + ".")); });
+    return {
+      kind: "commute", title: "COMMUTE?",
+      prompt: "Two paths from A to D: g∘f along the top, k∘h along the bottom. Does the square commute? If not, name a point where the paths disagree. (Any such point is a right answer.)",
+      pic: setsPic([{ name: "A", n: na, x: 40, y: 80, dir: "v" }, { name: "B", n: nb, x: 160, y: 36, dir: "h" }, { name: "C", n: nc, x: 160, y: 128, dir: "h" }, { name: "D", n: nd, x: 280, y: 80, dir: "v" }],
+        [{ a: 0, b: 1, f: f, name: "f", col: COL.f }, { a: 1, b: 3, f: g, name: "g", col: COL.g }, { a: 0, b: 2, f: h, name: "h", col: COL.h }, { a: 2, b: 3, f: k, name: "k", col: COL.k }]),
+      widget: { type: "choice", choices: ch },
+      check: function (vals, id) { var c = ch.filter(function (q) { return q.id === id; })[0];
+        return c.ok ? { ok: true, msg: commutes ? "g∘f = k∘h = " + fstr(gf) + "." : "At a = " + id.slice(1) + ": g(f(a)) = " + gf[+id.slice(1)] + " but k(h(a)) = " + kh[+id.slice(1)] + ". " + (bad.length > 1 ? "Other failure points: " + bad.join(", ") + "." : "That is the only failure point.") }
+          : { ok: false, msg: "Not quite.", could: c.could }; },
+      solve: function () { return { choice: commutes ? "yes" : "x" + bad[0] }; },
+      wrong: function () { return { choice: commutes ? "x0" : "yes" }; },
+      views: { elements: "Commutes means g(f(a)) = k(h(a)) for every a in A.", arrows: "Commutes means the arrow equation g∘f = k∘h. 'Any two paths between the same vertices compose to the same arrow.'", book: "§I.1: a diagram is commutative when any two paths between two vertices yield equal composites." },
+      notice: E.pick(["Did you check every a, or stop at the first disagreement? When is stopping enough?", "Which single arrow could you change to make the square commute?", "Is commutativity a property of the arrows or of the picture?"])
+    };
+  }
+
+  function genIdentities() {
+    var C0, src;
+    if (E.rand() < 0.5) { var n = E.ri(2, 3), R = E.randomPreorder(n, false); while (E.arrowCount(R) === n) R = E.randomPreorder(n, false); C0 = E.preorderCategory(R); src = "a preorder on " + n + " objects"; }
+    else { var nm = E.ri(3, 4), kinds = ["max", "min", "addMod", "mulMod"], kd = E.pick(kinds); C0 = E.monoidCategory(E.relabelTable(E.tables[kd](nm), E.randomBijection(nm))); src = "a monoid (one object)"; }
+    var N = C0.comp.length, Cc = E.permuteCategory(C0, E.randomBijection(N)), ids = E.arrowsOnlyIdentities(Cc);
+    var names = LET.slice(0, N).split("");
+    var table = { corner: "g∘f", rows: names, cols: names, cell: function (g, f) { var v = Cc.comp[g][f]; return v < 0 ? "–" : names[v]; } };
+    return {
+      kind: "identities", title: "ARROWS ONLY",
+      prompt: "Here is a category given by arrows alone: the table shows g∘f (row g, column f), with – where the pair is not composable. Mark every identity: an arrow u with f∘u = f and u∘g = g whenever these are defined.",
+      table: table, pic: { type: "none" },
+      widget: { type: "cells", groups: [{ label: "identity?", cells: names.map(function (nm, i) { return { id: "u" + i, label: nm, values: TOG, v: 0 }; }) }], buttons: [] },
+      check: function (vals) { var mk = toggled(vals, "u", N);
+        if (E.eq(mk, ids)) return { ok: true, msg: "Identities: " + ids.map(function (i) { return names[i]; }).join(", ") + ". The table came from " + src + ", so there " + (ids.length === 1 ? "is one object." : "are " + ids.length + " objects: one for each identity.") };
+        var extra = mk.filter(function (u) { return ids.indexOf(u) < 0; });
+        if (extra.length) { var u = extra[0];
+          if (Cc.comp[u][u] === u) { var w = E.range(N).filter(function (f) { return (Cc.comp[f][u] >= 0 && Cc.comp[f][u] !== f) || (Cc.comp[u][f] >= 0 && Cc.comp[u][f] !== f); })[0];
+            return { ok: false, msg: names[u] + " is not an identity.", could: "COULD BE an idempotent: " + names[u] + "∘" + names[u] + " = " + names[u] + ". But an identity must leave every composable arrow alone, and " + names[u] + " moves " + names[w] + "." }; }
+          return { ok: false, msg: names[u] + " is not an identity.", could: "COULD BE an identity in a smaller category, but here " + names[u] + "∘" + names[u] + (Cc.comp[u][u] < 0 ? " is not even defined." : " = " + names[Cc.comp[u][u]] + ".") }; }
+        var miss = ids.filter(function (u) { return mk.indexOf(u) < 0; })[0];
+        return { ok: false, msg: "One identity is unmarked: " + names[miss] + ".", could: "COULD BE overlooked because " + names[miss] + " looks like any other letter: in the arrows-only view objects are not given, they are recovered as identities." }; },
+      solve: function () { return { cells: E.range(N).map(function (i) { return ["u" + i, ids.indexOf(i) >= 0 ? 1 : 0]; }) }; },
+      wrong: function () { return { cells: E.range(N).map(function (i) { return ["u" + i, 0]; }) }; },
+      views: { elements: "There are no elements here at all: only arrows and a partial composition.", arrows: "Objects can be dispensed with: they correspond exactly to identity arrows (arrows-only axioms (i)–(iii)).", book: "§I.1: 'Since the objects of a metacategory correspond exactly to its identity arrows, it is technically possible to dispense altogether with the objects.'" },
+      notice: E.pick(["Which rows of the table are copies of the column headers?", "Could a table have two identities that compose with each other?", "How would you read off dom and cod of an arrow from this table?"])
+    };
+  }
+
+  // ======================================================================= WORLD 2: §2 Categories
+  function graphPic(n, R, opts) { opts = opts || {}; var cx = 160, cy = 82, rad = n <= 3 ? 50 : 58;
+    var nodes = E.range(n).map(function (i) { var a = -Math.PI / 2 + 2 * Math.PI * i / n; return { x: Math.round(cx + 1.6 * rad * Math.cos(a)), y: Math.round(cy + rad * Math.sin(a)), label: (opts.labels || LET)[i] }; });
+    var edges = []; for (var a = 0; a < n; a++) for (var b = 0; b < n; b++) if (a !== b && R[a][b]) edges.push({ a: a, b: b, col: opts.col ? opts.col(a, b) : COL.f });
+    return { type: "graph", nodes: nodes, edges: edges, marks: opts.marks || [] }; }
+
+  function genPreorder() {
+    var n = E.ri(3, 5), G, cl, tries = 0;
+    do { G = E.randomGraph(n, E.ri(0, 1)); cl = E.closure(G); tries++; } while ((E.arrowCount(cl) - n - E.arrowCount(G) < 1 || E.arrowCount(cl) - n - E.arrowCount(G) > 6) && tries < 100);
+    var names = LET.slice(0, n).split(""), groups = [];
+    E.range(n).forEach(function (a) { groups.push({ label: names[a] + " →", cells: E.range(n).filter(function (b) { return b !== a; }).map(function (b) { return { id: "r" + a + "_" + b, label: names[b], values: TOG, v: G[a][b] ? 1 : 0, fixed: G[a][b] }; }) }); });
+    function rel(vals) { var R = E.emptyRel(n); for (var a = 0; a < n; a++) { R[a][a] = true; for (var b = 0; b < n; b++) if (a !== b && vals["r" + a + "_" + b] === 1) R[a][b] = true; } return R; }
+    var minExtra = E.arrowCount(cl) - n - E.arrowCount(G), found = {};
+    return {
+      kind: "preorder", title: "MAKE IT A CATEGORY",
+      prompt: "The blue arrows form a graph. Add arrows until it is a preorder: a category with at most one arrow between any two objects (identities come for free). Composites must exist.",
+      pic: graphPic(n, G), live: function (vals) { return graphPic(n, rel(vals), { col: function (a, b) { return G[a][b] ? COL.f : COL.g; } }); },
+      widget: { type: "cells", groups: groups, buttons: [] },
+      check: function (vals) { var R = rel(vals);
+        if (!E.isPreorder(R)) { for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) for (var k = 0; k < n; k++) if (R[i][j] && R[j][k] && !R[i][k])
+          return { ok: false, msg: "There are arrows " + names[i] + " → " + names[j] + " → " + names[k] + " but no composite " + names[i] + " → " + names[k] + ".", could: "COULD BE a graph (a 'diagram scheme'); a category also needs every composite." }; }
+        var extra = E.arrowCount(R) - n - E.arrowCount(G), key = JSON.stringify(R); found[key] = 1;
+        var nf = Object.keys(found).length;
+        return { ok: true, msg: extra === minExtra ? "A preorder, with the fewest possible new arrows (" + extra + "): the reflexive–transitive closure. It is the only smallest one." : "A preorder: " + extra + " new arrows. The smallest preorder containing the graph needs only " + minExtra + "; yours is a bigger, equally valid category. (Answers you have found here: " + nf + ".)" }; },
+      solve: function () { var out = []; for (var a = 0; a < n; a++) for (var b = 0; b < n; b++) if (a !== b && !G[a][b]) out.push(["r" + a + "_" + b, cl[a][b] ? 1 : 0]); return { cells: out }; },
+      wrong: function () { var out = []; for (var a = 0; a < n; a++) for (var b = 0; b < n; b++) if (a !== b && !G[a][b]) out.push(["r" + a + "_" + b, 0]); return { cells: out }; },
+      views: { elements: "a ≤ b exactly when there is an arrow a → b. Reflexive = identities, transitive = composites.", arrows: "In a preorder each hom-set has at most one element, so composition is forced: there is only one possible definition.", book: "§I.2 Preorders: a preorder is a set with a reflexive and transitive relation, viewed as a category." },
+      notice: E.pick(["Which new arrows were forced, and which were your choice?", "If you add an arrow back from the last object to the first, what happens to the whole picture?", "How many arrows does the full preorder on these objects have?"])
+    };
+  }
+
+  function genMonoid() {
+    var kinds = ["addMod", "mulMod", "max", "min", "leftZero", "subMod", "capped"], kd = E.pick(kinds), n = E.ri(3, 4);
+    var T = E.relabelTable(E.tables[kd](n), E.randomBijection(n)), assoc = E.isAssociative(T), U = E.units(T), names = nums(n);
+    var ch = names.map(function (u, i) { var lu = E.leftUnits(T).indexOf(i) >= 0, ru = E.rightUnits(T).indexOf(i) >= 0;
+      return choice("u" + i, "ITS UNIT IS " + u + (assoc ? "" : ""), U.indexOf(i) >= 0 && assoc,
+        U.indexOf(i) >= 0 ? "COULD BE a unit, and " + u + " is one: but the operation is not associative, so this is not a monoid." : lu ? "COULD BE a left unit: " + u + "·x = x for all x. A unit must work on both sides, and x·" + u + " is not always x." : ru ? "COULD BE a right unit: x·" + u + " = x for all x. A unit must work on both sides, and " + u + "·x is not always x." : "COULD BE a unit for some of the row: check the whole row and column of " + u + "."); });
+    ch.push(choice("nounit", "IT HAS NO UNIT", U.length === 0, "COULD BE true of many tables, but here " + (U.length ? U[0] : "?") + " is a two-sided unit."));
+    var nab = E.firstNonAssoc(T);
+    ch.push(choice("nassoc", "IT IS NOT ASSOCIATIVE", !assoc, "COULD BE, for another table: here every triple satisfies (x·y)·z = x·(y·z)."));
+    var table = { corner: "x·y", rows: names, cols: names, cell: function (x, y) { return String(T[x][y]); } };
+    var grp = E.isGroup(T);
+    return {
+      kind: "monoid", title: "ONE-OBJECT CATEGORY?",
+      prompt: "A monoid is a category with one object: the arrows are the elements, composition is the operation. Pick a TRUE statement about this table (row x, column y gives x·y). Sometimes more than one is true.",
+      table: table, pic: { type: "none" },
+      widget: { type: "choice", choices: ch },
+      check: function (vals, id) { var c = ch.filter(function (q) { return q.id === id; })[0];
+        var info = assoc ? (U.length ? "It is a monoid with unit " + U[0] + (grp ? ", and every element has an inverse: a group, i.e. a one-object category in which every arrow is invertible." : ", but not a group: some arrow has no inverse.") : "It is associative but has no two-sided unit (a semigroup), so it is not a category.")
+          : "It is not associative: (" + nab[0] + "·" + nab[1] + ")·" + nab[2] + " = " + T[T[nab[0]][nab[1]]][nab[2]] + " but " + nab[0] + "·(" + nab[1] + "·" + nab[2] + ") = " + T[nab[0]][T[nab[1]][nab[2]]] + ".";
+        return c.ok ? { ok: true, msg: "True. " + info } : { ok: false, msg: "That statement is false here.", could: c.could }; },
+      solve: function () { return { choice: ch.filter(function (q) { return q.ok; })[0].id }; },
+      wrong: function () { return { choice: ch.filter(function (q) { return !q.ok; })[0].id }; },
+      views: { elements: "A monoid is a set M with an associative operation and a unit element.", arrows: "A monoid is a category with exactly one object; hom(a, a) is a monoid for every object a of any category.", book: "§I.2 Monoids and Groups: 'A monoid is a category with one object.'" },
+      notice: E.pick(["Where does the unit show up in the table: which row and column copy the headers?", "What changes if you rename the elements? What does not?", "Is every element idempotent (x·x = x)? What kind of monoid does that give?"])
+    };
+  }
+
+  function genMatrix() {
+    var a = E.ri(1, 4), b = E.ri(1, 4), c = E.ri(1, 4); while (c === a) c = E.ri(1, 4);
+    // A is b×a (an arrow a → b), B is c×b (an arrow b → c): only B·A is defined (c ≠ a)
+    var ch = E.shuffle([
+      choice("ba", "B·A : " + a + " → " + c, true),
+      choice("ab", "A·B : " + b + " → " + b, false, "COULD BE A·B if the inner sizes matched; here A is " + b + "×" + a + " and B is " + c + "×" + b + ", so A·B needs " + a + " = " + c + "."),
+      choice("bat", "B·A : " + c + " → " + a, false, "COULD BE the shape of B·A read as 'rows × columns' (" + c + "×" + a + "). As an arrow, an m×n matrix goes n → m: columns are the domain."),
+      choice("ba2", "B·A : " + b + " → " + b, false, "COULD BE the size that cancels in the middle (" + b + "): it is the object B·A passes through, not its domain or codomain.")
+    ]);
+    return {
+      kind: "matrix", title: "MATRICES AS ARROWS",
+      prompt: "In Matr_K an m×n matrix is an arrow n → m. A is " + b + "×" + a + " and B is " + c + "×" + b + ". Which composite is defined, and what is its arrow?",
+      pic: { type: "graph", nodes: [{ x: 50, y: 80, label: String(a) }, { x: 160, y: 80, label: String(b) }, { x: 270, y: 80, label: String(c) }], edges: [{ a: 0, b: 1, col: COL.f, label: "A" }, { a: 1, b: 2, col: COL.g, label: "B" }], marks: [] },
+      widget: { type: "choice", choices: ch },
+      check: function (vals, id) { var q = ch.filter(function (x) { return x.id === id; })[0]; return q.ok ? { ok: true, msg: "B·A is " + c + "×" + a + ": an arrow " + a + " → " + c + ", passing through " + b + "." } : { ok: false, msg: "Not that one.", could: q.could }; },
+      solve: function () { return { choice: "ba" }; }, wrong: function () { return { choice: "ab" }; },
+      views: { elements: "(BA)ᵢⱼ = Σₖ Bᵢₖ Aₖⱼ; the sum runs over the " + b + " middle indices.", arrows: "Objects are positive integers; composition is the matrix product; identities are identity matrices.", book: "§I.2 Matrices: 'each m×n matrix A is regarded as an arrow A : n → m, with composition the usual matrix product.'" },
+      notice: E.pick(["Why might Mac Lane choose n → m rather than m → n?", "Which matrices are the identity arrows?", "Is there an arrow from 3 to 1? How many, over a field?"])
+    };
+  }
+
+  // ======================================================================= WORLD 3: §3 Functors
+  function genMonotone() {
+    var n = E.ri(3, 4), P, tries = 0; do { P = E.closure(E.randomGraph(n, E.ri(0, 1))); tries++; } while (E.arrowCount(P) === n && tries < 20);
+    var m = 3, Q = E.closure((function () { var R = E.emptyRel(m); if (E.rand() < 0.6) { R[0][1] = R[1][2] = true; } else { R[0][1] = R[0][2] = true; } return R; })());
+    var pn = LET.slice(0, n).split(""), qn = ["X", "Y", "Z"], total = E.countMonotone(P, Q), found = {};
+    var groups = [{ label: "T sends", cells: pn.map(function (p, i) { return { id: "F" + i, label: p, values: qn, v: 0 }; }) }];
+    function picFor(F) { var nodes = [], edges = [], cx1 = 70, cx2 = 250;
+      E.range(n).forEach(function (i) { nodes.push({ x: cx1 + (i % 2) * 30 - 15, y: 22 + i * 36, label: pn[i] }); });
+      E.range(m).forEach(function (j) { nodes.push({ x: cx2, y: 32 + j * 48, label: qn[j] }); });
+      E.hasse(P).forEach(function (e) { edges.push({ a: e[0], b: e[1], col: COL.f }); });
+      E.hasse(Q).forEach(function (e) { edges.push({ a: n + e[0], b: n + e[1], col: COL.f }); });
+      if (F) E.range(n).forEach(function (i) { edges.push({ a: i, b: n + F[i], col: COL.t, dash: true }); });
+      return { type: "graph", nodes: nodes, edges: edges, marks: [] }; }
+    return {
+      kind: "monotone", title: "BUILD A FUNCTOR",
+      prompt: "Left: a preorder P. Right: a preorder Q. A functor P → Q is a choice of T(p) for each object, such that every arrow p → p' has an arrow T(p) → T(p'). Build one. (There are " + total + " different right answers.)",
+      pic: picFor(null), live: function (vals) { return picFor(readRow(vals, "F", n)); },
+      widget: { type: "cells", groups: groups, buttons: [] },
+      check: function (vals) { var F = readRow(vals, "F", n);
+        if (E.isMonotone(F, P, Q)) { found[F.join()] = 1; var nf = Object.keys(found).length;
+          return { ok: true, msg: "A functor (a monotone map). You have found " + nf + " of the " + total + " functors P → Q." + (nf < total ? " Press FIND ANOTHER ANSWER, change a value or two, and submit again." : " That is all of them.") }; }
+        for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) if (P[i][j] && !Q[F[i]][F[j]])
+          return { ok: false, msg: "There is an arrow " + pn[i] + " → " + pn[j] + " in P, but no arrow " + qn[F[i]] + " → " + qn[F[j]] + " in Q.", could: "COULD BE a functor out of the discrete category on {" + pn.join(",") + "} (there, any function works). P has more arrows, and each must go somewhere." }; },
+      solve: function () { var all = E.allFunctions(n, m).filter(function (F) { return E.isMonotone(F, P, Q); }); var F = all[all.length - 1]; return { cells: F.map(function (v, i) { return ["F" + i, v]; }) }; },
+      wrong: function () { var all = E.allFunctions(n, m).filter(function (F) { return !E.isMonotone(F, P, Q); }); var F = all[0] || E.range(n).map(function () { return 0; }); return { cells: F.map(function (v, i) { return ["F" + i, v]; }) }; },
+      allowRetry: true,
+      views: { elements: "Between preorders, a functor is exactly a monotone function: p ≤ p' implies Tp ≤ Tp'.", arrows: "A functor sends objects to objects and arrows to arrows, preserving dom, cod, identities and composites.", book: "§I.3 Functors, Exercise 3(a): a functor between two preorders is a monotone function." },
+      notice: E.pick(["Which choices were forced once you chose T of the bottom object?", "Is the constant functor always one of the answers? Why?", "Which of your functors are also functors in the other direction?"])
+    };
+  }
+
+  function genFullFaithful() {
+    var n, m, k, tries = 0;
+    do { n = E.ri(2, 8); m = E.ri(2, 8); var ks = E.range(m).filter(function (kk) { return E.zFunctorValid(n, m, kk); }); k = E.pick(ks); tries++; } while (tries < 50 && (k === 0 && E.rand() < 0.8));
+    var F = E.zFunctorMap(n, m, k), full = E.zFull(n, m, k), faith = E.zFaithful(n, m, k);
+    var opts = [["ff", "FULL AND FAITHFUL", full && faith], ["fu", "FULL, NOT FAITHFUL", full && !faith], ["fa", "FAITHFUL, NOT FULL", !full && faith], ["ne", "NEITHER", !full && !faith]];
+    var img = E.image(F, E.range(n)), clash = E.range(n).filter(function (x) { return E.range(n).some(function (y) { return y < x && F[y] === F[x]; }); })[0];
+    var why = (faith ? "faithful: different arrows go to different arrows" : "not faithful: " + E.range(n).filter(function (y) { return F[y] === F[clash]; })[0] + " and " + clash + " both go to " + F[clash]) + "; " +
+      (full ? "full: every arrow of Z/" + m + " is hit" : "not full: the arrows hit are " + lst(img) + " out of " + m);
+    var ch = opts.map(function (o) { return choice(o[0], o[1], o[2], "COULD BE, for a different k. Here T is " + why + "."); });
+    return {
+      kind: "fullfaithful", title: "FULL? FAITHFUL?",
+      prompt: "Z/" + n + " and Z/" + m + " are one-object categories (arrows = elements, composition = addition). T(x) = " + k + "·x mod " + m + " is a functor Z/" + n + " → Z/" + m + ". Is it full (onto each hom-set)? Faithful (one-to-one on each hom-set)?",
+      pic: setsPic([{ name: "Z/" + n, n: n, x: 80, y: 82, dir: "o" }, { name: "Z/" + m, n: m, x: 240, y: 82, dir: "o" }], [{ a: 0, b: 1, f: F, name: "T", col: COL.t }]),
+      widget: { type: "choice", choices: ch },
+      check: function (vals, id) { var q = ch.filter(function (x) { return x.id === id; })[0]; return q.ok ? { ok: true, msg: "T is " + why + "." } : { ok: false, msg: "Not this time.", could: q.could }; },
+      solve: function () { return { choice: ch.filter(function (q) { return q.ok; })[0].id }; }, wrong: function () { return { choice: ch.filter(function (q) { return !q.ok; })[0].id }; },
+      views: { elements: "Full = hom(c,c') → hom(Tc,Tc') surjective; faithful = injective. With one object there is one hom-set.", arrows: "T respects composition: T(x + y) = Tx + Ty, which is why k·n must be 0 mod " + m + ".", book: "§I.3: 'T is full when every such function is surjective, and faithful when every such function is injective.'" },
+      notice: E.pick(["The forgetful functor Grp → Set is faithful but not full. What would 'full' mean for it?", "Which k make T an isomorphism of categories?", "Why must T send 0 to 0?"])
+    };
+  }
+
+  function genPowerset() {
+    var nx = E.ri(4, 5), ny = E.ri(3, 5), f = E.randomFunction(nx, ny), S = E.range(nx).filter(function () { return E.rand() < 0.5; });
+    if (S.length === 0) S = [E.ri(0, nx - 1)];
+    var img = E.image(f, S), whole = E.image(f, E.range(nx));
+    return {
+      kind: "powerset", title: "POWER SET FUNCTOR",
+      prompt: "𝒫 sends a set to its set of subsets, and f : X → Y to 𝒫f : 𝒫X → 𝒫Y, S ↦ f(S). The marked subset is S = " + lst(S) + ". Mark the elements of 𝒫f(S).",
+      pic: setsPic([{ name: "X", n: nx, x: 70, y: 80, dir: "v" }, { name: "Y", n: ny, x: 250, y: 80, dir: "v" }], [{ a: 0, b: 1, f: f, name: "f", col: COL.f }], { hi: S.map(function (x) { return [0, x, COL.g]; }) }),
+      widget: { type: "cells", groups: [{ label: "in f(S)?", cells: E.range(ny).map(function (y) { return { id: "y" + y, label: String(y), values: TOG, v: 0 }; }) }], buttons: [] },
+      check: function (vals) { var mk = toggled(vals, "y", ny);
+        if (E.eq(mk, img)) return { ok: true, msg: "𝒫f(S) = " + lst(img) + "." };
+        if (E.eq(mk, whole) && !E.eq(img, whole)) return { ok: false, msg: "Too many.", could: "COULD BE 𝒫f(X) = f(X), the image of all of X. Only the elements of S count." };
+        if (E.eq(mk, S) && !E.eq(S, img)) return { ok: false, msg: "Those are the elements of S.", could: "COULD BE the identity functor applied to S. 𝒫f moves S along f." };
+        return { ok: false, msg: "f(S) = {f(x) : x ∈ S} = " + lst(img) + ".", could: "COULD BE the image of a different subset: " + lst(mk) + " is f of some other S, or of none." }; },
+      solve: function () { return { cells: E.range(ny).map(function (y) { return ["y" + y, img.indexOf(y) >= 0 ? 1 : 0]; }) }; },
+      wrong: function () { return { cells: E.range(ny).map(function (y) { return ["y" + y, img.indexOf(y) >= 0 ? 0 : 1]; }) }; },
+      views: { elements: "𝒫f(S) = {f s | s ∈ S}.", arrows: "𝒫(1_X) = 1_𝒫X and 𝒫(g∘f) = 𝒫g ∘ 𝒫f: that is what makes 𝒫 a functor Set → Set.", book: "§I.3: 'A simple example is the power set functor 𝒫 : Set → Set.'" },
+      notice: E.pick(["Can two different subsets have the same image? What does that say about whether 𝒫f is injective?", "What is 𝒫f(∅)?", "Taking preimages also acts on subsets. Which way does it go?"])
+    };
+  }
+
+  // ======================================================================= WORLD 4: §4 Natural transformations
+  function genTau() {
+    var n0 = E.ri(2, 4), n1 = E.ri(2, 4), m0 = E.ri(2, 3), m1 = E.ri(2, 3), s, t, tau0, tries = 0, wantImpossible = E.rand() < 0.3;
+    do { s = E.randomFunction(n0, n1); t = E.randomFunction(m0, m1); tau0 = E.randomFunction(n0, m0); tries++; } while (E.tau1Exists(s, t, tau0) === wantImpossible && tries < 200);
+    var exists = E.tau1Exists(s, t, tau0), forced = E.tau1Forced(s, t, tau0, n1), count = E.tau1Count(s, t, tau0, n1, m1), found = {};
+    return {
+      kind: "tau", title: "COMPLETE THE SQUARE",
+      prompt: "Two functors S, T : 2 → Set are two functions s : S0 → S1 and t : T0 → T1. The component τ0 : S0 → T0 is given. Choose τ1 : S1 → T1 so the naturality square commutes: τ1∘s = t∘τ0. Or claim that no τ1 works.",
+      pic: setsPic([{ name: "S0", n: n0, x: 30, y: 72, dir: "v" }, { name: "S1", n: n1, x: 125, y: 142, dir: "h" }, { name: "T0", n: m0, x: 205, y: 16, dir: "h" }, { name: "T1", n: m1, x: 295, y: 92, dir: "v" }],
+        [{ a: 0, b: 1, f: s, name: "s", col: COL.f }, { a: 2, b: 3, f: t, name: "t", col: COL.f }, { a: 0, b: 2, f: tau0, name: "τ0", col: COL.t }]),
+      live: function (vals) { var tau1 = readRow(vals, "c", n1); return setsPic([{ name: "S0", n: n0, x: 30, y: 72, dir: "v" }, { name: "S1", n: n1, x: 125, y: 142, dir: "h" }, { name: "T0", n: m0, x: 205, y: 16, dir: "h" }, { name: "T1", n: m1, x: 295, y: 92, dir: "v" }],
+        [{ a: 0, b: 1, f: s, name: "s", col: COL.f }, { a: 2, b: 3, f: t, name: "t", col: COL.f }, { a: 0, b: 2, f: tau0, name: "τ0", col: COL.t }, { a: 1, b: 3, f: tau1, name: "τ1", col: COL.g }]); },
+      widget: { type: "cells", groups: [cellsRow("τ1(y) for y =", n1, nums(m1), "c")], buttons: [{ id: "none", label: "NO SUCH τ1" }] },
+      check: function (vals, id) {
+        if (id === "none") { if (!exists) { var p = null; for (var x = 0; x < n0 && !p; x++) for (var y = 0; y < n0; y++) if (s[x] === s[y] && t[tau0[x]] !== t[tau0[y]]) { p = [x, y]; break; }
+            return { ok: true, msg: "Right: s(" + p[0] + ") = s(" + p[1] + ") = " + s[p[0]] + ", but t(τ0(" + p[0] + ")) = " + t[tau0[p[0]]] + " and t(τ0(" + p[1] + ")) = " + t[tau0[p[1]]] + ". τ1(" + s[p[0]] + ") would need two values." }; }
+          return { ok: false, msg: "A τ1 does exist (" + count + " of them).", could: "COULD BE impossible if two elements with the same s-image went to different places under t∘τ0. Here they never do." }; }
+        var tau1 = readRow(vals, "c", n1);
+        if (!exists) return { ok: false, msg: "This τ1 fails, and so does every other.", could: "COULD BE natural for a different τ0. Look for two points of S0 that s glues together." };
+        if (E.isNatural(s, t, tau0, tau1)) { found[tau1.join()] = 1; var nf = Object.keys(found).length, free = forced.filter(function (v) { return v === null; }).length;
+          return { ok: true, msg: "Natural. " + (free ? free + " element" + (free > 1 ? "s" : "") + " of S1 lie outside the image of s, so τ1 is free there: " + count + " natural choices in all (you have found " + nf + ")." : "Every element of S1 is hit by s, so τ1 was forced: this is the only one.") }; }
+        var x0 = E.range(n0).filter(function (x) { return tau1[s[x]] !== t[tau0[x]]; })[0];
+        return { ok: false, msg: "At " + x0 + " ∈ S0: τ1(s(" + x0 + ")) = τ1(" + s[x0] + ") = " + tau1[s[x0]] + ", but t(τ0(" + x0 + ")) = " + t[tau0[x0]] + ".", could: "COULD BE natural for another τ0. Once τ0 is fixed, τ1 is forced on the image of s." }; },
+      solve: function () { if (!exists) return { button: "none" }; return { cells: forced.map(function (v, i) { return ["c" + i, v === null ? 0 : v]; }) }; },
+      wrong: function () { if (!exists) return { cells: E.range(n1).map(function (i) { return ["c" + i, 0]; }) }; return { button: "none" }; },
+      allowRetry: true,
+      views: { elements: "For every x in S0: τ1(s(x)) = t(τ0(x)).", arrows: "A natural transformation τ : S ⇒ T assigns to each object c an arrow τc : Sc → Tc such that Tf ∘ τc = τc' ∘ Sf for every f : c → c'.", book: "§I.4: naturality square (1); 'components of the natural transformation.'" },
+      notice: E.pick(["Where was τ1 forced, and where was it free?", "If s were surjective, how many choices would remain?", "Think of S and T as two pictures of the arrow 0 → 1. What does τ translate?"])
+    };
+  }
+
+  function genPreorderNat() {
+    var n = E.ri(3, 4), maxv = 4, P = E.closure((function () { var R = E.emptyRel(maxv + 1); for (var i = 0; i < maxv; i++) R[i][i + 1] = true; return R; })());
+    var Cr = E.closure(E.randomGraph(n, 0)), cn = LET.slice(0, n).split("");
+    function randMono() { var F, t = 0; do { F = E.range(n).map(function () { return E.ri(0, maxv); }); t++; } while (!E.isMonotone(F, Cr, P) && t < 500); return F; }
+    var S = randMono(), T = randMono(), want = E.rand() < 0.5, tr = 0;
+    while (E.preorderNatExists(S, T, P) !== want && tr++ < 100) T = randMono();
+    var ex = E.preorderNatExists(S, T, P), bad = E.range(n).filter(function (c) { return S[c] > T[c]; });
+    var ch = [choice("yes", "YES: A NATURAL τ : S ⇒ T EXISTS", ex, "COULD BE, if S c ≤ T c everywhere. At " + cn[bad[0]] + ": S = " + S[bad[0]] + " > T = " + T[bad[0]] + ".")];
+    cn.forEach(function (c, i) { ch.push(choice("c" + i, "NO: IT FAILS AT " + c, S[i] > T[i], "COULD BE a failure elsewhere. At " + c + ", S = " + S[i] + " ≤ T = " + T[i] + ", so the component " + S[i] + " → " + T[i] + " exists.")); });
+    var nodes = cn.map(function (c, i) { return { x: 40, y: 20 + i * 40, label: c }; });
+    E.range(maxv + 1).forEach(function (v) { nodes.push({ x: 250, y: 150 - v * 32, label: String(v) }); });
+    var edges = E.hasse(Cr).map(function (e) { return { a: e[0], b: e[1], col: COL.f }; });
+    E.range(maxv).forEach(function (v) { edges.push({ a: n + v, b: n + v + 1, col: COL.id }); });
+    E.range(n).forEach(function (i) { edges.push({ a: i, b: n + S[i], col: COL.g, dash: true }); edges.push({ a: i, b: n + T[i], col: COL.t, dash: true }); });
+    return {
+      kind: "prenat", title: "NATURAL IN A PREORDER",
+      prompt: "Two functors S (gold) and T (purple) from the preorder on {" + cn.join(",") + "} into the chain 0 → 1 → 2 → 3 → 4. Is there a natural transformation S ⇒ T?",
+      pic: { type: "graph", nodes: nodes, edges: edges, marks: [] },
+      widget: { type: "choice", choices: ch },
+      check: function (vals, id) { var q = ch.filter(function (x) { return x.id === id; })[0];
+        return q.ok ? { ok: true, msg: ex ? "Yes: S c ≤ T c for every c, so each component S c → T c exists, and every square commutes automatically (at most one arrow between two objects). It is unique." : "Right: S(" + cn[+id.slice(1)] + ") = " + S[+id.slice(1)] + " > T(" + cn[+id.slice(1)] + ") = " + T[+id.slice(1)] + ", so there is no component there." } : { ok: false, msg: "Not this one.", could: q.could }; },
+      solve: function () { return { choice: ch.filter(function (q) { return q.ok; })[0].id }; }, wrong: function () { return { choice: ch.filter(function (q) { return !q.ok; })[0].id }; },
+      views: { elements: "Here a natural transformation exists exactly when S c ≤ T c for every object c.", arrows: "Naturality squares in a preorder commute automatically: both paths are arrows between the same two objects.", book: "§I.4, Exercise 4: for functors into a preorder P there is a natural transformation S ⇒ T (then unique) iff Sc ≤ Tc for all c." },
+      notice: E.pick(["Why didn't you need to check any squares?", "If S ⇒ T and T ⇒ S both exist, what can you say about S and T?", "How many natural transformations can there be between two functors into a preorder?"])
+    };
+  }
+
+  function genSharp() {
+    var n = E.ri(2, 4), m = E.ri(2, 4), xs = E.shuffle("pqrsuvw".split("")).slice(0, n).sort(), ys = E.shuffle("ABCDEFG".split("")).slice(0, m).sort();
+    var f = E.randomFunction(n, m), eX = E.randomBijection(n), eY = E.randomBijection(m), sh = E.sharp(f, eX, eY);
+    while (E.eq(eX, E.id(n)) && E.eq(eY, E.id(m)) && n > 1) { eX = E.randomBijection(n); sh = E.sharp(f, eX, eY); }
+    var naive = f.slice();
+    return {
+      kind: "sharp", title: "COUNT THE SET",
+      prompt: "# sends a finite set X to the ordinal #X = {0,…,n−1}, using a chosen bijection eX : X → #X (shown in purple). For f : X → Y, #f = eY ∘ f ∘ eX⁻¹. Fill in #f : " + n + " → " + m + ".",
+      pic: setsPic([{ name: "X", n: n, x: 30, y: 72, dir: "v", labels: xs }, { name: "Y", n: m, x: 125, y: 142, dir: "h", labels: ys }, { name: "#X", n: n, x: 205, y: 16, dir: "h" }, { name: "#Y", n: m, x: 295, y: 92, dir: "v" }],
+        [{ a: 0, b: 1, f: f, name: "f", col: COL.f }, { a: 0, b: 2, f: eX, name: "eX", col: COL.t }, { a: 1, b: 3, f: eY, name: "eY", col: COL.t }]),
+      widget: { type: "cells", groups: [cellsRow("#f(i) for i =", n, nums(m), "c")], buttons: [] },
+      check: function (vals) { var a = readRow(vals, "c", n);
+        if (E.eq(a, sh)) return { ok: true, msg: "#f = " + fstr(sh) + ". The square eY∘f = #f∘eX commutes, so e : 1 ⇒ S∘# is natural." };
+        if (E.eq(a, naive)) return { ok: false, msg: "Not with these bijections.", could: "COULD BE #f for a different choice: listing X and Y in alphabetical order. That choice is just as good. Mac Lane: 'we may choose for each X a bijection eX'. The functor # depends on the choice; naturality holds for any choice." };
+        var i = E.range(n).filter(function (j) { return a[j] !== sh[j]; })[0];
+        return { ok: false, msg: "At i = " + i + ": eX⁻¹(" + i + ") = " + xs[E.inverse(eX)[i]] + ", f sends it to " + ys[f[E.inverse(eX)[i]]] + ", and eY sends that to " + sh[i] + ".", could: "COULD BE read along a different path: start at i on the right, go back along eX, down f, then across eY." }; },
+      solve: function () { return { cells: sh.map(function (v, i) { return ["c" + i, v]; }) }; }, wrong: function () { return { cells: sh.map(function (v, i) { return ["c" + i, (v + 1) % m]; }) }; },
+      views: { elements: "#f(i) = eY(f(eX⁻¹(i))).", arrows: "#∘S = 1 on Finord, and e : 1 ≅ S∘# on Setf: an equivalence of categories of very different sizes.", book: "§I.4: the comparison of Finord with Setf, and the definition of an equivalence of categories." },
+      notice: E.pick(["What changes if you pick a different bijection eX? What stays the same?", "S∘# is not the identity functor. Is that a problem?", "Why is the isomorphism of a finite abelian group with its character group not natural, while this e is?"])
+    };
+  }
+
+  // ======================================================================= WORLD 5: §5 Monics, epis, zeros
+  function genClassify() {
+    var na = E.ri(2, 4), nb = E.ri(2, 4), kind = E.pick(["iso", "mono", "epi", "none"]), h;
+    if (kind === "iso") { nb = na; h = E.randomBijection(na); }
+    else if (kind === "mono") { if (nb <= na) nb = na + 1; if (nb > 5) { na = 3; nb = 4; } h = E.randomInjection(na, nb); }
+    else if (kind === "epi") { if (na <= nb) na = nb + 1; if (na > 5) { na = 4; nb = 3; } h = E.randomSurjection(na, nb); }
+    else { var t = 0; do { h = E.randomFunction(na, nb); t++; } while ((E.isInjective(h) || E.isSurjective(h, nb)) && t < 200); }
+    var mo = E.isInjective(h), ep = E.isSurjective(h, nb);
+    var dup = E.range(na).filter(function (x) { return E.range(na).some(function (y) { return y !== x && h[y] === h[x]; }); }), miss = E.range(nb).filter(function (y) { return h.indexOf(y) < 0; });
+    var reason = (mo ? "monic (injective)" : "not monic: " + dup[0] + " and " + dup[1] + " both go to " + h[dup[0]]) + "; " + (ep ? "epi (surjective)" : "not epi: nothing reaches " + miss[0]);
+    var opts = [["iso", "INVERTIBLE (MONIC AND EPI)", mo && ep], ["mono", "MONIC, NOT EPI", mo && !ep], ["epi", "EPI, NOT MONIC", !mo && ep], ["none", "NEITHER", !mo && !ep]];
+    var ch = opts.map(function (o) { return choice(o[0], o[1], o[2], "COULD BE, for another arrow. This h is " + reason + "."); });
+    return {
+      kind: "classify", title: "CANCEL?",
+      prompt: "In Set: is h : A → B monic (left cancellable: h∘f1 = h∘f2 ⇒ f1 = f2), epi (right cancellable: g1∘h = g2∘h ⇒ g1 = g2), both, or neither?",
+      pic: setsPic([{ name: "A", n: na, x: 90, y: 80, dir: "v" }, { name: "B", n: nb, x: 230, y: 80, dir: "v" }], [{ a: 0, b: 1, f: h, name: "h", col: COL.f }]),
+      widget: { type: "choice", choices: ch },
+      check: function (vals, id) { var q = ch.filter(function (x) { return x.id === id; })[0]; return q.ok ? { ok: true, msg: "h is " + reason + "." } : { ok: false, msg: "Look again.", could: q.could }; },
+      solve: function () { return { choice: ch.filter(function (q) { return q.ok; })[0].id }; }, wrong: function () { return { choice: ch.filter(function (q) { return !q.ok; })[0].id }; },
+      views: { elements: "In Set, monic = injective and epi = surjective.", arrows: "Monic and epi are defined by cancellation alone, with no mention of elements: 'doing without elements'.", book: "§I.5: 'In Set and in Grp the monic arrows are precisely the injections… In Set the epi arrows are precisely the surjections.'" },
+      notice: E.pick(["Which is easier to see from the picture: monic or epi?", "How would you test monic using only arrows out of a one-point set?", "In which category would 'monic and epi' not be enough for 'invertible'?"])
+    };
+  }
+
+  function genWitness() {
+    var mode = E.pick(["mono", "epi"]), na, nb, h, t = 0;
+    if (mode === "mono") { na = E.ri(3, 5); nb = E.ri(2, na - 1); do { h = E.randomFunction(na, nb); t++; } while (E.isInjective(h) && t < 100); }
+    else { na = E.ri(2, 4); nb = E.ri(na, 5); do { h = E.randomFunction(na, nb); t++; } while (E.isSurjective(h, nb) && t < 100); }
+    var miss = E.range(nb).filter(function (y) { return h.indexOf(y) < 0; });
+    var prompt = mode === "mono" ? "h : A → B is not monic. Prove it: mark two points x ≠ x' of A (= two different arrows 1 → A) with h∘x = h∘x'. Any such pair is right."
+      : "h : A → B is not epi. Prove it: mark one point b of B such that the two arrows g1, g2 : B → {0,1}, equal except at b, satisfy g1∘h = g2∘h.";
+    var N = mode === "mono" ? na : nb, P = mode === "mono" ? "a" : "b";
+    return {
+      kind: "witness", title: "SHOW IT FAILS",
+      prompt: prompt,
+      pic: setsPic([{ name: "A", n: na, x: 90, y: 80, dir: "v" }, { name: "B", n: nb, x: 230, y: 80, dir: "v" }], [{ a: 0, b: 1, f: h, name: "h", col: COL.f }]),
+      widget: { type: "cells", groups: [{ label: mode === "mono" ? "points of A" : "points of B", cells: E.range(N).map(function (i) { return { id: P + i, label: String(i), values: TOG, v: 0 }; }) }], buttons: [] },
+      check: function (vals) { var mk = toggled(vals, P, N);
+        if (mode === "mono") { if (mk.length === 2 && h[mk[0]] === h[mk[1]]) return { ok: true, msg: "x = " + mk[0] + ", x' = " + mk[1] + ": h∘x = h∘x' = " + h[mk[0]] + ", yet x ≠ x'. Left cancellation fails." };
+          if (mk.length !== 2) return { ok: false, msg: "Mark exactly two points.", could: "COULD BE a witness for something else; cancellation compares two parallel arrows." };
+          return { ok: false, msg: mk[0] + " ↦ " + h[mk[0]] + " but " + mk[1] + " ↦ " + h[mk[1]] + ".", could: "COULD BE a pair that h keeps apart: that shows nothing; look for two points with one image." }; }
+        if (mk.length === 1 && miss.indexOf(mk[0]) >= 0) return { ok: true, msg: "b = " + mk[0] + " is not hit by h, so g1 and g2 agree on everything h reaches: g1∘h = g2∘h with g1 ≠ g2." };
+        if (mk.length !== 1) return { ok: false, msg: "Mark exactly one point.", could: "COULD BE a set of misses; one is enough." };
+        return { ok: false, msg: mk[0] + " is hit by h, so g1∘h and g2∘h differ there.", could: "COULD BE a witness if " + mk[0] + " were outside the image. The points outside are " + lst(miss) + "." }; },
+      solve: function () { if (mode === "mono") { var p = null; for (var x = 0; x < na && !p; x++) for (var y = x + 1; y < na; y++) if (h[x] === h[y]) { p = [x, y]; break; } return { cells: E.range(na).map(function (i) { return ["a" + i, p.indexOf(i) >= 0 ? 1 : 0]; }) }; }
+        return { cells: E.range(nb).map(function (i) { return ["b" + i, i === miss[0] ? 1 : 0]; }) }; },
+      wrong: function () { return { cells: E.range(N).map(function (i) { return [P + i, 1]; }) }; },
+      allowRetry: true,
+      views: { elements: mode === "mono" ? "Not injective: two points with one image." : "Not surjective: a point nobody reaches.", arrows: mode === "mono" ? "Elements of A are arrows 1 → A; a failure of injectivity is a failure of left cancellation against arrows out of 1." : "Arrows B → {0,1} are subsets of B; a missed point gives two different subsets that h cannot tell apart.", book: "§I.5: monic = left cancellable, epi = right cancellable." },
+      notice: E.pick(["How many different witnesses were there?", "Why is the one-point set enough to test monic in Set?", "Why is a two-point set enough to test epi in Set?"])
+    };
+  }
+
+  function genSection() {
+    var nb = E.ri(2, 3), na = E.ri(nb + 1, 5), h = E.randomSurjection(na, nb), total = E.sectionCount(h, nb), found = {};
+    return {
+      kind: "section", title: "FIND A SECTION",
+      prompt: "h : A → B is onto. Build a right inverse (a section) r : B → A with h∘r = 1_B: for each b, pick some r(b) that h sends back to b. (There are " + total + " right answers.)",
+      pic: setsPic([{ name: "A", n: na, x: 90, y: 80, dir: "v" }, { name: "B", n: nb, x: 230, y: 80, dir: "v" }], [{ a: 0, b: 1, f: h, name: "h", col: COL.f }]),
+      live: function (vals) { var r = readRow(vals, "r", nb); return setsPic([{ name: "A", n: na, x: 90, y: 80, dir: "v" }, { name: "B", n: nb, x: 230, y: 80, dir: "v" }], [{ a: 0, b: 1, f: h, name: "h", col: COL.f }, { a: 1, b: 0, f: r, name: "r", col: COL.g }]); },
+      widget: { type: "cells", groups: [cellsRow("r(b) for b =", nb, nums(na), "r")], buttons: [] },
+      check: function (vals) { var r = readRow(vals, "r", nb);
+        if (E.isSection(r, h)) { found[r.join()] = 1; var nf = Object.keys(found).length;
+          return { ok: true, msg: "h∘r = 1_B. Sections are 'usually not unique': you have found " + nf + " of " + total + " (one choice per fibre: " + E.range(nb).map(function (b) { return E.fibre(h, b).length; }).join(" × ") + ")." }; }
+        var b = E.range(nb).filter(function (y) { return h[r[y]] !== y; })[0];
+        return { ok: false, msg: "r(" + b + ") = " + r[b] + ", and h(" + r[b] + ") = " + h[r[b]] + " ≠ " + b + ".", could: "COULD BE a section of a different arrow. For this h, r(" + b + ") must lie in the fibre " + lst(E.fibre(h, b)) + "." }; },
+      solve: function () { return { cells: E.range(nb).map(function (b) { return ["r" + b, E.fibre(h, b)[0]]; }) }; },
+      wrong: function () { return { cells: E.range(nb).map(function (b) { var bad = E.range(na).filter(function (x) { return h[x] !== b; })[0]; return ["r" + b, bad === undefined ? 0 : bad]; }) }; },
+      allowRetry: true,
+      views: { elements: "Pick one element from each fibre h⁻¹(b).", arrows: "If h has a right inverse it is epi (a split epi); the converse holds in Set but fails in Grp.", book: "§I.5: 'A right inverse (which is usually not unique) is also called a section of h.'" },
+      notice: E.pick(["Is r∘h the identity on A? What is it instead?", "Is r∘h idempotent? (It is: r∘h∘r∘h = r∘h.)", "Which section would you choose if A were ordered? Is that choice natural?"])
+    };
+  }
+
+  function genSplit() {
+    var n = E.ri(3, 5), f = E.randomIdempotent(n), fix = E.fixedPoints(f);
+    return {
+      kind: "split", title: "SPLIT THE IDEMPOTENT",
+      prompt: "f : X → X is idempotent (f∘f = f). Split it: choose Y ⊆ X so that f = h∘g with g∘h = 1_Y, where h : Y → X is the inclusion and g(x) = f(x). Mark the points of Y.",
+      pic: setsPic([{ name: "X", n: n, x: 90, y: 80, dir: "v" }, { name: "X", n: n, x: 230, y: 80, dir: "v" }], [{ a: 0, b: 1, f: f, name: "f", col: COL.f }]),
+      widget: { type: "cells", groups: [{ label: "in Y?", cells: E.range(n).map(function (i) { return { id: "y" + i, label: String(i), values: TOG, v: 0 }; }) }], buttons: [] },
+      check: function (vals) { var Y = toggled(vals, "y", n);
+        if (E.eq(Y, fix)) return { ok: true, msg: "Y = " + lst(fix) + ", the image of f, which is also its set of fixed points. g∘h = 1_Y because f fixes its image." };
+        var out = Y.filter(function (y) { return fix.indexOf(y) < 0; }), lack = fix.filter(function (y) { return Y.indexOf(y) < 0; });
+        if (out.length) return { ok: false, msg: out[0] + " is not fixed: g(h(" + out[0] + ")) = f(" + out[0] + ") = " + f[out[0]] + ".", could: "COULD BE in a bigger Y for a different f; here g∘h must be the identity on Y." };
+        return { ok: false, msg: "f reaches " + lack[0] + ", so g must be able to land there.", could: "COULD BE part of a splitting, but g(x) = f(x) needs a home in Y for every value of f." }; },
+      solve: function () { return { cells: E.range(n).map(function (i) { return ["y" + i, fix.indexOf(i) >= 0 ? 1 : 0]; }) }; },
+      wrong: function () { return { cells: E.range(n).map(function (i) { return ["y" + i, 1]; }) }; },
+      views: { elements: "Y = f(X) = {x | f x = x}.", arrows: "f = h∘g with g∘h = 1: g is a split epi, h is a split monic.", book: "§I.5: idempotents and splitting; Exercise 6: in Set all idempotents split." },
+      notice: E.pick(["Why is the image of an idempotent the same as its fixed points?", "Would any Y the same size as the image do, with a different h?", "Where else have you seen an arrow r∘h that is idempotent?"])
+    };
+  }
+
+  function genTerminal() {
+    var n = E.ri(3, 5), R = E.randomPreorder(n, E.rand() < 0.4), mode = E.pick(["terminal", "initial"]);
+    var ans = mode === "terminal" ? E.terminals(R) : E.initials(R), cn = LET.slice(0, n).split("");
+    var maxl = E.range(n).filter(function (x) { return E.range(n).every(function (y) { return !R[x][y] || R[y][x]; }); });
+    var minl = E.range(n).filter(function (x) { return E.range(n).every(function (y) { return !R[y][x] || R[x][y]; }); });
+    var pic = { type: "graph", nodes: graphPic(n, R).nodes, edges: E.hasse(R).map(function (e) { return { a: e[0], b: e[1], col: COL.f }; }), marks: [] };
+    return {
+      kind: "terminal", title: mode === "terminal" ? "FIND THE TERMINALS" : "FIND THE INITIALS",
+      prompt: "A preorder (composites not drawn). Mark every " + mode + " object: " + (mode === "terminal" ? "one with exactly one arrow from each object a to it." : "one with exactly one arrow from it to each object a.") + " Mark none if there are none.",
+      pic: pic,
+      widget: { type: "cells", groups: [{ label: mode + "?", cells: cn.map(function (c, i) { return { id: "t" + i, label: c, values: TOG, v: 0 }; }) }], buttons: [] },
+      check: function (vals) { var mk = toggled(vals, "t", n);
+        if (E.eq(mk, ans)) return { ok: true, msg: ans.length === 0 ? "None: no object receives (" + (mode === "terminal" ? "from" : "to") + ") every other." : ans.length === 1 ? cn[ans[0]] + " is " + mode + "." : ans.map(function (i) { return cn[i]; }).join(" and ") + " are both " + mode + ", and they are isomorphic: 'any two terminal objects are isomorphic'." };
+        var ext = mk.filter(function (x) { return ans.indexOf(x) < 0; });
+        if (ext.length) { var x = ext[0], loc = mode === "terminal" ? maxl : minl;
+          if (loc.indexOf(x) >= 0) return { ok: false, msg: cn[x] + " is not " + mode + ".", could: "COULD BE " + (mode === "terminal" ? "maximal: nothing lies strictly above it" : "minimal: nothing lies strictly below it") + ". But " + mode + " needs an arrow " + (mode === "terminal" ? "from every object" : "to every object") + ", and " + cn[E.range(n).filter(function (y) { return mode === "terminal" ? !R[y][x] : !R[x][y]; })[0]] + " has none." };
+          return { ok: false, msg: cn[x] + " is not " + mode + ".", could: "COULD BE " + mode + " in a smaller part of the picture; follow the arrows from every object." }; }
+        return { ok: false, msg: "You missed " + cn[ans.filter(function (y) { return mk.indexOf(y) < 0; })[0]] + ".", could: "COULD BE hidden by a tie: objects with arrows both ways are isomorphic, and share the property." }; },
+      solve: function () { return { cells: E.range(n).map(function (i) { return ["t" + i, ans.indexOf(i) >= 0 ? 1 : 0]; }) }; },
+      wrong: function () { return { cells: E.range(n).map(function (i) { return ["t" + i, ans.indexOf(i) >= 0 ? 0 : 1]; }) }; },
+      views: { elements: "In a preorder, terminal = greatest element, initial = least element (up to ties).", arrows: "Terminal: exactly one arrow a → t for each a. Initial: exactly one arrow s → a. In Set, ∅ is initial and any one-point set is terminal.", book: "§I.5: terminal, initial and null objects." },
+      notice: E.pick(["In a preorder 'exactly one' is the same as 'at least one'. Why?", "Can a preorder have a terminal object but no initial one?", "In Grp the trivial group is both initial and terminal. What would that look like here?"])
+    };
+  }
+
+  var CONTEXTS = [
+    { ctx: "Set", arrow: "a bijection {0,1,2} → {0,1,2}", ans: "iso", why: "In Set monic = injective and epi = surjective, so it is both, and a bijection has an inverse." },
+    { ctx: "a preorder (ℤ, ≤)", arrow: "the arrow 2 → 5", ans: "me", why: "In a preorder there is at most one arrow between two objects, so every arrow cancels on both sides. But there is no arrow 5 → 2, so no inverse." },
+    { ctx: "Rng", arrow: "the inclusion ℤ → ℚ", ans: "me", why: "It is injective, hence monic; and a ring map out of ℚ is determined by its values on ℤ, so it is epi (Exercise I.5.4). It has no inverse." },
+    { ctx: "Grp", arrow: "the inclusion ℤ → ℚ (as additive groups)", ans: "mono", why: "Injective, so monic; in Grp every epi is surjective (Exercise I.5.5), and this map is not surjective." },
+    { ctx: "the monoid (ℕ, +) as a one-object category", arrow: "the arrow 3", ans: "me", why: "3 + a = 3 + b implies a = b on both sides, so 3 is monic and epi; but there is no n with 3 + n = 0." },
+    { ctx: "Set", arrow: "the inclusion {0,1} → {0,1,2}", ans: "mono", why: "Injective, not surjective." },
+    { ctx: "Grp", arrow: "the projection ℤ → ℤ/2", ans: "epi", why: "Surjective, so epi; not injective, so not monic." },
+    { ctx: "Set", arrow: "the only function {0,1} → {★}", ans: "epi", why: "Surjective (★ is hit), but 0 and 1 are glued." },
+    { ctx: "a group G as a one-object category", arrow: "any element g", ans: "iso", why: "Every arrow of a group has an inverse: that is what a group is." }
+  ];
+  function genContext() {
+    var c = E.pick(CONTEXTS);
+    var opts = [["iso", "MONIC AND EPI, AND INVERTIBLE"], ["me", "MONIC AND EPI, BUT NOT INVERTIBLE"], ["mono", "MONIC, NOT EPI"], ["epi", "EPI, NOT MONIC"]];
+    var ch = opts.map(function (o) { return choice(o[0], o[1], o[0] === c.ans, "COULD BE right in another category: " + (o[0] === "me" ? "in Set, monic and epi together do give an inverse, but not in every category." : o[0] === "iso" ? "in Set and Grp, monic + epi is invertible. Is this one of those?" : "check both cancellations separately.")); });
+    return {
+      kind: "context", title: "SAME WORDS, NEW PLACE",
+      prompt: "In " + c.ctx + ", consider " + c.arrow + ". Which is it?",
+      pic: { type: "none" },
+      widget: { type: "choice", choices: ch },
+      check: function (vals, id) { var q = ch.filter(function (x) { return x.id === id; })[0]; return q.ok ? { ok: true, msg: c.why } : { ok: false, msg: "In " + c.ctx + ": " + c.why, could: q.could }; },
+      solve: function () { return { choice: c.ans }; }, wrong: function () { return { choice: c.ans === "iso" ? "me" : "iso" }; },
+      views: { elements: "Whether 'monic + epi' means 'invertible' depends on the category, not on the words.", arrows: "Invertible ⇒ monic and epi in every category. The converse is a fact about some categories.", book: "§I.5, and Exercise 1: find a category with an arrow which is both epi and monic, but not invertible." },
+      notice: E.pick(["Which of the contexts so far looked most like Set? Which least?", "What property of Set makes monic + epi enough?", "Would you have guessed the Rng answer from its elements?"])
+    };
+  }
+
+  // ======================================================================= worlds
+  C.WORLDS = [
+    { id: "axioms", name: "COMPOSITION YARD", sec: "§I.1 Axioms for Categories", gens: [genCompose, genCommute, genIdentities], myth: "Myth 4: rote memorization. Every round is new: there is nothing to memorise except how arrows go together.", col: "#6fa8dc" },
+    { id: "zoo", name: "CATEGORY ZOO", sec: "§I.2 Categories", gens: [genPreorder, genMonoid, genMatrix], myth: "Myth 7: right and wrong answers. Some rounds accept many answers, and several statements can be true at once.", col: "#6cc28a" },
+    { id: "functors", name: "PICTURE STUDIO", sec: "§I.3 Functors", gens: [genMonotone, genFullFaithful, genPowerset], myth: "Myth 6: intelligence as knowing 'what's out there'. Build functors of your own and count how many exist.", col: "#c38be0" },
+    { id: "natural", name: "SQUARE LOOM", sec: "§I.4 Natural Transformations", gens: [genTau, genPreorderNat, genSharp], myth: "Myth 1: overlearned basics. The same square appears in new settings, so it stays something you look at rather than recite.", col: "#f2c14e" },
+    { id: "cancel", name: "CANCEL CLUB", sec: "§I.5 Monics, Epis, and Zeros", gens: [genClassify, genWitness, genSection, genSplit, genTerminal, genContext], myth: "Myth 2: attention as fixed focus. Contexts keep shifting (Set, Grp, Rng, preorders, monoids), so what you notice changes too.", col: "#e0605a" }
+  ];
+  C.ROUNDS_PER_WORLD = 6;
+  C.KINDS = {};
+  C.WORLDS.forEach(function (w) { w.gens.forEach(function (g) { var r = g(); C.KINDS[r.kind] = g; }); });
+
+  C.CODEX = {
+    myths: [
+      { myth: "The basics must be learned so well that they become second nature.", game: "All five worlds are open from the start, and no instance repeats. The basics (composition, commuting squares) keep coming back in new settings instead of as drills." },
+      { myth: "Paying attention means staying focused on one thing at a time.", game: "REDRAW moves the picture around and ANOTHER VIEW changes the instance. The CANCEL CLUB keeps switching categories, so noticing what is new is the task." },
+      { myth: "Delaying gratification is important.", game: "There is nothing to unlock, no score and no timer. Every round can be played as soon as you arrive." },
+      { myth: "Rote memorization is necessary in education.", game: "Definitions appear only as reasons after you answer (ELEMENTS / ARROWS / BOOK lenses), never as cards to memorise first." },
+      { myth: "Forgetting is a problem.", game: "The notebook keeps your slips with their COULD BE lines. REVISIT gives a fresh instance of the same kind, so you can look at it anew." },
+      { myth: "Intelligence is knowing 'what's out there'.", game: "Several rounds have many right answers (functors, sections, natural τ1, preorders). The game counts how many you have found, not whether you found 'the' one." },
+      { myth: "There are right and wrong answers.", game: "A wrong choice gets a COULD BE line saying in which context, or for which question, it would be right. For example, f∘g is right under the diagrammatic convention." }
+    ],
+    states: ["openness to novelty", "alertness to distinction", "sensitivity to different contexts", "awareness of multiple perspectives", "orientation in the present"],
+    stateGame: ["fresh instances every round", "COULD BE lines separate near-misses from answers", "the same notion in Set, Grp, Rng, preorders and monoids", "ELEMENTS / ARROWS / BOOK lenses on every answer", "NOTICE questions about the round in front of you"]
+  };
+  return C;
+})();
+if (typeof module !== "undefined") module.exports = MLAC;
+// Arrow Atlas UI: DOM panels plus a 320x160 pixel canvas drawn with fillRect only.
+"use strict";
+var UI = (function () {
+  var E = MLA, C = MLAC, W = 320, H = 160;
+  var S = { screen: "title", world: 0, roundNo: 0, round: null, vals: {}, answered: false, verdict: null, lens: "elements", flip: false, perm: null,
+    done: {}, notebook: [], seen: {}, answers: 0, order: [] };
+  try { S.done = JSON.parse(localStorage.getItem("mla_done") || "{}"); S.notebook = JSON.parse(localStorage.getItem("mla_notebook") || "[]"); } catch (e) { }
+  function save() { try { localStorage.setItem("mla_done", JSON.stringify(S.done)); localStorage.setItem("mla_notebook", JSON.stringify(S.notebook.slice(-60))); } catch (e) { } }
+
+  // ------------------------------------------------------------------ pixel font (3x5)
+  var FONT = {
+    A: "010101111101101", B: "110101110101110", C: "011100100100011", D: "110101101101110", E: "111100110100111", F: "111100110100100",
+    G: "011100101101011", H: "101101111101101", I: "111010010010111", J: "001001001101010", K: "101101110101101", L: "100100100100111",
+    M: "101111111101101", N: "110101101101101", O: "010101101101010", P: "110101110100100", Q: "010101101110011", R: "110101110101101",
+    S: "011100010001110", T: "111010010010010", U: "101101101101111", V: "101101101101010", W: "101101111111101", X: "101101010101101",
+    Y: "101101010010010", Z: "111001010100111",
+    "0": "111101101101111", "1": "010110010010111", "2": "110001010100111", "3": "110001010001110", "4": "101101111001001",
+    "5": "111100110001110", "6": "011100111101111", "7": "111001010010010", "8": "111101111101111", "9": "111101111001110",
+    " ": "000000000000000", ":": "000010000010000", "-": "000000111000000", ">": "100010001010100", "<": "001010100010001",
+    "!": "010010010000010", ".": "000000000000010", ",": "000000000010100", "(": "001010010010001", ")": "100010010010100",
+    "/": "001001010100100", "?": "110001010000010", "=": "000111000111000", "+": "000010111010000", "#": "101111101111101",
+    "τ": "000111010010001", "→": "000001111001000", "★": "010111010101000", "∘": "000010101010000", "§": "011110101011110", "'": "010010000000000",
+    a: "000011101101011", b: "100110101101110", c: "000011100100011", d: "001011101101011", e: "000010111100011", f: "011100110100100", g: "011101011001110", h: "100110101101101", i: "010000010010010", j: "001000001101010", k: "100101110110101", l: "110010010010011", m: "000110111101101", n: "000110101101101", o: "000010101101010", p: "000110101110100", q: "000011101011001", r: "000101110100100", s: "000011110011110", t: "010111010010011", u: "000101101101011", v: "000101101101010", w: "000101101111111", x: "000101010010101", y: "000101011001110", z: "000111011110111"
+  };
+  function glyph(ch) { return FONT[ch] || FONT[String(ch).toUpperCase()] || FONT["?"]; }
+
+  // ------------------------------------------------------------------ canvas primitives
+  var ctx = null;
+  function rect(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); }
+  function textW(s) { return String(s).length * 4 - 1; }
+  function text(s, x, y, c, align) { s = String(s); if (align === "c") x -= textW(s) / 2; x = Math.round(x); y = Math.round(y);
+    for (var i = 0; i < s.length; i++) { var g = glyph(s[i]); for (var p = 0; p < 15; p++) if (g[p] === "1") rect(x + i * 4 + (p % 3), y + Math.floor(p / 3), 1, 1, c); } }
+  function line(x0, y0, x1, y1, c, dash) { x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+    var dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx + dy, k = 0;
+    for (var guard = 0; guard < 2000; guard++) { if (!dash || (k++ % 4) < 2) rect(x0, y0, 1, 1, c); if (x0 === x1 && y0 === y1) break; var e2 = 2 * err; if (e2 >= dy) { err += dy; x0 += sx; } if (e2 <= dx) { err += dx; y0 += sy; } } }
+  function arrow(x0, y0, x1, y1, c, dash, back) { // line ending 'back' pixels before (x1,y1) with a 3-pixel head
+    var dx = x1 - x0, dy = y1 - y0, L = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / L, uy = dy / L;
+    var ex = x1 - ux * back, ey = y1 - uy * back, sx0 = x0 + ux * back, sy0 = y0 + uy * back;
+    line(sx0, sy0, ex, ey, c, dash);
+    for (var t = 1; t <= 3; t++) { rect(ex - ux * t - uy * t, ey - uy * t + ux * t, 1, 1, c); rect(ex - ux * t + uy * t, ey - uy * t - ux * t, 1, 1, c); } }
+  function chip(x, y, label, c, outline) { rect(x - 5, y - 5, 11, 11, "#000"); rect(x - 4, y - 4, 9, 9, c); if (outline) { rect(x - 6, y - 6, 13, 1, outline); rect(x - 6, y + 6, 13, 1, outline); rect(x - 6, y - 6, 1, 13, outline); rect(x + 6, y - 6, 1, 13, outline); }
+    text(String(label).slice(0, 2), x - (String(label).length > 1 ? 3 : 1), y - 2, "#101820"); }
+  function bg() { rect(0, 0, W, H, "#0f0e1a"); for (var x = 0; x < W; x += 16) for (var y = 0; y < H; y += 16) rect(x, y, 1, 1, "#26233d"); }
+
+  // ------------------------------------------------------------------ pictures
+  function dotPos(set, i) { var n = set.n, ii = S.flip ? n - 1 - i : i, x = S.flip ? W - set.x : set.x, y = set.y;
+    if (set.dir === "v") return [x, y + (ii - (n - 1) / 2) * 20];
+    if (set.dir === "h") return [x + (ii - (n - 1) / 2) * 22, y];
+    var a = -Math.PI / 2 + 2 * Math.PI * ii / n, r = n <= 4 ? 26 : 38; return [x + r * Math.cos(a), y + r * Math.sin(a)]; }
+  function drawSets(p) {
+    p.sets.forEach(function (st) { var x = S.flip ? W - st.x : st.x, lab = st.name;
+      if (st.dir === "v") { var hh = (st.n - 1) * 20 + 18; rect(x - 10, st.y - hh / 2, 21, hh, "#1e2a38"); text(lab, x, st.y - hh / 2 - 7, "#e9e2cc", "c"); }
+      else if (st.dir === "h") { var ww = (st.n - 1) * 22 + 18; rect(x - ww / 2, st.y - 10, ww, 21, "#1e2a38"); text(lab, x - ww / 2 - textW(lab) - 3, st.y - 2, "#e9e2cc"); }
+      else { text(lab, x, st.y - 2, "#e9e2cc", "c"); } });
+    p.maps.forEach(function (m) { var A = p.sets[m.a], B = p.sets[m.b], mx = 0, my = 0, cnt = 0;
+      m.f.forEach(function (y, x) { if (typeof y !== "number" || y < 0 || y >= B.n) return; var s = dotPos(A, x), t = dotPos(B, y); arrow(s[0], s[1], t[0], t[1], m.col, false, 7); mx += (s[0] + t[0]) / 2; my += (s[1] + t[1]) / 2; cnt++; });
+      if (cnt) { mx /= cnt; my /= cnt; rect(mx - textW(m.name) / 2 - 2, my - 4, textW(m.name) + 4, 9, "#000"); text(m.name, mx, my - 2, m.col, "c"); } });
+    var hi = {}; (p.hi || []).forEach(function (h) { hi[h[0] + ":" + h[1]] = h[2]; });
+    p.sets.forEach(function (st, si) { for (var i = 0; i < st.n; i++) { var q = dotPos(st, i); chip(q[0], q[1], st.labels ? st.labels[i] : i, "#e9e2cc", hi[si + ":" + i]); } });
+  }
+  function drawGraph(p) { var n = p.nodes.length, perm = S.perm && S.perm.length === n ? S.perm : E.range(n);
+    function pos(i) { var q = p.nodes[perm[i]]; return [S.flip ? W - q.x : q.x, q.y]; }
+    p.edges.forEach(function (e) { var s = pos(e.a), t = pos(e.b), both = p.edges.some(function (f) { return f.a === e.b && f.b === e.a; });
+      var dx = t[0] - s[0], dy = t[1] - s[1], L = Math.sqrt(dx * dx + dy * dy) || 1, ox = both ? -dy / L * 3 : 0, oy = both ? dx / L * 3 : 0;
+      arrow(s[0] + ox, s[1] + oy, t[0] + ox, t[1] + oy, e.col, e.dash, 8);
+      if (e.label) { var mx = (s[0] + t[0]) / 2, my = (s[1] + t[1]) / 2 - 8; text(e.label, mx, my, e.col, "c"); } });
+    p.nodes.forEach(function (nd, i) { var q = pos(i); chip(q[0], q[1], nd.label, "#e9e2cc"); });
+  }
+  function drawPicture(pic) { bg(); if (!pic || pic.type === "none") { drawNone(); return; } if (pic.type === "sets") drawSets(pic); else drawGraph(pic); }
+  function drawNone() { var w = C.WORLDS[S.world]; for (var i = 0; i < 9; i++) { var x = 40 + i * 30, y = 80 + Math.round(18 * Math.sin(i * 1.3 + S.roundNo)); chip(x, y, i % 2 ? "→" : "★", w.col); } text("ELEMENTS ARE OPTIONAL", 160, 130, "#8c86b0", "c"); }
+  function drawTitle() { bg(); var cols = ["#6fa8dc", "#6cc28a", "#c38be0", "#f2c14e", "#e0605a"];
+    var pts = [[60, 60], [130, 34], [200, 62], [260, 36], [160, 116]];
+    [[0, 1], [1, 2], [2, 3], [0, 4], [4, 2], [1, 4]].forEach(function (e, i) { arrow(pts[e[0]][0], pts[e[0]][1], pts[e[1]][0], pts[e[1]][1], cols[i % 5], i > 3, 8); });
+    pts.forEach(function (p, i) { chip(p[0], p[1], "abcde"[i], cols[i]); });
+    text("ARROW ATLAS", 160, 140, "#f2c14e", "c"); text("MAC LANE §I.1-5", 160, 150, "#8c86b0", "c"); }
+  function drawMap() { bg(); var pts = [[50, 110], [110, 50], [170, 105], [230, 48], [285, 110]];
+    for (var i = 0; i + 1 < pts.length; i++) arrow(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], "#3b3760", true, 18);
+    C.WORLDS.forEach(function (w, i) { var p = pts[i]; rect(p[0] - 16, p[1] - 10, 33, 21, "#000"); rect(p[0] - 15, p[1] - 9, 31, 19, w.col);
+      for (var k = 0; k < 4; k++) rect(p[0] - 12 + k * 7, p[1] - 6 + (k % 2) * 6, 3, 3, "#101820");
+      text(String(i + 1), p[0], p[1] + 14, S.done[w.id] ? "#f2c14e" : "#e9e2cc", "c"); if (S.done[w.id]) text("★", p[0] + 18, p[1] - 14, "#f2c14e"); });
+    text("ALL ISLANDS ARE OPEN. START ANYWHERE.", 160, 8, "#8c86b0", "c"); }
+
+  // ------------------------------------------------------------------ DOM helpers
+  function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+  function btn(label, role, fn, cls) { var b = el("button", "btn" + (cls ? " " + cls : ""), label); b.setAttribute("data-role", role); b.onclick = function () { fn(); render(); }; return b; }
+  function canvas(drawFn) { var c = el("canvas", "screen"); c.width = W; c.height = H; ctx = c.getContext("2d"); ctx.imageSmoothingEnabled = false; drawFn(); return c; }
+
+  // ------------------------------------------------------------------ game flow
+  function startWorld(i) { S.world = i; S.roundNo = 0; S.order = E.shuffle(E.range(C.WORLDS[i].gens.length)); S.screen = "round"; newRound(); }
+  function newRound(kindGen) { var w = C.WORLDS[S.world], g = kindGen || w.gens[S.order[S.roundNo % S.order.length]];
+    S.round = g(); S.vals = {}; S.answered = false; S.verdict = null; S.lens = "elements"; S.flip = false; S.perm = null;
+    if (S.round.widget.type === "cells") S.round.widget.groups.forEach(function (gr) { gr.cells.forEach(function (c) { S.vals[c.id] = c.v; }); });
+    S.seen[S.round.kind] = (S.seen[S.round.kind] || 0) + 1; }
+  function submit(id) { if (S.answered) return; var v = S.round.check(S.vals, id || "submit"); S.verdict = v; S.answered = true; S.answers++;
+    if (!v.ok) S.notebook.push({ kind: S.round.title, world: C.WORLDS[S.world].name, msg: v.msg, could: v.could || "", gen: S.round.kind });
+    save(); }
+  function next() { S.roundNo++; if (S.roundNo === C.ROUNDS_PER_WORLD) { S.done[C.WORLDS[S.world].id] = true; save(); S.screen = "cleared"; return; } newRound(); }
+  function redraw() { S.flip = !S.flip; var p = S.round.live ? S.round.live(S.vals) : S.round.pic; if (p && p.type === "graph") S.perm = E.shuffle(E.range(p.nodes.length)); }
+
+  // ------------------------------------------------------------------ screens
+  function header(root) { var top = el("div", "top"); top.appendChild(el("span", "logo", "ARROW ATLAS"));
+    top.appendChild(btn("MAP", "map", function () { S.screen = "map"; }));
+    top.appendChild(btn("CODEX", "codex", function () { S.screen = "codex"; }));
+    top.appendChild(btn("NOTEBOOK (" + S.notebook.length + ")", "notebook", function () { S.screen = "notebook"; }));
+    root.appendChild(top); }
+  function titleScreen(root) { var p = el("div", "panel title"); p.appendChild(el("h1", "", "ARROW ATLAS"));
+    p.appendChild(el("div", "sub", "A PIXEL TOUR OF MAC LANE, CATEGORIES FOR THE WORKING MATHEMATICIAN, §I.1–I.5"));
+    p.appendChild(canvas(drawTitle));
+    p.appendChild(el("p", "", "Five islands, one per section: axioms, categories, functors, natural transformations, and monics, epis and zeros. There is no score, no timer and no lives. A wrong answer gets a COULD BE: the context in which it would be right."));
+    p.appendChild(el("p", "small", "Ideas from Ellen Langer, The Power of Mindful Learning: conditional ('could be') teaching, novelty, many right answers, and noticing new things."));
+    p.appendChild(btn("START", "start", function () { S.screen = "map"; }, "big")); root.appendChild(p); }
+  function mapScreen(root) { var p = el("div", "panel"); p.appendChild(el("h2", "", "THE ATLAS")); p.appendChild(canvas(drawMap));
+    var g = el("div", "worlds");
+    C.WORLDS.forEach(function (w, i) { var c = el("div", "world"); c.setAttribute("data-role", "world-" + i); c.onclick = function () { startWorld(i); render(); };
+      c.appendChild(el("div", "wname", (i + 1) + ". " + w.name + (S.done[w.id] ? " ★" : ""))); c.appendChild(el("div", "wch", w.sec)); c.appendChild(el("div", "wmu", w.myth)); g.appendChild(c); });
+    p.appendChild(g); root.appendChild(p); }
+  function roundScreen(root) { var r = S.round, w = C.WORLDS[S.world], p = el("div", "panel");
+    p.appendChild(el("h2", "", w.name + " · " + r.title + " · ROUND " + (S.roundNo + 1)));
+    p.appendChild(el("div", "small", w.sec));
+    p.appendChild(el("div", "prompt", r.prompt));
+    var pic = r.live ? r.live(S.vals) : r.pic; p.appendChild(canvas(function () { drawPicture(pic); }));
+    if (r.table) { var t = el("table", "tbl"), tr = el("tr"); tr.appendChild(el("th", "", r.table.corner)); r.table.cols.forEach(function (c) { tr.appendChild(el("th", "", c)); }); t.appendChild(tr);
+      r.table.rows.forEach(function (rw, i) { var row = el("tr"); row.appendChild(el("th", "", rw)); r.table.cols.forEach(function (c, j) { row.appendChild(el("td", "", r.table.cell(i, j))); }); t.appendChild(row); });
+      p.appendChild(t); }
+    var wd = r.widget, area = el("div", "widget");
+    if (wd.type === "choice") { var opts = el("div", "opts"); wd.choices.forEach(function (c) { var b = btn(c.label, "choice-" + c.id, function () { submit(c.id); }, S.answered && S.verdict && S.verdict.pick === c.id ? "on" : ""); opts.appendChild(b); }); area.appendChild(opts); }
+    else { wd.groups.forEach(function (gr) { var row = el("div", "row"); row.appendChild(el("span", "glabel", gr.label));
+        gr.cells.forEach(function (c) { var b = btn(c.label + ":" + c.values[S.vals[c.id]], "cell-" + c.id, function () { if (S.answered || c.fixed) return; S.vals[c.id] = (S.vals[c.id] + 1) % c.values.length; }, (c.fixed ? "fixed" : "") + (c.values.length === 2 && S.vals[c.id] === 1 ? " on" : "")); row.appendChild(b); });
+        area.appendChild(row); });
+      var br = el("div", "row"); br.appendChild(btn("SUBMIT", "submit", function () { submit("submit"); }, "big")); wd.buttons.forEach(function (b) { br.appendChild(btn(b.label, "btn-" + b.id, function () { submit(b.id); })); }); area.appendChild(br); }
+    p.appendChild(area);
+    var tools = el("div", "row"); tools.appendChild(btn("REDRAW", "redraw", redraw)); tools.appendChild(btn("ANOTHER VIEW", "another", function () { newRound(C.KINDS[r.kind]); })); p.appendChild(tools);
+    if (S.answered) { var v = S.verdict, out = el("div", "verdict " + (v.ok ? "good" : "slip"));
+      out.appendChild(el("div", "vline", (v.ok ? "YES. " : "NOT YET. ") + v.msg)); if (!v.ok && v.could) out.appendChild(el("div", "could", v.could));
+      var tabs = el("div", "tabs"); [["elements", "ELEMENTS"], ["arrows", "ARROWS"], ["book", "BOOK"]].forEach(function (l) { tabs.appendChild(btn(l[1], "lens-" + l[0], function () { S.lens = l[0]; }, S.lens === l[0] ? "on" : "")); });
+      out.appendChild(tabs); out.appendChild(el("div", "lens", r.views[S.lens])); out.appendChild(el("div", "notice", "NOTICE: " + r.notice));
+      var nr = el("div", "row"); nr.appendChild(btn("NEXT", "next", next, "big"));
+      nr.appendChild(btn(v.ok && r.allowRetry ? "FIND ANOTHER ANSWER" : "TRY AGAIN", "retry", function () { S.answered = false; S.verdict = null; }));
+      out.appendChild(nr); p.appendChild(out); }
+    root.appendChild(p); }
+  function clearedScreen(root) { var w = C.WORLDS[S.world], p = el("div", "panel title"); p.appendChild(el("h1", "", "★ " + w.name + " ★"));
+    p.appendChild(el("p", "", "You have walked through " + w.sec + ". Nothing was unlocked, because nothing was locked."));
+    p.appendChild(el("p", "small", "Round kinds seen so far: " + Object.keys(S.seen).length + " of " + Object.keys(C.KINDS).length + ". Slips in your notebook: " + S.notebook.length + "."));
+    var row = el("div", "row"); row.appendChild(btn("KEEP PLAYING HERE", "keep", function () { S.screen = "round"; newRound(); })); row.appendChild(btn("BACK TO THE MAP", "map2", function () { S.screen = "map"; })); p.appendChild(row); root.appendChild(p); }
+  function codexScreen(root) { var p = el("div", "panel"); p.appendChild(el("h2", "", "CODEX: SEVEN MYTHS, AND WHAT THIS GAME DOES INSTEAD"));
+    p.appendChild(el("div", "small", "From Ellen J. Langer, The Power of Mindful Learning (the seven myths of the Introduction)."));
+    C.CODEX.myths.forEach(function (m, i) { var d = el("div", "myth"); d.appendChild(el("div", "mq", (i + 1) + ". " + m.myth)); d.appendChild(el("div", "ma", "→ " + m.game)); p.appendChild(d); });
+    p.appendChild(el("h2", "", "FIVE MINDFUL STATES"));
+    C.CODEX.states.forEach(function (s, i) { p.appendChild(el("div", "ma", "• " + s + ": " + C.CODEX.stateGame[i])); });
+    p.appendChild(el("h2", "", "THE ISLANDS"));
+    C.WORLDS.forEach(function (w) { p.appendChild(el("div", "ma", w.name + " (" + w.sec + "): " + w.myth)); });
+    root.appendChild(p); }
+  function notebookScreen(root) { var p = el("div", "panel"); p.appendChild(el("h2", "", "NOTEBOOK"));
+    p.appendChild(el("div", "small", "Slips are kept here, not counted against you. Each one names a context where your answer would be right. REVISIT gives a fresh instance of the same kind."));
+    if (!S.notebook.length) p.appendChild(el("p", "", "No slips yet. Try a COULD BE on purpose: pick an answer you think is wrong and see where it would be right."));
+    S.notebook.slice(-20).reverse().forEach(function (n, i) { var d = el("div", "myth"); d.appendChild(el("div", "mq", n.world + " · " + n.kind)); d.appendChild(el("div", "ma", n.msg)); if (n.could) d.appendChild(el("div", "could", n.could));
+      d.appendChild(btn("REVISIT", "revisit-" + i, function () { var wi = C.WORLDS.findIndex(function (w) { return w.gens.some(function (g) { return g === C.KINDS[n.gen]; }); }); S.world = wi < 0 ? 0 : wi; S.order = E.range(C.WORLDS[S.world].gens.length); S.screen = "round"; newRound(C.KINDS[n.gen]); })); p.appendChild(d); });
+    root.appendChild(p); }
+
+  function render() { var root = document.getElementById("app"); root.innerHTML = ""; if (S.screen !== "title") header(root);
+    ({ title: titleScreen, map: mapScreen, round: roundScreen, cleared: clearedScreen, codex: codexScreen, notebook: notebookScreen })[S.screen](root); }
+  // remember which choice was picked (for highlighting)
+  var _submit = submit; submit = function (id) { _submit(id); if (S.verdict) S.verdict.pick = id; };
+  render();
+  return { state: S, render: render, submit: function (id) { submit(id); render(); } };
+})();
+</script>
+</body>
+</html>

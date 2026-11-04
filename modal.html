@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Hopper: truth and possible worlds</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #eef7ff; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    width: min(96vw, calc(96vh * 240 / 180));
+    aspect-ratio: 240 / 180;
+    touch-action: manipulation;
+    box-shadow: 0 0 0 4px #1e4a8c, 0 8px 32px #0002;
+    cursor: pointer;
+    outline: none;
+  }
+  canvas:focus-visible { box-shadow: 0 0 0 4px #f2c14e, 0 8px 32px #0002; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+             clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+</style>
+</head>
+<body>
+<main>
+<h1 class="sr-only">World Hopper: truth and possible worlds</h1>
+<p id="help-text" class="sr-only">A modal logic game. A sentence falls toward a row of worlds. Say whether it is true or false
+  at the world alpha, where you stand. Z or left arrow: true. X or right arrow: false. In the Valid or Not level,
+  Z or left arrow: valid, X or right arrow: not valid. In the Break It level, keys 1 to 6
+  switch lamps, Enter checks, V claims valid. On the title screen, space opens the level menu: up and down arrows choose,
+  space plays, keys 1 to 9 jump straight to a level. Escape: back to the level menu. H: rules. O: accessibility options. S: timer normal, slow or off.
+  C: high contrast. R: calm mode without flashing or blinking. L: read aloud. A: repeat the last announcement.
+  P: pause. M: sound. You have unlimited hearts, so the game never ends.</p>
+<canvas id="screen" tabindex="0" role="application" aria-roledescription="game"
+        aria-label="World Hopper game screen" aria-describedby="help-text"></canvas>
+<div id="sr" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+</main>
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// WORLD HOPPER  -  Chellas, "Modal Logic: an introduction", chapter 1,
+// section 1.1 "Truth and possible worlds".
+// A model is a set of worlds W with sets P0, P1 of worlds (the lamps).
+// A sentence falls towards the worlds: say whether it is TRUE or FALSE at the
+// world alpha (marked by your hopper) before it lands, using clauses (1)-(10):
+//   []A is true at alpha iff A is true at EVERY world;  <>A iff at SOME world.
+// Level 5 ("BREAK IT") is about validity: switch lamps to build a countermodel
+// (the sentence false at alpha), or claim VALID if no countermodel exists.
+// ---------------------------------------------------------------------------
+
+const W = 240, H = 180;
+const cv = document.getElementById("screen");
+cv.width = W; cv.height = H;
+const ctx = cv.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+const SX = 0, SY = 0;          // no screen shake: the picture never moves
+let TL = null;
+let muted = false;
+
+const COL = {
+  sky: "#eef7ff", sky2: "#dcefd0", ink: "#1d1a2a", grey: "#5d6b7c", dim: "#b4c0ce",
+  gold: "#9a6400", cyan: "#0e7f99", red: "#d1343f", green: "#2e9b55", navy: "#bcd6f2",
+  card: "#ffffff", cardInk: "#16234a", panel: "#ffffff",
+  planets: [["#3f7fdc", "#7fb0f0", "#244e94"], ["#3fb77a", "#86e0ac", "#22704a"],
+            ["#9a62d8", "#c79cf2", "#5d3790"], ["#e08a3c", "#f4bb7d", "#9a5520"]],
+};
+const COL_BASE = Object.assign({}, COL);
+const COL_HIGH = Object.assign({}, COL, {
+  sky: "#ffffff", sky2: "#ffffff", ink: "#000000", grey: "#222222", dim: "#666666",
+  gold: "#7a4f00", cyan: "#005a70", red: "#b00010", green: "#006a20", navy: "#ffe680",
+  card: "#ffffff", cardInk: "#000000", panel: "#ffffff",
+});
+
+// ---- accessibility options (saved in the browser) ----
+//   timer: 0 normal, 1 slow (half speed), 2 off (no time limit)
+//   contrast: high-contrast colours;  calm: no flashing, blinking or bobbing;  speak: read aloud
+const TIMER_NAMES = ["NORMAL", "SLOW", "OFF"], TIMER_RATE = [1, 0.5, 0];
+const opt = { timer: 0, contrast: false, calm: false, speak: false };
+try { opt.calm = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) { /* ignore */ }
+try { opt.contrast = !!(window.matchMedia && window.matchMedia("(prefers-contrast: more)").matches); } catch (e) { /* ignore */ }
+try { Object.assign(opt, JSON.parse(localStorage.getItem("worldhopper.opt") || "{}")); } catch (e) { /* ignore */ }
+function saveOpt() { try { localStorage.setItem("worldhopper.opt", JSON.stringify(opt)); } catch (e) { /* ignore */ } }
+function applyPalette() { Object.assign(COL, opt.contrast ? COL_HIGH : COL_BASE); }
+applyPalette();
+function blinkOn() { return opt.calm || Math.floor(clock * 2) % 2 === 1; }
+
+const FONT = {
+  A:"010101111101101", B:"110101110101110", C:"011100100100011", D:"110101101101110",
+  E:"111100110100111", F:"111100110100100", G:"011100101101011", H:"101101111101101",
+  I:"111010010010111", J:"001001001101010", K:"101101110101101", L:"100100100100111",
+  M:"101111111101101", N:"110101101101101", O:"010101101101010", P:"110101110100100",
+  Q:"010101101110011", R:"110101110101101", S:"011100010001110", T:"111010010010010",
+  U:"101101101101111", V:"101101101101010", W:"101101111111101", X:"101101010101101",
+  Y:"101101010010010", Z:"111001010100111",
+  "0":"111101101101111", "1":"010110010010111", "2":"110001010100111", "3":"110001010001110",
+  "4":"101101111001001", "5":"111100110001110", "6":"011100111101111", "7":"111001010010010",
+  "8":"111101111101111", "9":"111101111001110",
+  " ":"000000000000000", ":":"000010000010000", "-":"000000111000000", ">":"100010001010100",
+  "<":"001010100010001", "!":"010010010000010", ".":"000000000000010", ",":"000000000010100",
+  "(":"001010010010001", ")":"100010010010100", "/":"001001010100100", "?":"110001010000010",
+  "=":"000111000111000", "+":"000010111010000", "'":"010010000000000", "|":"010010010010010",
+  "*":"101010101000000", "·":"000000010000000", "{":"011010110010011", "}":"110010011010110",
+  "a":"000011101101011", "b":"100110101101110", "f":"011010111010010", "i":"010000010010010",
+  "x":"000000101010101", "y":"000101101011110",
+  "Σ":"111100010100111", "Π":"111101101101101", "∃":"111001111001111", "∀":"101101111101010",
+  "σ":"000111101101010", "↓":"0010000100101010111000100", "∘":"000010101010000", "⊆":"011100011000111",
+  "⊣":"001001111001001", "⁻":"000111000000000", "¹":"010110010000000", "∈":"011100111100011",
+  "≠":"001111010111100", "✓":"000001001101010",
+  "→":"0010000010111110001000100", "←":"0010001000111110100000100",
+  "ℰ":"0111010000111001000001111",
+};
+Object.assign(FONT, {
+  "g":"011101011001110", "h":"100100110101101", "e":"000011111100011",
+  "ε":"011100110100011", "[":"110100100100110", "]":"011001001001011",
+  "≅":"0110110010111110000011111", "⇒":"0010011110000011111000100",
+  "↦":"1010010010111111001010100",
+  "≤":"0011011000001100000011110", "≥":"0110000011011000000001111",
+  "⇄":"0001011111000001111101000", "⇉":"0001011111000001111100010",
+  "⇐":"0010001111100000111100100", "×":"000101010101000",
+  "Ω":"0111010001100010101011011", "∅":"0000101110101010111010000",
+  "§":"011110101011110",
+});
+Object.assign(FONT, {
+  "□": "1111110001100011000111111", "◇": "0010001010100010101000100",
+  "¬": "000000111001000", "∧": "000010101101000", "∨": "000101101010000",
+  "↔": "0000001010111110101000000", "⊤": "1111100100001000010000100",
+  "⊥": "0010000100001000010011111", "⊨": "100111100111100",
+  "α": "000011101101011", "β": "010101110101110", "γ": "000101101010010",
+  "δ": "011010101101010", "♥": "0101011111111110111000100",
+  "∞": "0000011011101011101100000",
+  "↑": "0010001110101010010000100",
+});
+function glyph(ch) {
+  if (FONT[ch]) return FONT[ch];
+  return FONT[ch.toUpperCase()] || FONT["?"];
+}
+function glyphW(ch) { return glyph(ch).length === 25 ? 5 : 3; }
+function textWidth(s, k) { k = k || 1; let w = 0; for (const ch of s) w += glyphW(ch) + 1; return Math.max(0, w - 1) * k; }
+function text(s, x, y, color, align, k) {
+  k = k || 1;
+  if (align === "center") x = Math.round(x - textWidth(s, k) / 2);
+  else if (align === "right") x = Math.round(x - textWidth(s, k));
+  x = Math.round(x); y = Math.round(y);
+  if (TL) TL.push({ s, x, y, w: textWidth(s, k), h: 5 * k, c: color });
+  ctx.fillStyle = color;
+  for (const ch of s) {
+    const g = glyph(ch), gw = g.length === 25 ? 5 : 3;
+    for (let p = 0; p < g.length; p++)
+      if (g[p] === "1") ctx.fillRect(x + SX + (p % gw) * k, y + SY + ((p / gw) | 0) * k, k, k);
+    x += (gw + 1) * k;
+  }
+}
+function rect(x, y, w, h, c) {
+  ctx.fillStyle = c; ctx.fillRect(Math.round(x) + SX, Math.round(y) + SY, Math.round(w), Math.round(h));
+}
+function frameBox(x, y, w, h, c) { rect(x, y, w, 1, c); rect(x, y + h - 1, w, 1, c); rect(x, y, 1, h, c); rect(x + w - 1, y, 1, h, c); }
+function disc(cx, cy, r, c) {
+  for (let dy = -r; dy <= r; dy++) {
+    const dx = Math.floor(Math.sqrt(r * r - dy * dy + r * 0.8));
+    rect(cx - dx, cy + dy, 2 * dx + 1, 1, c);
+  }
+}
+
+// ---- random numbers (seedable, for the tests) ----
+let seed = (Date.now() ^ 0x5eed) >>> 0;
+function rnd() { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+function ri(n) { return Math.floor(rnd() * n); }
+function pick(a) { return a[ri(a.length)]; }
+
+// ---- sound ----
+let AC = null;
+function beep(f, d, type) {
+  if (muted) return;
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || "square"; o.frequency.value = f; g.gain.value = 0.05;
+    o.connect(g); g.connect(AC.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + d); o.stop(AC.currentTime + d);
+  } catch (e) { /* no audio */ }
+}
+
+// ---- screen reader and read-aloud ----
+const SR = document.getElementById("sr");
+let lastSaid = "";
+const WORDS = { "□": " box ", "◇": " diamond ", "¬": " not ", "∧": " and ", "∨": " or ", "→": " implies ",
+  "↔": " if and only if ", "⊤": " top ", "⊥": " bottom ", "α": " alpha ", "β": " beta ", "γ": " gamma ",
+  "δ": " delta ", "⊨": " valid ", "✓": " true ", "♥": " heart ", "∞": " unlimited ", "(": " open ", ")": " close ",
+  "[": " ", "]": " ", "/": " or ", "←": " left arrow ", "*": " " };
+function speakable(x) {
+  let o = "";
+  for (const ch of String(x)) o += WORDS[ch] || ch;
+  return o.replace(/\bP([01])\b/g, "P $1").replace(/\s+/g, " ").trim().toLowerCase();
+}
+function say(x, raw) {
+  const t = raw ? x : speakable(x);
+  lastSaid = t;
+  if (SR) { SR.textContent = ""; SR.textContent = t; }
+  if (opt.speak) {
+    try {
+      const sp = window.speechSynthesis;
+      if (sp) { sp.cancel(); sp.speak(new window.SpeechSynthesisUtterance(t)); }
+    } catch (e) { /* no speech */ }
+  }
+}
+function describeModel() {
+  const parts = [];
+  for (let i = 0; i < M.n; i++)
+    parts.push(WN[i] + (i === alpha ? " (you are here)" : "") + ": P0 " + (M.P[0][i] ? "on" : "off") + ", P1 " + (M.P[1][i] ? "on" : "off"));
+  return M.n + " worlds. " + parts.join(". ") + ".";
+}
+
+// ---------------------------------------------------------------------------
+// Sentences and truth (clauses (1)-(10) of section 1.1)
+//   ["p",n] atom Pn, ["T"], ["F"], ["n",A], ["a",A,B], ["o",A,B], ["i",A,B],
+//   ["e",A,B] (biconditional), ["b",A] necessity, ["d",A] possibility.
+// A model: { n: number of worlds, P: [P0, P1] with P[j][w] = true iff w in Pj }.
+// ---------------------------------------------------------------------------
+const WN = ["α", "β", "γ", "δ"];
+const BIN = { a: "∧", o: "∨", i: "→", e: "↔" };
+function truth(M, w, s) {
+  switch (s[0]) {
+    case "p": return !!M.P[s[1]][w];                       // (1)
+    case "T": return true;                                 // (2)
+    case "F": return false;                                // (3)
+    case "n": return !truth(M, w, s[1]);                   // (4)
+    case "a": return truth(M, w, s[1]) && truth(M, w, s[2]); // (5)
+    case "o": return truth(M, w, s[1]) || truth(M, w, s[2]); // (6)
+    case "i": return !truth(M, w, s[1]) || truth(M, w, s[2]); // (7)
+    case "e": return truth(M, w, s[1]) === truth(M, w, s[2]); // (8)
+    case "b": for (let v = 0; v < M.n; v++) if (!truth(M, v, s[1])) return false; return true; // (9)
+    case "d": for (let v = 0; v < M.n; v++) if (truth(M, v, s[1])) return true; return false;  // (10)
+  }
+  throw new Error("bad sentence");
+}
+function str(s, top) {
+  switch (s[0]) {
+    case "p": return "P" + s[1];
+    case "T": return "⊤";
+    case "F": return "⊥";
+    case "n": return "¬" + str(s[1]);
+    case "b": return "□" + str(s[1]);
+    case "d": return "◇" + str(s[1]);
+  }
+  const t = str(s[1]) + BIN[s[0]] + str(s[2]);
+  return top ? t : "(" + t + ")";
+}
+const P0 = ["p", 0], P1 = ["p", 1];
+const N = a => ["n", a], B = a => ["b", a], D = a => ["d", a];
+const AND = (a, b) => ["a", a, b], OR = (a, b) => ["o", a, b], IMP = (a, b) => ["i", a, b], IFF = (a, b) => ["e", a, b];
+
+// models with n worlds, all valuations of P0, P1
+function* models(n) {
+  for (let m = 0; m < (1 << (2 * n)); m++) {
+    const P = [[], []];
+    for (let w = 0; w < n; w++) { P[0][w] = !!(m >> (2 * w) & 1); P[1][w] = !!(m >> (2 * w + 1) & 1); }
+    yield { n, P };
+  }
+}
+// Truth in such a model depends only on which of the 4 kinds of world (P0 and P1 on/off) occur,
+// so checking all models with up to 4 worlds decides validity for sentences in P0, P1.
+function isValid(s) {
+  for (let n = 1; n <= 4; n++) for (const M of models(n)) for (let w = 0; w < n; w++) if (!truth(M, w, s)) return false;
+  return true;
+}
+// a countermodel with 3 worlds and alpha = world 0 (null if none)
+function counter3(s) {
+  for (const M of models(3)) if (!truth(M, 0, s)) return M;
+  return null;
+}
+
+// the schemas of section 1.1 (and a few close relatives), as instances in P0, P1
+const SCHEMAS = [
+  { s: IMP(B(P0), P0), name: "T: WHAT IS NECESSARY IS SO" },
+  { s: IMP(D(P0), B(D(P0))), name: "5: POSSIBLE IS NECESSARILY POSSIBLE" },
+  { s: IMP(B(IMP(P0, P1)), IMP(B(P0), B(P1))), name: "K: □ DISTRIBUTES OVER →" },
+  { s: IFF(D(P0), N(B(N(P0)))), name: "DF◇: ◇ IS NOT-□-NOT" },
+  { s: B(OR(P0, N(P0))), name: "RN: □ OF A TAUTOLOGY" },
+  { s: OR(P0, N(P0)), name: "A TAUTOLOGY IS VALID" },
+  { s: IMP(P0, D(P0)), name: "WHAT IS SO IS POSSIBLE" },
+  { s: IMP(B(P0), D(P0)), name: "NECESSARY IMPLIES POSSIBLE" },
+  { s: IMP(D(B(P0)), B(P0)), name: "◇□A → □A HOLDS HERE" },
+  { s: IMP(AND(B(P0), B(P1)), B(AND(P0, P1))), name: "□ DISTRIBUTES OVER ∧" },
+  { s: IMP(D(OR(P0, P1)), OR(D(P0), D(P1))), name: "◇ DISTRIBUTES OVER ∨" },
+  { s: IMP(P0, B(P0)), name: "A → □A, THE CONVERSE OF T" },
+  { s: IMP(B(OR(P0, P1)), OR(B(P0), B(P1))), name: "□ DOES NOT DISTRIBUTE OVER ∨" },
+  { s: IMP(D(IMP(P0, P1)), IMP(D(P0), D(P1))), name: "◇ DOES NOT DISTRIBUTE OVER →" },
+  { s: IMP(D(P0), P0), name: "POSSIBLE IS NOT ALWAYS SO" },
+  { s: IMP(AND(D(P0), D(P1)), D(AND(P0, P1))), name: "◇ DOES NOT DISTRIBUTE OVER ∧" },
+  { s: OR(B(P0), B(N(P0))), name: "□A∨□¬A CAN FAIL" },
+  { s: IMP(D(P0), B(P0)), name: "POSSIBLE IS NOT NECESSARY" },
+  { s: IMP(P0, P1), name: "NOT A TAUTOLOGY" },
+].filter(x => { x.valid = isValid(x.s); return x.valid === !counter3(x.s); });
+
+// ---- random sentences, by level ----
+function atom() { return ri(2) ? P0 : P1; }
+function lit() { const r = ri(10); return r < 6 ? atom() : r < 8 ? N(atom()) : r < 9 ? ["T"] : ["F"]; }
+function bin(a, b) { return [pick(["a", "o", "i", "e"]), a, b]; }
+function modal(a) { return ri(2) ? B(a) : D(a); }
+function alit() { return ri(3) ? atom() : N(atom()); }   // an atom or a negated atom
+const GENS = [
+  () => { const r = ri(8); return r < 3 ? atom() : r < 5 ? N(atom()) : r < 6 ? pick([["T"], ["F"], N(["T"]), N(["F"])]) : N(N(atom())); },
+  () => ri(3) ? bin(lit(), lit()) : bin(bin(atom(), lit()), lit()),
+  () => { const r = ri(6); return r < 2 ? modal(lit()) : r < 3 ? N(modal(atom())) : r < 5 ? modal(bin(atom(), lit())) : bin(modal(atom()), lit()); },
+  () => {
+    const r = ri(7);
+    if (r === 0) return pick(SCHEMAS).s;
+    if (r === 1) return modal(modal(lit()));
+    if (r === 2) return bin(modal(lit()), modal(lit()));
+    if (r === 3) return modal(bin(modal(atom()), lit()));
+    if (r === 4) return N(modal(bin(atom(), atom())));
+    return bin(modal(lit()), bin(atom(), modal(lit())));
+  },
+  // intermediate levels
+  () => [pick(["a", "o"]), alit(), alit()],                               // 4: one connective, ∧ or ∨
+  () => modal(alit()),                                                    // 5: one modal, □ or ◇ of a lamp
+  () => {                                                                 // 6: modal parts joined together
+    const r = ri(5);
+    if (r === 0) return N(modal(alit()));
+    if (r === 1) return bin(modal(alit()), alit());
+    if (r === 2) return bin(alit(), modal(alit()));
+    return bin(modal(alit()), modal(alit()));
+  },
+];
+// kind: "tf" true or false at α;  "vd" valid or not;  "cm" build a countermodel.
+// pace: how fast the sentence falls (the same pace as the first version of the game for its levels;
+// the in-between levels sit half way).  tag: a short reminder shown in the level menu.
+const LEVELS = [
+  { name: "ATOMS", kind: "tf", gen: 0, pace: 0, tag: "(1)-(4)", lines: ["(1) PN IS TRUE AT α IFF α IS IN PN:", "    THE PN LAMP OF α IS LIT.", "(2) ⊤ IS ALWAYS TRUE  (3) ⊥ NEVER", "(4) ¬A IS TRUE IFF A IS NOT"] },
+  { name: "AND, OR", kind: "tf", gen: 4, pace: 0.5, tag: "(5)-(6)", lines: ["(5) A∧B IS TRUE IFF BOTH ARE TRUE", "(6) A∨B IS TRUE IFF AT LEAST ONE IS", "LOOK ONLY AT THE LAMPS OF α.", "→ AND ↔ COME IN THE NEXT LEVEL."] },
+  { name: "CONNECTIVES", kind: "tf", gen: 1, pace: 1, tag: "(5)-(8)", lines: ["(5) A∧B: BOTH    (6) A∨B: AT LEAST ONE", "(7) A→B: FALSE ONLY IF A TRUE, B FALSE", "(8) A↔B: BOTH TRUE OR BOTH FALSE", "ALL AT THE WORLD α ONLY."] },
+  { name: "ONE BOX", kind: "tf", gen: 5, pace: 1.5, tag: "□PN ◇PN", lines: ["NOW THE OTHER WORLDS MATTER:", "(9)  □PN: THE PN LAMP IS LIT ON EVERY WORLD", "(10) ◇PN: LIT ON AT LEAST ONE WORLD", "□¬PN: OFF EVERYWHERE. ◇¬PN: OFF SOMEWHERE"] },
+  { name: "BOX AND DIAMOND", kind: "tf", gen: 2, pace: 2, tag: "(9)-(10)", lines: ["□ AND ◇ OF WHOLE SENTENCES:", "(9)  □A IS TRUE AT α IFF A IS TRUE", "     AT EVERY WORLD.", "(10) ◇A IFF A IS TRUE AT SOME WORLD."] },
+  { name: "MODAL MIX", kind: "tf", gen: 6, pace: 2.5, tag: "□A∧◇B", lines: ["TWO MODAL PARTS, OR ¬ IN FRONT:", "WORK OUT EACH □ AND ◇ PART FIRST,", "THEN JOIN THEM WITH (4)-(8).", "¬□A IS ◇¬A,  ¬◇A IS □¬A."] },
+  { name: "NESTING", kind: "tf", gen: 3, pace: 3, tag: "□◇A", lines: ["MIX THEM ALL. TIP: □A AND ◇A ARE", "TRUE AT ONE WORLD IFF AT ALL WORLDS.", "SOME SENTENCES ARE SCHEMAS OF 1.1:", "T, 5, K AND DF◇."] },
+  { name: "VALID OR NOT", kind: "vd", pace: 3.5, tag: "⊨A ?", lines: ["VALID = TRUE AT EVERY WORLD OF EVERY", "MODEL. IS THE SCHEMA VALID?", "Z OR ←: VALID.  X OR →: NOT VALID.", "IF NOT, YOU SEE A COUNTERMODEL."] },
+  { name: "BREAK IT", kind: "cm", pace: 4, tag: "COUNTERMODEL", lines: ["VALID = TRUE AT EVERY WORLD OF EVERY", "MODEL. CLICK LAMPS (OR 1-6) TO MAKE", "THE SENTENCE FALSE AT α, THEN CHECK.", "NO COUNTERMODEL? CLAIM VALID [V]."] },
+];
+const GOAL = 6;
+const NL = LEVELS.length;
+// after the last level the game cycles through the modal levels, a little faster each time
+const LOOP = [4, 5, 6, 7, 8];
+function levelIndex(L) { return L < NL ? L : LOOP[(L - NL) % LOOP.length]; }
+function levelSpec(L) { return LEVELS[levelIndex(L)]; }
+function levelPace(L) { return L < NL ? LEVELS[L].pace : 4 + 0.6 * (L - NL + 1); }
+function genFor(L) {
+  const spec = levelSpec(L);
+  if (L < NL) return GENS[spec.gen]();
+  return spec.gen === 3 ? GENS[3]() : pick([GENS[spec.gen], GENS[3]])();
+}
+
+// ---- why: a short reason from the truth clauses ----
+function short(s) { const t = str(s, true); return t.length <= 12 ? t : "IT"; }
+function why(M, w, s) {
+  const v = truth(M, w, s), a = WN[w];
+  switch (s[0]) {
+    case "p": return v ? "(1) " + a + " IS IN P" + s[1] + ": ITS LAMP IS LIT" : "(1) " + a + " IS NOT IN P" + s[1] + ": LAMP OFF";
+    case "T": return "(2) ⊤ IS ALWAYS TRUE";
+    case "F": return "(3) ⊥ IS NEVER TRUE";
+    case "n": return "(4) " + short(s[1]) + " IS " + (v ? "FALSE" : "TRUE") + " AT " + a + ", SO ¬ FLIPS IT";
+    case "a": return v ? "(5) BOTH SIDES ARE TRUE AT " + a : "(5) " + short(truth(M, w, s[1]) ? s[2] : s[1]) + " IS FALSE AT " + a;
+    case "o": return v ? "(6) " + short(truth(M, w, s[1]) ? s[1] : s[2]) + " IS TRUE AT " + a : "(6) BOTH SIDES ARE FALSE AT " + a;
+    case "i": return v ? (truth(M, w, s[1]) ? "(7) " + short(s[2]) + " IS TRUE AT " + a : "(7) " + short(s[1]) + " IS FALSE AT " + a) : "(7) LEFT TRUE, RIGHT FALSE AT " + a;
+    case "e": return "(8) THE SIDES ARE " + (v ? "BOTH " + (truth(M, w, s[1]) ? "TRUE" : "FALSE") : "DIFFERENT") + " AT " + a;
+    case "b": { if (v) return "(9) " + short(s[1]) + " IS TRUE AT EVERY WORLD";
+      let u = 0; while (truth(M, u, s[1])) u++; return "(9) " + short(s[1]) + " IS FALSE AT " + WN[u]; }
+    case "d": { if (!v) return "(10) " + short(s[1]) + " IS FALSE AT EVERY WORLD";
+      let u = 0; while (!truth(M, u, s[1])) u++; return "(10) " + short(s[1]) + " IS TRUE AT " + WN[u]; }
+  }
+  return "";
+}
+// the first modal subformula (its argument is checked world by world in the result screen)
+function firstModal(s) {
+  if (s[0] === "b" || s[0] === "d") return s;
+  for (let k = 1; k < s.length; k++) if (Array.isArray(s[k])) { const r = firstModal(s[k]); if (r) return r; }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Game state
+// ---------------------------------------------------------------------------
+let state = "title";          // title, intro, play, result, help (no game over: hearts are unlimited)
+let prevState = "title";
+let L = 0, hits = 0, score = 0, combo = 0, hi = 0, misses = 0;
+let helpPage = 0;              // 0 rules, 1 accessibility options
+let M = null, alpha = 0, S = null, ans = true;
+let t = 0, fallT = 10, kind = "tf", schema = null;
+let res = null;               // { ok, lines, wait }
+let clock = 0, flash = 0, flashC = COL.green, msg = "", msgT = 0;
+const stars = []; for (let k = 0; k < 40; k++) stars.push([ri(W), ri(92), ri(3)]);
+try { hi = +(localStorage.getItem("worldhopper.hi") || 0); } catch (e) { hi = 0; }
+
+// ---- level menu: every level is open from the start ----
+let selL = 0;                  // highlighted level in the menu
+let cleared = [];              // levels cleared at least once (saved in the browser)
+try { cleared = JSON.parse(localStorage.getItem("worldhopper.cleared") || "[]"); } catch (e) { cleared = []; }
+if (!Array.isArray(cleared)) cleared = [];
+function markCleared(i) {
+  if (cleared.includes(i)) return;
+  cleared.push(i);
+  try { localStorage.setItem("worldhopper.cleared", JSON.stringify(cleared)); } catch (e) { /* ignore */ }
+}
+function levelSaying(i) { return "Level " + (i + 1) + ", " + LEVELS[i].name + (cleared.includes(i) ? ", cleared" : ""); }
+function openMenu() {
+  paused = false; state = "menu";
+  say("Choose a level. Up and down arrows move, space or enter plays, keys 1 to " + NL + " jump to a level. " + levelSaying(selL) + ".");
+}
+function moveSel(d) { selL = (selL + d + NL) % NL; beep(500 + 30 * selL, 0.04); say(levelSaying(selL)); }
+function menuRow(i) { return [24, 17 + i * 14, 192, 12]; }
+
+function newGame(start) {
+  L = start === undefined ? 0 : start; selL = Math.min(L, NL - 1);
+  hits = 0; score = 0; misses = 0; combo = 0; state = "intro"; announceIntro();
+}
+function keysSaying(k) {
+  return k === "tf" ? "Z or left arrow: true. X or right arrow: false." :
+         k === "vd" ? "Z or left arrow: valid. X or right arrow: not valid." : "Keys 1 to 6: lamps. Enter: check. V: claim valid.";
+}
+function announceIntro() {
+  const spec = levelSpec(L);
+  say("Level " + (L + 1) + ", " + spec.name + (L >= NL ? ", faster" : "") + ". " + spec.lines.join(" ") + " " +
+      keysSaying(spec.kind) + " Get " + GOAL + " right to clear the level. Press space to begin.");
+}
+function announceRound() {
+  if (kind === "tf") say("Is " + str(S, true) + " true at α? " + describeModel() +
+                         (opt.timer === 2 ? "" : " Answer before it lands.") + " Z: true, X: false.");
+  else if (kind === "vd") say("Is " + str(S, true) + " valid, true at every world of every model? " +
+                              "In this model it is true at α. " + describeModel() + " Z: valid, X: not valid.");
+  else say("Make " + str(S, true) + " false at α, or claim valid with V. " + describeModel() +
+           " Keys 1 and 2 switch P0 and P1 of α, 3 and 4 of β, 5 and 6 of γ. Enter checks.");
+}
+function startRound() {
+  const spec = levelSpec(L);
+  kind = spec.kind;
+  res = null; msg = ""; t = 0;
+  if (kind === "tf") {
+    const n = L === 0 ? 1 + ri(3) : 2 + ri(3);
+    const want = !!ri(2);
+    for (let k = 0; k < 60; k++) {
+      M = { n, P: [[], []] };
+      for (let w = 0; w < n; w++) { M.P[0][w] = !!ri(2); M.P[1][w] = !!ri(2); }
+      alpha = ri(n); S = genFor(L);
+      if (truth(M, alpha, S) === want) break;
+    }
+    ans = truth(M, alpha, S);
+    // twice the time of the first version of the game
+    fallT = 2 * (Math.max(4, 12 * Math.pow(0.93, levelPace(L) * GOAL + hits) + str(S, true).length * 0.15));
+  } else {
+    schema = pick(SCHEMAS); S = schema.s; ans = schema.valid;
+    alpha = 0;
+    for (let k = 0; k < 60; k++) {
+      M = { n: 3, P: [[], []] };
+      for (let w = 0; w < 3; w++) { M.P[0][w] = !!ri(2); M.P[1][w] = !!ri(2); }
+      if (truth(M, 0, S)) break;
+    }
+    const p = levelPace(L);
+    fallT = kind === "cm" ? 2 * Math.max(12, 30 - 2 * Math.max(0, p - 4)) : 2 * Math.max(10, 20 - 2 * Math.max(0, p - 3.5));
+  }
+  state = "play";
+  announceRound();
+}
+function finishRound(ok, lines) {
+  if (ok) {
+    combo++; hits++;
+    const speed = TIMER_RATE[opt.timer];
+    const gain = 10 * (Math.min(L, 9) + 1) + Math.max(0, Math.floor((fallT - t) * speed)) + 5 * (combo - 1);
+    score += gain; flash = 0.3; flashC = COL.green; beep(660 + 40 * Math.min(combo, 8), 0.12);
+    lines.unshift("+" + gain + (combo > 1 ? "  COMBO X" + combo : ""));
+    if (score > hi) { hi = score; try { localStorage.setItem("worldhopper.hi", String(hi)); } catch (e) { /* ignore */ } }
+  } else {
+    // a mistake costs nothing but the combo: hearts are unlimited, and nothing shakes
+    misses++; combo = 0; flash = 0.3; flashC = COL.red; beep(220, 0.15, "triangle");
+  }
+  res = { ok, lines, wait: ok ? (opt.calm || opt.speak ? 3.5 : 1.6) : 0.5, age: 0 };
+  state = "result";
+  say(lines.join(". ") + (ok ? "." : ". Press space to go on."));
+}
+function next() {
+  if (state !== "result" || res.age < 0.25) return;
+  if (hits >= GOAL) { markCleared(levelIndex(L)); L++; selL = Math.min(L, NL - 1); hits = 0; state = "intro"; beep(880, 0.2); announceIntro(); return; }
+  startRound();
+}
+// ---- player actions ----
+function answer(v) {
+  if (state !== "play" || kind === "cm") return;
+  const ok = v === ans;
+  if (kind === "vd") {
+    const head = ok ? "RIGHT! " : "NO: ";
+    if (ans) finishRound(ok, [head + "VALID: NO MODEL MAKES IT FALSE", schema.name]);
+    else { M = counter3(S); finishRound(ok, [head + "NOT VALID. A COUNTERMODEL:", why(M, 0, S)]); }
+    return;
+  }
+  const lines = [(ok ? "RIGHT! " : "NO: ") + str(S, true) + " IS " + (ans ? "TRUE" : "FALSE") + " AT " + WN[alpha], why(M, alpha, S)];
+  finishRound(ok, lines);
+}
+function toggle(w, j) {
+  if (state !== "play" || kind !== "cm" || w >= M.n) return;
+  M.P[j][w] = !M.P[j][w]; beep(440 + 60 * j, 0.05);
+  say(WN[w] + " P" + j + " " + (M.P[j][w] ? "on" : "off"));
+}
+function check() {
+  if (state !== "play" || kind !== "cm") return;
+  if (!truth(M, 0, S)) {
+    finishRound(true, ["COUNTERMODEL! FALSE AT α, SO NOT VALID", schema.name]);
+  } else {
+    msg = "STILL TRUE AT α: " + why(M, 0, S); msgT = 2.5; beep(220, 0.1);
+    if (TIMER_RATE[opt.timer] > 0) t = Math.min(fallT - 0.5, t + 3 * TIMER_RATE[opt.timer]);
+    say(msg);
+  }
+}
+function claimValid() {
+  if (state !== "play" || kind !== "cm") return;
+  if (schema.valid) finishRound(true, ["YES, VALID: NO MODEL MAKES IT FALSE", schema.name]);
+  else { M = counter3(S); finishRound(false, ["NOT VALID. HERE IS A COUNTERMODEL:", why(M, 0, S)]); }
+}
+function timeout() {
+  if (kind === "tf") finishRound(false, ["TOO LATE: " + str(S, true) + " IS " + (ans ? "TRUE" : "FALSE") + " AT " + WN[alpha], why(M, alpha, S)]);
+  else if (kind === "vd" && schema.valid) finishRound(false, ["TIME! IT WAS VALID", schema.name]);
+  else if (schema.valid) finishRound(false, ["TIME! IT WAS VALID: CLAIM IT WITH [V]", schema.name]);
+  else { M = counter3(S); finishRound(false, ["TIME! ONE COUNTERMODEL:", why(M, 0, S)]); }
+}
+
+// ---------------------------------------------------------------------------
+// Update and draw
+// ---------------------------------------------------------------------------
+function update(dt) {
+  clock += dt;
+  if (flash > 0) flash -= dt;
+  if (msgT > 0) { msgT -= dt; if (msgT <= 0) msg = ""; }
+  if (state === "play" && TIMER_RATE[opt.timer] > 0) { t += dt * TIMER_RATE[opt.timer]; if (t >= fallT) timeout(); }
+  else if (state === "result") { res.age += dt; if (res.ok && res.age >= res.wait) next(); }
+}
+function worldX(i, n) { return Math.round(120 + (i - (n - 1) / 2) * 54); }
+const PY = 114;
+function lampRect(i, j) { return [worldX(i, M.n) - 11 + 12 * j, 134, 10, 9]; }
+function buttons() {
+  if (state === "play" && kind === "tf") return [{ x: 8, y: 150, w: 108, h: 18, label: "TRUE  [Z/←]", act: () => answer(true), c: COL.green },
+                                                { x: 124, y: 150, w: 108, h: 18, label: "FALSE  [X/→]", act: () => answer(false), c: COL.red }];
+  if (state === "play" && kind === "vd") return [{ x: 8, y: 150, w: 108, h: 18, label: "VALID  [Z/←]", act: () => answer(true), c: COL.green },
+                                                { x: 124, y: 150, w: 108, h: 18, label: "NOT VALID  [X/→]", act: () => answer(false), c: COL.red }];
+  if (state === "play" && kind === "cm") return [{ x: 8, y: 150, w: 108, h: 18, label: "CHECK  [ENTER]", act: check, c: COL.cyan },
+                                                { x: 124, y: 150, w: 108, h: 18, label: "VALID!  [V]", act: claimValid, c: COL.gold }];
+  return [];
+}
+function drawSky() {
+  rect(0, 0, W, H, COL.sky);
+  rect(0, 60, W, 36, COL.sky2);
+  for (const [x, y, b] of stars) if (opt.calm || ((clock * 2 + x) | 0) % 7 || b) rect(x, y, 1, 1, b ? COL.grey : COL.dim);
+}
+function drawHUD() {
+  const spec = levelSpec(L);
+  text("LV" + (L + 1) + " " + spec.name, 3, 3, COL.ink);
+  text("SCORE " + score, 150, 3, COL.gold, "center");
+  text("♥", 222, 3, COL.red); text("∞", 237, 3, COL.red, "right");
+  for (let k = 0; k < GOAL; k++) rect(3 + k * 7, 10, 6, 2, k < hits ? COL.gold : COL.dim);
+  if (combo > 1) text("COMBO X" + combo, 237, 10, COL.cyan, "right");
+}
+function drawHopper(x, y) {
+  const f = opt.calm ? 0 : Math.floor(clock * 4) % 2;
+  rect(x - 3, y - 6 - f, 7, 5, COL.ink); rect(x - 2, y - 5 - f, 2, 2, COL.sky); rect(x + 1, y - 5 - f, 2, 2, COL.sky);
+  rect(x - 4, y - 1, 3, 1, COL.ink); rect(x + 2, y - 1, 3, 1, COL.ink); rect(x, y - 9 - f, 1, 3, COL.gold);
+}
+function drawWorlds(showArg) {
+  for (let i = 0; i < M.n; i++) {
+    const x = worldX(i, M.n), pc = COL.planets[i];
+    disc(x, PY, 11, pc[2]); disc(x - 1, PY - 1, 9, pc[0]); rect(x - 5, PY - 6, 3, 2, pc[1]); rect(x - 7, PY - 3, 2, 2, pc[1]);
+    text(WN[i], x, 128, i === alpha ? COL.gold : COL.ink, "center");
+    for (let j = 0; j < 2; j++) {
+      const [lx, ly, lw, lh] = lampRect(i, j), on = M.P[j][i], c = j ? COL.cyan : COL.gold;
+      if (on) rect(lx, ly, lw, lh, c); else { rect(lx, ly, lw, lh, COL.panel); frameBox(lx, ly, lw, lh, COL.dim); }
+      text("P" + j, lx + 1, ly + 2, on ? COL.sky : COL.grey);
+    }
+    if (showArg) {
+      const v = truth(M, i, showArg[1]);
+      rect(x - 5, PY - 4, 11, 9, v ? COL.green : COL.red);
+      text(v ? "✓" : "X", x, PY - 2, COL.ink, "center");
+    }
+  }
+  drawHopper(worldX(alpha, M.n), PY - 11);
+}
+function drawSentence(y) {
+  const s = str(S, true), k = textWidth(s, 2) <= 224 ? 2 : 1;
+  const w = textWidth(s, k) + 10, h = 5 * k + 8;
+  rect(120 - w / 2, y, w, h, COL.card); frameBox(120 - w / 2, y, w, h, COL.navy);
+  text(s, 120, y + 4, COL.cardInk, "center", k);
+}
+function drawButtons() {
+  for (const b of buttons()) {
+    rect(b.x, b.y, b.w, b.h, COL.panel); frameBox(b.x, b.y, b.w, b.h, b.c);
+    text(b.label, b.x + b.w / 2, b.y + 7, b.c, "center");
+  }
+}
+function drawPlay() {
+  drawSky(); drawHUD();
+  rect(0, 96, W, 1, COL.dim);
+  const playing = state === "play";
+  if (kind === "tf") {
+    const y = 16 + (96 - 18 - 16) * Math.min(1, t / fallT);
+    drawSentence(Math.round(y));
+    if (playing && L < 2 && hits < 2) text("IS IT TRUE AT α (WHERE YOU STAND)?", 120, 88 > y + 22 ? 88 : 16, COL.grey, "center");
+  } else if (kind === "vd") {
+    text("VALID: TRUE AT EVERY WORLD OF EVERY MODEL?", 120, 16, COL.ink, "center");
+    drawSentence(28);
+    if (opt.timer !== 2) { rect(20, 50, 200, 3, COL.dim); rect(20, 50, Math.round(200 * Math.max(0, 1 - t / fallT)), 3, t / fallT > 0.75 ? COL.red : COL.gold); }
+    if (playing) text("TRUE AT α HERE. BUT IN EVERY MODEL?", 120, 58, COL.grey, "center");
+  } else {
+    text(state === "play" ? "MAKE IT FALSE AT α  -  OR CLAIM VALID" : "IS IT VALID?", 120, 16, COL.ink, "center");
+    drawSentence(28);
+    if (opt.timer !== 2) { rect(20, 50, 200, 3, COL.dim); rect(20, 50, Math.round(200 * Math.max(0, 1 - t / fallT)), 3, t / fallT > 0.75 ? COL.red : COL.gold); }
+    if (playing) text("1-6 OR CLICK: LAMPS OF α, β, γ", 120, 58, COL.grey, "center");
+  }
+  drawWorlds(state === "result" ? firstModal(S) : null);
+  rect(0, 146, W, 34, COL.panel);
+  if (state === "result") {
+    const c = res.ok ? COL.green : COL.red;
+    res.lines.forEach((l, k) => text(l, 120, 149 + k * 8, k === 0 ? c : COL.ink, "center"));
+    text(res.ok ? "SPACE: NEXT" : "SPACE: GO ON", 120, 174, COL.grey, "center");
+  } else {
+    drawButtons();
+    if (msg) text(msg, 120, 172, COL.gold, "center");
+    else text(kind !== "cm" ? "H: RULES   P: PAUSE   ESC: LEVELS" : "ENTER: CHECK   V: VALID   H: RULES", 120, 172, COL.grey, "center");
+  }
+  if (flash > 0 && !opt.calm) { ctx.globalAlpha = 0.15; rect(0, 0, W, H, flashC); ctx.globalAlpha = 1; }
+  if (opt.timer !== 0 && state === "play") text(opt.timer === 1 ? "SLOW" : "NO TIMER", 49, 9, COL.grey);
+}
+function drawTitle() {
+  drawSky();
+  text("WORLD", 120, 22, COL.gold, "center", 3);
+  text("HOPPER", 120, 42, COL.cyan, "center", 3);
+  text("A GAME OF CHELLAS, MODAL LOGIC, 1.1", 120, 64, COL.ink, "center");
+  text("TRUTH AND POSSIBLE WORLDS", 120, 72, COL.grey, "center");
+  M = { n: 3, P: [[true, false, true], [false, true, true]] }; alpha = 0;
+  drawWorlds(null);
+  rect(0, 146, W, 34, COL.panel);
+  if (blinkOn()) text("SPACE OR CLICK: CHOOSE A LEVEL", 120, 150, COL.ink, "center");
+  text("H: RULES   O: ACCESSIBILITY", 120, 160, COL.grey, "center");
+  text("HIGH SCORE " + hi + "   UNLIMITED ♥", 120, 170, COL.grey, "center");
+}
+function drawMenu() {
+  drawSky();
+  text("CHOOSE A LEVEL", 120, 5, COL.gold, "center");
+  for (let i = 0; i < NL; i++) {
+    const [x, y, w, h] = menuRow(i), sel = i === selL, spec = LEVELS[i];
+    rect(x, y, w, h, COL.panel); frameBox(x, y, w, h, sel ? COL.gold : COL.dim);
+    const c = sel ? COL.gold : COL.ink;
+    text(String(i + 1), x + 5, y + 4, sel ? COL.gold : COL.cyan);
+    text(spec.name, x + 14, y + 4, c);
+    text(spec.tag, x + w - 14, y + 4, COL.grey, "right");
+    if (cleared.includes(i)) text("✓", x + w - 4, y + 4, COL.green, "right");
+    if (sel) text(">", x - 6, y + 4, COL.gold);
+  }
+  text("↑↓: MOVE  SPACE: PLAY  1-" + NL + ": JUMP  ESC: BACK", 120, 145, COL.grey, "center");
+  text("ALL LEVELS ARE OPEN.  ✓ = CLEARED", 120, 155, COL.grey, "center");
+  text("AFTER LEVEL " + NL + " THE MODAL LEVELS REPEAT, FASTER", 120, 165, COL.grey, "center");
+}
+function drawIntro() {
+  drawSky();
+  const spec = levelSpec(L);
+  text("LEVEL " + (L + 1), 120, 14, COL.gold, "center", 2);
+  text(spec.name + (L >= NL ? "  (FASTER)" : ""), 120, 30, COL.cyan, "center");
+  rect(10, 40, 220, 52, COL.panel); frameBox(10, 40, 220, 52, COL.dim);
+  spec.lines.forEach((l, k) => text(l, 16, 46 + k * 11, COL.ink));
+  text(spec.kind === "tf" ? "Z OR ← : TRUE      X OR → : FALSE" : spec.kind === "vd" ? "Z OR ← : VALID    X OR → : NOT VALID" :
+       "1-6 / CLICK: LAMPS   ENTER: CHECK   V: VALID", 120, 104, COL.grey, "center");
+  text("GET " + GOAL + " RIGHT TO CLEAR THE LEVEL", 120, 116, COL.grey, "center");
+  if (blinkOn()) text("SPACE OR CLICK", 120, 140, COL.ink, "center");
+  text("ESC: CHOOSE ANOTHER LEVEL", 120, 152, COL.grey, "center");
+}
+const RULES = [
+  "TRUTH AT A WORLD α IN A MODEL (W, P):",
+  "(1)  PN TRUE AT α IFF α IS IN PN",
+  "(2)  ⊤ IS ALWAYS TRUE   (3) ⊥ NEVER",
+  "(4)  ¬A IFF NOT A",
+  "(5)  A∧B IFF A AND B",
+  "(6)  A∨B IFF A OR B, OR BOTH",
+  "(7)  A→B IFF IF A THEN B",
+  "(8)  A↔B IFF A IF AND ONLY IF B",
+  "(9)  □A IFF A AT EVERY WORLD",
+  "(10) ◇A IFF A AT SOME WORLD",
+  "⊨A (VALID): TRUE AT EVERY WORLD",
+  "IN EVERY MODEL.  A COUNTERMODEL",
+  "MAKES IT FALSE AT SOME WORLD.",
+];
+function optLines() {
+  return [
+    ["S", "TIMER: " + TIMER_NAMES[opt.timer]],
+    ["C", "HIGH CONTRAST: " + (opt.contrast ? "ON" : "OFF")],
+    ["R", "CALM (NO FLASH OR BLINK): " + (opt.calm ? "ON" : "OFF")],
+    ["L", "READ ALOUD: " + (opt.speak ? "ON" : "OFF")],
+    ["M", "SOUND: " + (muted ? "OFF" : "ON")],
+    ["A", "REPEAT LAST ANNOUNCEMENT"],
+  ];
+}
+function drawHelp() {
+  drawSky();
+  rect(8, 6, 224, 160, COL.panel); frameBox(8, 6, 224, 160, COL.dim);
+  if (helpPage === 0) {
+    RULES.forEach((l, k) => text(l, 16, 12 + k * 11, k === 0 ? COL.gold : COL.ink));
+    text("O: ACCESSIBILITY   OTHER KEY: BACK", 120, 170, COL.grey, "center");
+  } else {
+    text("ACCESSIBILITY", 120, 12, COL.gold, "center");
+    optLines().forEach(([k, l], i) => { text(k, 20, 28 + i * 13, COL.cyan); text(l, 32, 28 + i * 13, COL.ink); });
+    text("HEARTS ARE UNLIMITED: NO GAME OVER.", 120, 112, COL.ink, "center");
+    text("MISTAKES ONLY RESET THE COMBO.", 120, 122, COL.grey, "center");
+    text("SCREEN READERS HEAR EACH SENTENCE,", 120, 136, COL.grey, "center");
+    text("THE LAMPS OF EVERY WORLD AND WHY.", 120, 146, COL.grey, "center");
+    text("PRESS A KEY ABOVE, OTHER KEY: BACK", 120, 170, COL.grey, "center");
+  }
+}
+let paused = false;
+function draw() {
+  ctx.globalAlpha = 1;
+  if (state === "title") drawTitle();
+  else if (state === "intro") drawIntro();
+  else if (state === "help") drawHelp();
+  else if (state === "menu") drawMenu();
+  else drawPlay();
+  if (paused && (state === "play")) { rect(80, 70, 80, 20, COL.panel); frameBox(80, 70, 80, 20, COL.gold); text("PAUSED", 120, 77, COL.gold, "center"); }
+  if (CV_LABEL[state] && cv.getAttribute && cv.getAttribute("aria-label") !== CV_LABEL[state]) cv.setAttribute("aria-label", CV_LABEL[state]);
+}
+
+// ---------------------------------------------------------------------------
+// Input
+// ---------------------------------------------------------------------------
+const CV_LABEL = { title: "World Hopper, title screen", intro: "World Hopper, level introduction",
+  play: "World Hopper, playing", result: "World Hopper, answer", help: "World Hopper, rules and options",
+  menu: "World Hopper, choose a level" };
+function openHelp(page) {
+  if (state === "play") paused = true;
+  if (state !== "help") prevState = state;
+  state = "help"; helpPage = page;
+  if (page === 0) say(RULES.join(". ") + ". Press O for accessibility options, any other key to go back.");
+  else say("Accessibility options. " + optLines().map(([k, l]) => k + ": " + l).join(". ") +
+           ". Hearts are unlimited, there is no game over. Any other key goes back.");
+}
+function setOption(code) {
+  if (code === "KeyS") { opt.timer = (opt.timer + 1) % 3; say("Timer " + TIMER_NAMES[opt.timer]); }
+  else if (code === "KeyC") { opt.contrast = !opt.contrast; applyPalette(); say("High contrast " + (opt.contrast ? "on" : "off")); }
+  else if (code === "KeyR") { opt.calm = !opt.calm; say("Calm mode " + (opt.calm ? "on" : "off")); }
+  else if (code === "KeyL") { opt.speak = !opt.speak; if (!opt.speak) { try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* ignore */ } }
+                              say("Read aloud " + (opt.speak ? "on" : "off")); }
+  else if (code === "KeyM") { muted = !muted; say("Sound " + (muted ? "off" : "on")); }
+  else if (code === "KeyA") { say(lastSaid || "World Hopper", true); }
+  else return false;
+  saveOpt();
+  return true;
+}
+function primary() {
+  if (state === "title") openMenu();
+  else if (state === "menu") newGame(selL);
+  else if (state === "intro") startRound();
+  else if (state === "result") next();
+}
+function closeHelp() { state = prevState; say(state === "play" ? "Back to the game, paused. Press any key to go on." : "Back."); }
+function onKey(code) {
+  if (state === "help") {
+    if (code === "KeyO" && helpPage === 0) { openHelp(1); return; }
+    if (helpPage === 1 && setOption(code)) return;
+    closeHelp(); return;
+  }
+  if (code === "KeyH" || code === "Slash") { openHelp(0); return; }
+  if (code === "KeyO") { openHelp(1); return; }
+  if (setOption(code)) return;
+  if (code === "Escape") {
+    if (state === "menu") { state = "title"; say("Title screen. Press space to choose a level."); }
+    else openMenu();
+    return;
+  }
+  if (state === "menu") {
+    const d = /^(?:Digit|Numpad)([1-9])$/.exec(code);
+    if (d && +d[1] <= NL) { selL = +d[1] - 1; newGame(selL); }
+    else if (code === "ArrowUp" || code === "ArrowLeft") moveSel(-1);
+    else if (code === "ArrowDown" || code === "ArrowRight") moveSel(1);
+    else if (code === "Space" || code === "Enter") newGame(selL);
+    return;
+  }
+  if (code === "KeyP" && state === "play") { paused = !paused; say(paused ? "Paused" : "Go on"); return; }
+  if (paused && state === "play") { paused = false; say("Go on"); return; }
+  if (code === "Space" || code === "Enter" && state !== "play") { primary(); return; }
+  if (state !== "play") return;
+  if (kind !== "cm") {
+    if (code === "KeyZ" || code === "ArrowLeft" || code === "KeyT") answer(true);
+    else if (code === "KeyX" || code === "ArrowRight" || code === "KeyF") answer(false);
+  } else {
+    const m = /^(?:Digit|Numpad)([1-6])$/.exec(code);
+    if (m) { const k = +m[1] - 1; toggle(k >> 1, k & 1); }
+    else if (code === "Enter") check();
+    else if (code === "KeyV") claimValid();
+  }
+}
+function onClick(x, y) {
+  if (state === "help") { closeHelp(); return; }
+  if (paused && state === "play") { paused = false; return; }
+  if (state === "menu") {
+    for (let i = 0; i < NL; i++) { const [rx, ry, rw, rh] = menuRow(i); if (x >= rx && x < rx + rw && y >= ry && y < ry + rh) { selL = i; newGame(i); return; } }
+    return;
+  }
+  if (state !== "play") { primary(); return; }
+  for (const b of buttons()) if (x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) { b.act(); return; }
+  if (kind === "cm") for (let i = 0; i < M.n; i++) for (let j = 0; j < 2; j++) {
+    const [lx, ly, lw, lh] = lampRect(i, j);
+    if (x >= lx - 1 && x < lx + lw + 1 && y >= ly - 1 && y < ly + lh + 1) { toggle(i, j); return; }
+  }
+}
+window.addEventListener("keydown", e => {
+  if (e.repeat) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;   // leave browser and screen-reader shortcuts alone
+  if (["Space", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.code)) e.preventDefault();
+  onKey(e.code);
+});
+// pause by itself when the page loses focus, so nobody is timed out while away
+window.addEventListener("blur", () => { if (state === "play" && !paused) { paused = true; say("Paused"); } });
+try { cv.focus && cv.focus(); } catch (e) { /* ignore */ }
+say("World Hopper. Press space to choose a level, H for rules, O for accessibility options.");
+cv.addEventListener("pointerdown", e => {
+  const r = cv.getBoundingClientRect();
+  onClick((e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height);
+});
+
+let last = null;
+function frame(ts) {
+  const dt = last === null ? 0 : Math.min(0.1, (ts - last) / 1000); last = ts;
+  if (!(paused && state === "play")) update(dt); else clock += dt;
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// hooks for the automated tests
+window.__wh = {
+  FONT, truth, str, isValid, counter3, SCHEMAS, GENS, LEVELS, GOAL, why, firstModal, models,
+  update, draw, onKey, onClick, buttons, lampRect, answer, toggle, check, claimValid, newGame, startRound,
+  levelSpec, levelIndex, levelPace, menuRow, NL, get selL() { return selL; }, get cleared() { return cleared; },
+  setSeed: v => { seed = v >>> 0; }, setTL: v => { TL = v; },
+  get state() { return state; }, get kind() { return kind; }, get S() { return S; }, get M() { return M; },
+  get alpha() { return alpha; }, get ans() { return ans; }, get L() { return L; }, get hits() { return hits; },
+  get score() { return score; }, get misses() { return misses; }, get res() { return res; }, get schema() { return schema; },
+  get fallT() { return fallT; }, get paused() { return paused; }, get t() { return t; }, get hi() { return hi; },
+  get opt() { return opt; }, get helpPage() { return helpPage; }, get lastSaid() { return lastSaid; }, COL, speakable,
+};
+</script>
+</body>
+</html>

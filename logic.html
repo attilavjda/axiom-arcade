@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Topos Tower — 50 Lean Logic Puzzles</title>
+<style>
+:root{--bg:#14121f;--panel:#1f1c30;--panel2:#2a2640;--ink:#ece9ff;--dim:#a39fc4;--acc:#ffcf5a;--good:#5ee59a;--bad:#ff6b81;--blue:#7fb7ff;--code:#0f0e18}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 50% -20%,#3a2f6b,var(--bg) 60%);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+header{display:flex;align-items:center;gap:14px;padding:10px 18px;background:#0d0b16cc;position:sticky;top:0;z-index:5;border-bottom:1px solid #332e52}
+header h1{font-size:18px;margin:0;cursor:pointer}
+header .sp{flex:1}
+.pill{background:var(--panel2);padding:4px 10px;border-radius:99px;font-size:14px;white-space:nowrap}
+.pill b{color:var(--acc)}
+main{max-width:980px;margin:0 auto;padding:18px}
+button{font:inherit;color:inherit;background:var(--panel2);border:1px solid #47406e;border-radius:10px;padding:8px 14px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--acc)}
+button:disabled{opacity:.45;cursor:default}
+button.primary{background:var(--acc);color:#221a00;border-color:var(--acc);font-weight:600}
+.card{background:var(--panel);border:1px solid #332e52;border-radius:16px;padding:18px;margin:14px 0}
+.dim{color:var(--dim)}
+.floor{display:grid;grid-template-columns:200px 1fr;gap:12px;align-items:center;padding:12px 16px;margin:10px 0;background:var(--panel);border-radius:14px;border:1px solid #332e52}
+.floor.locked{opacity:.4}
+.floor h3{margin:0;font-size:16px}
+.doors{display:flex;gap:10px;flex-wrap:wrap}
+.door{width:118px;height:70px;border-radius:12px 12px 4px 4px;display:flex;flex-direction:column;justify-content:center;align-items:center;font-size:13px;line-height:1.2;text-align:center;padding:4px}
+.door .num{font-size:18px;font-weight:700}
+.door.ok{background:#1d4733;border-color:var(--good)}
+.door.ko{background:#4a1f2a;border-color:var(--bad)}
+.door.open{border-color:var(--acc);box-shadow:0 0 12px #ffcf5a55}
+pre.code{background:var(--code);border:1px solid #2c2846;border-radius:12px;padding:14px;overflow-x:auto;font:14px/1.45 "JetBrains Mono",Menlo,Consolas,monospace;margin:10px 0}
+code{font-family:"JetBrains Mono",Menlo,Consolas,monospace;background:#0f0e18;padding:1px 5px;border-radius:5px;font-size:.92em}
+.kw{color:#c792ea}.cm{color:#6f6a96;font-style:italic}.nu{color:#f78c6c}.bo{color:#82aaff}.st{color:#c3e88d}.ev{color:#ffcb6b;font-weight:700}
+.tabs{display:flex;gap:8px;margin:10px 0}
+.tabs button.sel{border-color:var(--acc);background:#3a3256}
+input.typed{width:100%;font:16px "JetBrains Mono",Menlo,monospace;padding:10px;border-radius:10px;border:1px solid #47406e;background:var(--code);color:var(--ink)}
+.builder{font:18px "JetBrains Mono",Menlo,monospace;background:var(--code);padding:14px;border-radius:12px;line-height:2.4;border:1px solid #2c2846}
+.builder .slot-b{font:inherit;padding:2px 8px;min-width:64px;border-radius:8px}
+.builder .slot-b.t{color:var(--blue)}.builder .slot-b.f{color:#ff9fb0}
+.builder input{font:inherit;width:3.2em;text-align:center;border-radius:8px;border:1px solid #47406e;background:#221e36;color:var(--nu,#f78c6c);padding:2px}
+.verdict{font-size:22px;font-weight:700;margin:6px 0}
+.verdict.good{color:var(--good)}.verdict.bad{color:var(--bad)}
+.lean{border-left:4px solid var(--good);padding-left:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.bar{height:10px;background:#2c2846;border-radius:99px;overflow:hidden}
+.bar>div{height:100%;background:linear-gradient(90deg,var(--acc),var(--good))}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--acc);color:#221a00;padding:10px 18px;border-radius:99px;font-weight:700;animation:pop 2.4s forwards;z-index:9}
+@keyframes pop{0%{opacity:0;transform:translate(-50%,20px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
+.shake{animation:sh .4s}@keyframes sh{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+table{border-collapse:collapse;width:100%}td,th{padding:6px 8px;border-bottom:1px solid #332e52;text-align:left;font-size:14px}
+@media (max-width:640px){.floor{grid-template-columns:1fr}.door{width:96px}}
+</style>
+</head>
+<body>
+<header>
+  <h1 data-act="map">🗼 Topos Tower</h1>
+  <span class="sp"></span>
+  <span class="pill">Elo <b id="elo">1000</b></span>
+  <span class="pill">Streak <b id="streak">0</b></span>
+  <span class="pill">Solved <b id="solved">0</b>/50</span>
+</header>
+<main id="app"></main>
+<script>
+"use strict";
+const PUZZLES = [{"n": 1, "title": "Characteristic Functions", "theme": "Goldblatt §4.2 Classifying subobjects", "code": "-- Elo 1300\n-- χ_A : ℕ → Bool, the character of the subset A\ndef chi (A : List Nat) (x : Nat) : Bool := A.contains x\n\ndef output := (List.range 6).map (chi [1, 3, 5, 7])\n#eval output", "elo": 1300, "answer": "[false, true, false, true, false, true]", "explanation": "In `Set` the subobject classifier is `Ω = {false, true}` and a subset `A ⊆ D` corresponds to its character `χ_A : D → Ω`. `List.range 6` is `[0, 1, 2, 3, 4, 5]`: it stops *before* `6`, so the element `7` of `A` is never tested.", "file": "RequestProject/Puzzles/Logic/L01.lean"}, {"n": 2, "title": "Bool as a Lattice", "theme": "Goldblatt §6.4 Boolean algebra", "code": "-- Elo 1320\ndef output := (true ⊓ false, true ⊔ false, decide (false ≤ true), decide (true ≤ false))\n#eval output", "elo": 1320, "answer": "(false, true, true, false)", "explanation": "Mathlib makes `Bool` the two-element Boolean algebra `2`: meet `⊓` is \"and\", join `⊔` is \"or\", and the order has `false < true`. This order is exactly entailment: `a ≤ b` holds unless `a` is true and `b` is false.", "file": "RequestProject/Puzzles/Logic/L02.lean"}, {"n": 3, "title": "Negation Binds Tightly", "theme": "Goldblatt §6.6 Truth functions as arrows (¬ : Ω → Ω)", "code": "-- Elo 1340\ndef output := (!true || true, !(true || true), !false && false)\n#eval output", "elo": 1340, "answer": "(true, false, false)", "explanation": "Prefix `!` (the truth function `¬ : 2 → 2`) binds more tightly than `||` and `&&`. So `!true || true` is `(!true) || true = false || true = true`, while `!(true || true) = false`. Likewise `!false && false = true && false = false`.", "file": "RequestProject/Puzzles/Logic/L03.lean"}, {"n": 4, "title": "How Many Subsets?", "theme": "Goldblatt §4.7 Power objects (Ω^a)", "code": "-- Elo 1360\ndef output :=\n  (Fintype.card Bool, Fintype.card (Fin 3 → Bool),\n   Fintype.card (Fin 0 → Bool), Fintype.card (Bool → Fin 0))\n#eval output", "elo": 1360, "answer": "(2, 8, 1, 0)", "explanation": "Subsets of `D` correspond to arrows `D → Ω`, so the power object of a 3-element set has `2^3 = 8` elements. The empty set has exactly one subset, matching the single empty function `Fin 0 → Bool` (`2^0 = 1`). In the other direction there is no function from the nonempty `Bool` into the empty `Fin 0` (`0^2 = 0`).", "file": "RequestProject/Puzzles/Logic/L04.lean"}, {"n": 5, "title": "Counting Truth Functions", "theme": "Goldblatt §6.5 Algebraic semantics", "code": "-- Elo 1380\ndef output :=\n  (Fintype.card (Bool → Bool), Fintype.card (Bool → Bool → Bool), Fintype.card (Fin 3 → Fin 3))\n#eval output", "elo": 1380, "answer": "(4, 16, 27)", "explanation": "There are `2^2 = 4` unary and `2^(2·2) = 16` binary truth functions on `2`. A curried function `Bool → Bool → Bool` is the same as a function `Bool × Bool → Bool`, hence 16, not `4 · 4`. For a three-element algebra of truth values there are `3^3 = 27` unary functions.", "file": "RequestProject/Puzzles/Logic/L05.lean"}, {"n": 6, "title": "Implication as Order", "theme": "Goldblatt §6.6 Truth functions as arrows (⇒ : Ω × Ω → Ω)", "code": "-- Elo 1400\ndef imp (a b : Bool) : Bool := !a || b\ndef pairs : List (Bool × Bool) := [(false, false), (false, true), (true, false), (true, true)]\n\ndef output := (pairs.map (fun p => imp p.1 p.2), pairs.map (fun p => decide (p.1 ≤ p.2)))\n#eval output", "elo": 1400, "answer": "([true, true, false, true], [true, true, false, true])", "explanation": "The truth table of `⇒` is false only for the pair (true, false). Since `false < true` in `Bool`, `a ⇒ b` is true exactly when `a ≤ b`, so both lists agree. This is the observation behind Heyting algebras: implication is determined by the order.", "file": "RequestProject/Puzzles/Logic/L06.lean"}, {"n": 7, "title": "Bivalence and Wrap-Around", "theme": "Goldblatt §5.4 Extensionality and bivalence", "code": "-- Elo 1420\ndef output :=\n  (decide (∀ a : Bool, a = true ∨ a = false),\n   [0, 1, 2, 3].filter (fun a : Fin 3 => a == 0 || a == 2))\n#eval output", "elo": 1420, "answer": "(true, [0, 2, 0])", "explanation": "`Bool` is bivalent: every truth value is true or false. In the topos `Set→`, `Ω` has three global truth values `0, 1, 2`, and only `0` (false) and `2` (true) pass the test. The trap is the literal `3 : Fin 3`, which wraps around to `0`, so the filtered list contains `0` twice.", "file": "RequestProject/Puzzles/Logic/L07.lean"}, {"n": 8, "title": "Prop as Ω", "theme": "Goldblatt §4.8 Ω and comprehension (Lean's Ω is `Prop`)", "code": "-- Elo 1440\ndef output :=\n  (decide (∀ n < 5, n * n < 20), decide (∃ n < 5, n * n = 10), decide (∀ n < 0, n = 7))\n#eval output", "elo": 1440, "answer": "(true, false, true)", "explanation": "In Lean the classifier of the topos of types is `Prop`, and `decide` evaluates a proposition when it is decidable, as bounded quantifiers over `ℕ` are. `4 * 4 = 16 < 20`, so the first is true. No square below 25 equals 10. A universal statement over the empty range `n < 0` is vacuously true, even though its body `n = 7` is not.", "file": "RequestProject/Puzzles/Logic/L08.lean"}, {"n": 9, "title": "Comprehension in Fin 6", "theme": "Goldblatt §4.8 Ω and comprehension", "code": "-- Elo 1450\n-- the subobject {x : φ(x)} classified by φ x := (x * x = x)\ndef output := ((Finset.univ : Finset (Fin 6)).filter (fun x => x * x = x), (7 : Fin 6) * 7)\n#eval output", "elo": 1450, "answer": "({0, 1, 3, 4}, 1)", "explanation": "Comprehension turns a predicate `φ : d → Ω` into the subobject `{x : φ(x)}`, the pullback of `true` along `φ`. In `Fin 6` multiplication is mod 6: `3 · 3 = 9 = 3` and `4 · 4 = 16 = 4`, so the idempotents are `0, 1, 3, 4`, while `2 · 2 = 4` and `5 · 5 = 25 = 1` fail. The literal `7 : Fin 6` is `1`, so `7 * 7 = 1`.", "file": "RequestProject/Puzzles/Logic/L09.lean"}, {"n": 10, "title": "Monics Equalise", "theme": "Goldblatt §5.1 Monics equalise", "code": "-- Elo 1460\n-- the equaliser of f x = x² mod 5 and g x = x mod 5, as a subset of {0, …, 9}\ndef output := (List.range 10).filter (fun x => x * x % 5 == x % 5)\n#eval output", "elo": 1460, "answer": "[0, 1, 5, 6]", "explanation": "The equaliser of `f` and `g` is the subset `{x : f x = g x}`, and every monic in a topos is such an equaliser. `*` and `%` have the same precedence and associate to the left, so `x * x % 5` means `(x * x) % 5`. The squares mod 5 are `0, 1, 4, 4, 1` repeating, which agree with `x % 5` only at `x ≡ 0` or `1 (mod 5)`.", "file": "RequestProject/Puzzles/Logic/L10.lean"}, {"n": 11, "title": "Images of Arrows", "theme": "Goldblatt §5.2 Images of arrows", "code": "-- Elo 1480\ndef image (f : Nat → Nat) (A : List Nat) : List Nat := (A.map f).eraseDups\n\ndef output := (image (· / 2) [5, 1, 4, 0, 3], image (· % 3) (List.range 7))\n#eval output", "elo": 1480, "answer": "([2, 0, 1], [0, 1, 2])", "explanation": "The image `f(A)` is the part of the codomain that `f` hits (the epi-monic factorisation of `f`). `Nat` division rounds down: `[5, 1, 4, 0, 3]` maps to `[2, 0, 2, 0, 1]`. `eraseDups` keeps the *first* occurrence of each value, so the result is `[2, 0, 1]`, not sorted.", "file": "RequestProject/Puzzles/Logic/L11.lean"}, {"n": 12, "title": "Subobjects Are Not Monics", "theme": "Goldblatt §4.1 Subobjects", "code": "-- Elo 1500\ndef monics (m n : Nat) : Nat :=\n  (Finset.univ.filter (fun f : Fin m → Fin n => Function.Injective f)).card\n\ndef subobjects (m n : Nat) : Nat :=\n  ((Finset.univ.filter (fun f : Fin m → Fin n => Function.Injective f)).image\n    (fun f => Finset.univ.image f)).card\n\ndef output := (monics 2 3, subobjects 2 3, monics 0 3, subobjects 0 3)\n#eval output", "elo": 1500, "answer": "(6, 3, 1, 1)", "explanation": "A subobject is an *equivalence class* of monics: two monics into `d` are identified when they factor through each other by an iso. There are `3 · 2 = 6` injections `2 → 3`, but only `3` two-element subsets, since each subset is hit by the 2 injections that differ by a swap. The empty function gives the single empty subobject.", "file": "RequestProject/Puzzles/Logic/L12.lean"}, {"n": 13, "title": "Excluded Middle in Three Values", "theme": "Goldblatt §8.3 Heyting algebras", "code": "-- Elo 1520\n-- truth values of the topos Set→ : 0 = false, 1 = \"true only later\", 2 = true\nabbrev Omega := Fin 3\ndef imp (a b : Omega) : Omega := if a ≤ b then 2 else b\ndef neg (a : Omega) : Omega := imp a 0\n\ndef output :=\n  ([0, 1, 2].map (fun a : Omega => max a (neg a)), [0, 1, 2].map (fun a : Omega => neg (neg a)))\n#eval output", "elo": 1520, "answer": "([2, 1, 2], [0, 2, 2])", "explanation": "In a Heyting algebra `¬a = a ⇒ 0` is the largest `b` with `a ∧ b = 0`. On the chain `0 < 1 < 2`, `¬0 = 2` but `¬1 = ¬2 = 0`. So `1 ∨ ¬1 = max 1 0 = 1`, which is not true: excluded middle fails at the middle value. Double negation sends `1` to `2`, so `¬¬a = a` fails too.", "file": "RequestProject/Puzzles/Logic/L13.lean"}, {"n": 14, "title": "Subobjects in Set→", "theme": "Goldblatt §10.3 The subobject classifier in Set^P", "code": "-- Elo 1540\n-- subobjects of the object f : A → B of Set→ are pairs A' ⊆ A, B' ⊆ B with f(A') ⊆ B'\ndef subs (f : Nat → Nat) (A B : List Nat) : Nat :=\n  ((A.sublists.flatMap (fun A' => B.sublists.map (fun B' => (A', B')))).filter\n    (fun (A', B') => A'.all (fun a => B'.contains (f a)))).length\n\ndef output := (subs id [0] [0], subs (fun _ => 0) [0, 1] [0], subs id [] [0, 1])\n#eval output", "elo": 1540, "answer": "(3, 5, 4)", "explanation": "The terminal object `1 → 1` has three subobjects: `(∅, ∅)`, `(∅, 1)` and `(1, 1)`. These are the three truth values of `Set→`. For `{0, 1} → {0}`: with `B' = ∅` only `A' = ∅` is allowed (1), with `B' = {0}` every `A'` is (4), total 5. For `∅ → {0, 1}` any `B'` works, giving `2^2 = 4`.", "file": "RequestProject/Puzzles/Logic/L14.lean"}, {"n": 15, "title": "Pulling Back Along f", "theme": "Goldblatt §4.2 Classifying subobjects (pullback of true)", "code": "-- Elo 1560\ndef chi (A : List Nat) (x : Nat) : Bool := A.contains x\n\ndef output := (List.range 10).filter (chi [1, 4] ∘ (· % 5))\n#eval output", "elo": 1560, "answer": "[1, 4, 6, 9]", "explanation": "The inverse image `f⁻¹(A)` is the pullback of `A ↪ D` along `f`, and its character is the composite `χ_A ∘ f`. `∘` applies the right-hand function first, so `x` passes if `x % 5 ∈ {1, 4}`, which gives `1, 4, 6, 9`.", "file": "RequestProject/Puzzles/Logic/L15.lean"}, {"n": 16, "title": "Heyting Implication in Mathlib", "theme": "Goldblatt §7.5 Implication and its implications", "code": "-- Elo 1580\ndef output := (true ⇨ false, false ⇨ false, falseᶜ, true \\ true)\n#eval output", "elo": 1580, "answer": "(false, true, true, false)", "explanation": "`⇨` is Mathlib's Heyting implication, `ᶜ` the complement (pseudo-complement in general) and `\\` the difference `a ⊓ bᶜ`. In the Boolean algebra `Bool` they reduce to the classical truth functions: `true ⇒ false` is false, `false ⇒ false` is true, `¬false = true`, and `true \\ true = true ∧ ¬true = false`.", "file": "RequestProject/Puzzles/Logic/L16.lean"}, {"n": 17, "title": "Intersection and Complement", "theme": "Goldblatt §7.1 Complement, intersection, union", "code": "-- Elo 1600\ndef output := (({1, 2, 3} : Finset Nat) ∩ {2, 3, 4}, ({0, 1} : Finset (Fin 4))ᶜ, ({5} : Finset (Fin 4)))\n#eval output", "elo": 1600, "answer": "({2, 3}, {2, 3}, {1})", "explanation": "In `Sub(d)` the meet is the intersection (the pullback of two monics), and in a Boolean topos every subobject has a complement. The complement of `{0, 1}` inside `Fin 4 = {0, 1, 2, 3}` is `{2, 3}`. The trap is that `5 : Fin 4` wraps to `1`.", "file": "RequestProject/Puzzles/Logic/L17.lean"}, {"n": 18, "title": "Relative Complement as Implication", "theme": "Goldblatt §7.5 Implication in Sub(d)", "code": "-- Elo 1620\ndef D := List.range 5\ndef impS (A B : List Nat) : List Nat := D.filter (fun x => !A.contains x || B.contains x)\n\ndef output := (impS [1, 2] [2, 3], impS [] [7], impS D [])\n#eval output", "elo": 1620, "answer": "([0, 2, 3, 4], [0, 1, 2, 3, 4], [])", "explanation": "In the power set of `D` the implication is `A ⇒ B = (D − A) ∪ B`, the largest `C` with `C ∩ A ⊆ B`. Only `1` is in `A` but not in `B`, so it is the only element dropped. With `A = ∅` the result is all of `D`; the `7` in `B` is outside `D` and plays no role. `D ⇒ ∅` is the complement of `D`, which is empty.", "file": "RequestProject/Puzzles/Logic/L18.lean"}, {"n": 19, "title": "Global Truth Values of Set^n", "theme": "Goldblatt §10.3 The subobject classifier in Set^P", "code": "-- Elo 1640\n-- truth values of Set^P are the hereditary (upward closed) subsets of P\ndef upsets (n : Nat) (le : Fin n → Fin n → Bool) : Nat :=\n  ((Finset.univ : Finset (Fin n)).powerset.filter\n    (fun U => ∀ p ∈ U, ∀ q, le p q → q ∈ U)).card\n\ndef output := (List.range 5).map (fun n => upsets n (fun p q => decide (p ≤ q)))\n#eval output", "elo": 1640, "answer": "[1, 2, 3, 4, 5]", "explanation": "For the chain `n = {0 < 1 < … < n-1}` the upward closed subsets are `∅` and the final segments `{k, …, n-1}`, so there are `n + 1` of them. For `n = 0` the only subset is `∅`, which gives 1. Hence `Set^1 = Set` has 2 truth values, `Set^2 = Set→` has 3, and so on.", "file": "RequestProject/Puzzles/Logic/L19.lean"}, {"n": 20, "title": "Counting Upsets", "theme": "Goldblatt §10.2 Heyting algebras in P", "code": "-- Elo 1660\ndef upsets (n : Nat) (le : Fin n → Fin n → Bool) : Nat :=\n  ((Finset.univ : Finset (Fin n)).powerset.filter\n    (fun U => ∀ p ∈ U, ∀ q, le p q → q ∈ U)).card\n\ndef output :=\n  (upsets 3 (fun p q => decide (p ≤ q)),\n   upsets 2 (fun p q => p == q),\n   upsets 3 (fun p q => p == q || p == 0))\n#eval output", "elo": 1660, "answer": "(4, 4, 5)", "explanation": "The 3-chain has 4 upsets. In a discrete poset every subset is an upset, so 2 points give `2^2 = 4` (a Boolean algebra). In the \"V\" with `0` below the incomparable `1` and `2`, the upsets are `∅, {1}, {2}, {1, 2}, {0, 1, 2}`, which gives 5.", "file": "RequestProject/Puzzles/Logic/L20.lean"}, {"n": 21, "title": "Is the Topos Boolean?", "theme": "Goldblatt §7.3 Boolean topoi", "code": "-- Elo 1680\ndef isUp (n : Nat) (le : Fin n → Fin n → Bool) (U : Finset (Fin n)) : Bool :=\n  decide (∀ p ∈ U, ∀ q, le p q → q ∈ U)\n\ndef boolean (n : Nat) (le : Fin n → Fin n → Bool) : Bool :=\n  decide (∀ U ∈ (Finset.univ : Finset (Fin n)).powerset, isUp n le U → isUp n le Uᶜ)\n\ndef output :=\n  (boolean 2 (fun p q => decide (p ≤ q)), boolean 3 (fun p q => p == q), boolean 1 (fun _ _ => true))\n#eval output", "elo": 1680, "answer": "(false, true, true)", "explanation": "The topos `Set^P` is Boolean iff the complement of every upset of `P` is again an upset. In the chain `0 < 1` the upset `{1}` has complement `{0}`, which is not upward closed, so `Set→` is not Boolean. A discrete poset has no non-trivial order, so `Set^P` is Boolean. The one-point poset gives `Set` itself.", "file": "RequestProject/Puzzles/Logic/L21.lean"}, {"n": 22, "title": "Valid Formulas in Three Values", "theme": "Goldblatt §6.7 Ω-semantics, §8.3 Heyting algebras", "code": "-- Elo 1700\n-- truth values of the topos Set→ : 0 = false, 1 = \"true only later\", 2 = true\nabbrev Omega := Fin 3\ndef imp (a b : Omega) : Omega := if a ≤ b then 2 else b\ndef neg (a : Omega) : Omega := imp a 0\n\ndef valid (φ : Omega → Omega) : Bool := [0, 1, 2].all (fun a => φ a == 2)\n\ndef output :=\n  [valid (fun p => imp p p), valid (fun p => imp (neg (neg p)) p), valid (fun p => max p (neg p)),\n   valid (fun p => neg (min p (neg p))), valid (fun p => max (neg p) (neg (neg p)))]\n#eval output", "elo": 1700, "answer": "[true, false, false, true, true]", "explanation": "A formula is valid if it takes the value `2` (true) under every valuation. `p ⇒ p` and non-contradiction `¬(p ∧ ¬p)` are intuitionistically valid. Double-negation elimination and excluded middle fail at `p = 1`. The weak excluded middle `¬p ∨ ¬¬p` is *not* an intuitionistic law, but it does hold in this 3-element chain: `¬1 ∨ ¬¬1 = 0 ∨ 2 = 2`.", "file": "RequestProject/Puzzles/Logic/L22.lean"}, {"n": 23, "title": "Counting Valuations", "theme": "Goldblatt §6.7 Ω-semantics", "code": "-- Elo 1720\n-- truth values of the topos Set→ : 0 = false, 1 = \"true only later\", 2 = true\nabbrev Omega := Fin 3\ndef imp (a b : Omega) : Omega := if a ≤ b then 2 else b\ndef neg (a : Omega) : Omega := imp a 0\n\ndef output :=\n  ((List.finRange 3).filter (fun p => max p (neg p) == 2) |>.length,\n   ((List.finRange 3).flatMap (fun p => (List.finRange 3).map (fun q => (p, q)))).filter\n     (fun (p, q) => max (imp p q) (imp q p) == 2) |>.length)\n#eval output", "elo": 1720, "answer": "(2, 9)", "explanation": "Excluded middle gets the value true for `p = 0` and `p = 2` but not for `p = 1`. Dummett's law `(p ⇒ q) ∨ (q ⇒ p)` is true for all `3 · 3 = 9` valuations: in a *chain* one of `p ≤ q`, `q ≤ p` always holds, which makes one disjunct equal to `2`.", "file": "RequestProject/Puzzles/Logic/L23.lean"}, {"n": 24, "title": "Ω for a Monoid", "theme": "Goldblatt §4.6 Monoid actions", "code": "-- Elo 1740\n-- Ω in the topos of M-sets is the set of left ideals of M (subsets I with m * x ∈ I for x ∈ I)\ndef ideals (n : Nat) : Nat :=\n  ((Finset.univ : Finset (Fin n)).powerset.filter\n    (fun I => ∀ m : Fin n, ∀ x ∈ I, m * x ∈ I)).card\n\ndef output := (ideals 2, ideals 4, ideals 1)\n#eval output", "elo": 1740, "answer": "(3, 4, 2)", "explanation": "Here `M` is the multiplicative monoid of `Fin n` (multiplication mod `n`). Every nonempty ideal contains `0 = 0 · x`, and an ideal containing a unit is everything. For `n = 2`: `∅, {0}, {0, 1}`. For `n = 4`: `∅, {0}, {0, 2}`, and all of `Fin 4`; `{0, 3}` fails since `3 · 3 = 1`. For `n = 1`: `∅` and `{0}`. So the topos of `M`-sets is not Boolean in general.", "file": "RequestProject/Puzzles/Logic/L24.lean"}, {"n": 25, "title": "Kripke Forcing and Excluded Middle", "theme": "Goldblatt §8.4 Kripke semantics", "code": "-- Elo 1760\ninductive Fm where\n  | var : Nat → Fm\n  | bot : Fm\n  | and : Fm → Fm → Fm\n  | or  : Fm → Fm → Fm\n  | imp : Fm → Fm → Fm\n\n-- Kripke model: states 0, …, n-1 ordered by `le`; `val v p` says variable v holds at p\ndef forces (n : Nat) (le : Nat → Nat → Bool) (val : Nat → Nat → Bool) : Nat → Fm → Bool\n  | p, .var v => val v p\n  | _, .bot => false\n  | p, .and a b => forces n le val p a && forces n le val p b\n  | p, .or a b => forces n le val p a || forces n le val p b\n  | p, .imp a b =>\n      (List.range n).all (fun q => !le p q || !forces n le val q a || forces n le val q b)\n\ndef p := Fm.var 0\ndef lem := Fm.or p (.imp p .bot)\n-- two states 0 ≤ 1; p becomes true only at state 1\ndef val (_ : Nat) (s : Nat) : Bool := s == 1\n\ndef output := (forces 2 (· ≤ ·) val 0 lem, forces 2 (· ≤ ·) val 1 lem)\n#eval output", "elo": 1760, "answer": "(false, true)", "explanation": "At state 0, `p` is not yet forced. `¬p = p ⇒ ⊥` would need `p` to fail at *every later* state, but it holds at state 1. So neither disjunct is forced and `p ∨ ¬p` fails at 0. At the final state 1, `p` holds. (`(· ≤ ·)` on `Nat` is a `Prop`; it is coerced to `Bool` by `decide`.)", "file": "RequestProject/Puzzles/Logic/L25.lean"}, {"n": 26, "title": "Persistence Matters", "theme": "Goldblatt §8.4 Kripke semantics (hereditary valuations)", "code": "-- Elo 1780\ninductive Fm where\n  | var : Nat → Fm\n  | bot : Fm\n  | and : Fm → Fm → Fm\n  | or  : Fm → Fm → Fm\n  | imp : Fm → Fm → Fm\n\n-- Kripke model: states 0, …, n-1 ordered by `le`; `val v p` says variable v holds at p\ndef forces (n : Nat) (le : Nat → Nat → Bool) (val : Nat → Nat → Bool) : Nat → Fm → Bool\n  | p, .var v => val v p\n  | _, .bot => false\n  | p, .and a b => forces n le val p a && forces n le val p b\n  | p, .or a b => forces n le val p a || forces n le val p b\n  | p, .imp a b =>\n      (List.range n).all (fun q => !le p q || !forces n le val q a || forces n le val q b)\n\ndef p := Fm.var 0\ndef nn (a : Fm) : Fm := .imp (.imp a .bot) .bot\n-- a NON-hereditary valuation: p holds at state 0 but not at the later state 1\ndef val (_ : Nat) (s : Nat) : Bool := s == 0\n\ndef output := (forces 2 (· ≤ ·) val 0 p, forces 2 (· ≤ ·) val 0 (nn p))\n#eval output", "elo": 1780, "answer": "(true, false)", "explanation": "Kripke models require valuations to be *hereditary*: what is known stays known. This one is not. At state 1, `¬p` is forced (p fails there and there is nothing later), so `¬¬p` fails at state 0 even though `p` holds at 0. With such valuations even the intuitionistic law `p ⇒ ¬¬p` breaks.", "file": "RequestProject/Puzzles/Logic/L26.lean"}, {"n": 27, "title": "Dummett's Law Needs a Chain", "theme": "Goldblatt §8.4 Kripke semantics", "code": "-- Elo 1800\ninductive Fm where\n  | var : Nat → Fm\n  | bot : Fm\n  | and : Fm → Fm → Fm\n  | or  : Fm → Fm → Fm\n  | imp : Fm → Fm → Fm\n\n-- Kripke model: states 0, …, n-1 ordered by `le`; `val v p` says variable v holds at p\ndef forces (n : Nat) (le : Nat → Nat → Bool) (val : Nat → Nat → Bool) : Nat → Fm → Bool\n  | p, .var v => val v p\n  | _, .bot => false\n  | p, .and a b => forces n le val p a && forces n le val p b\n  | p, .or a b => forces n le val p a || forces n le val p b\n  | p, .imp a b =>\n      (List.range n).all (fun q => !le p q || !forces n le val q a || forces n le val q b)\n\ndef p := Fm.var 0\ndef q := Fm.var 1\ndef dummett := Fm.or (.imp p q) (.imp q p)\n-- the \"V\" frame: 0 ≤ 1 and 0 ≤ 2, with 1 and 2 incomparable\ndef le (a b : Nat) : Bool := a == b || a == 0\n-- p holds only at 1, q only at 2\ndef val (v s : Nat) : Bool := s == v + 1\n\ndef output := [0, 1, 2].map (fun s => forces 3 le val s dummett)\n#eval output", "elo": 1800, "answer": "[false, true, true]", "explanation": "At the root 0, `p ⇒ q` fails (state 1 forces `p` but not `q`) and `q ⇒ p` fails (state 2). At the end states one of `p`, `q` is false and nothing is later, so one implication holds vacuously. Dummett's law is valid exactly on chain-like frames, so the topos `Set^V` does not satisfy it.", "file": "RequestProject/Puzzles/Logic/L27.lean"}, {"n": 28, "title": "De Morgan Breaks Too", "theme": "Goldblatt §8.4 Kripke semantics", "code": "-- Elo 1820\ninductive Fm where\n  | var : Nat → Fm\n  | bot : Fm\n  | and : Fm → Fm → Fm\n  | or  : Fm → Fm → Fm\n  | imp : Fm → Fm → Fm\n\n-- Kripke model: states 0, …, n-1 ordered by `le`; `val v p` says variable v holds at p\ndef forces (n : Nat) (le : Nat → Nat → Bool) (val : Nat → Nat → Bool) : Nat → Fm → Bool\n  | p, .var v => val v p\n  | _, .bot => false\n  | p, .and a b => forces n le val p a && forces n le val p b\n  | p, .or a b => forces n le val p a || forces n le val p b\n  | p, .imp a b =>\n      (List.range n).all (fun q => !le p q || !forces n le val q a || forces n le val q b)\n\ndef p := Fm.var 0\ndef q := Fm.var 1\ndef neg (a : Fm) : Fm := .imp a .bot\ndef le (a b : Nat) : Bool := a == b || a == 0\ndef val (v s : Nat) : Bool := s == v + 1\n\ndef output :=\n  (forces 3 le val 0 (neg (.and p q)), forces 3 le val 0 (.or (neg p) (neg q)))\n#eval output", "elo": 1820, "answer": "(true, false)", "explanation": "In the V frame, `p` holds only at 1 and `q` only at 2, so `p ∧ q` is never forced and `¬(p ∧ q)` holds at the root. But `¬p` fails at the root (state 1 forces `p`), and so does `¬q`. So the De Morgan law `¬(p ∧ q) ⇒ ¬p ∨ ¬q` is not intuitionistically valid.", "file": "RequestProject/Puzzles/Logic/L28.lean"}, {"n": 29, "title": "Validity on a Frame", "theme": "Goldblatt §10.5 Validity", "code": "-- Elo 1840\ninductive Fm where\n  | var : Nat → Fm\n  | bot : Fm\n  | and : Fm → Fm → Fm\n  | or  : Fm → Fm → Fm\n  | imp : Fm → Fm → Fm\n\n-- Kripke model: states 0, …, n-1 ordered by `le`; `val v p` says variable v holds at p\ndef forces (n : Nat) (le : Nat → Nat → Bool) (val : Nat → Nat → Bool) : Nat → Fm → Bool\n  | p, .var v => val v p\n  | _, .bot => false\n  | p, .and a b => forces n le val p a && forces n le val p b\n  | p, .or a b => forces n le val p a || forces n le val p b\n  | p, .imp a b =>\n      (List.range n).all (fun q => !le p q || !forces n le val q a || forces n le val q b)\n\ndef p := Fm.var 0\ndef q := Fm.var 1\ndef peirce := Fm.imp (.imp (.imp p q) p) p\n-- the hereditary subsets of the chain 0 ≤ 1\ndef ups : List (List Nat) := [[], [1], [0, 1]]\n\ndef output :=\n  ((ups.flatMap (fun P => ups.map (fun Q => (P, Q)))).filter (fun (P, Q) =>\n    forces 2 (· ≤ ·) (fun v s => (if v == 0 then P else Q).contains s) 0 peirce)).length\n#eval output", "elo": 1840, "answer": "8", "explanation": "There are `3 · 3 = 9` hereditary valuations of `p, q` on the chain `0 ≤ 1`. Peirce's law `((p ⇒ q) ⇒ p) ⇒ p` fails at the root only when `p = {1}` and `q = ∅`. Then `p ⇒ q` is forced nowhere, so `(p ⇒ q) ⇒ p` holds vacuously at 0 while `p` does not. So the formula is not valid in `Set→`, although 8 of the 9 valuations satisfy it.", "file": "RequestProject/Puzzles/Logic/L29.lean"}, {"n": 30, "title": "Peirce Fails Once", "theme": "Goldblatt §8.2 Heyting's calculus", "code": "-- Elo 1860\n-- truth values of the topos Set→ : 0 = false, 1 = \"true only later\", 2 = true\nabbrev Omega := Fin 3\ndef imp (a b : Omega) : Omega := if a ≤ b then 2 else b\ndef neg (a : Omega) : Omega := imp a 0\n\ndef output :=\n  ((List.finRange 3).flatMap (fun p => (List.finRange 3).map (fun q => (p, q)))).filter\n    (fun (p, q) => imp (imp (imp p q) p) p != 2)\n#eval output", "elo": 1860, "answer": "[(1, 0)]", "explanation": "Peirce's law is classically valid but is not a theorem of Heyting's calculus. In the three-element algebra: `1 ⇒ 0 = 0`, `0 ⇒ 1 = 2`, and `2 ⇒ 1 = 1 ≠ 2`. Every other pair gives `2`. This matches the single failing Kripke valuation of the previous puzzle: `p = {1}` corresponds to the truth value `1`, and `q = ∅` to `0`.", "file": "RequestProject/Puzzles/Logic/L30.lean"}, {"n": 31, "title": "Glivenko's Double Negation", "theme": "Goldblatt §8.3 Heyting algebras", "code": "-- Elo 1880\n-- truth values of the topos Set→ : 0 = false, 1 = \"true only later\", 2 = true\nabbrev Omega := Fin 3\ndef imp (a b : Omega) : Omega := if a ≤ b then 2 else b\ndef neg (a : Omega) : Omega := imp a 0\n\ndef valid1 (φ : Omega → Omega) : Bool := (List.finRange 3).all (fun a => φ a == 2)\ndef valid2 (φ : Omega → Omega → Omega) : Bool :=\n  (List.finRange 3).all (fun a => (List.finRange 3).all (fun b => φ a b == 2))\n\ndef output :=\n  (valid1 (fun p => neg (neg (max p (neg p)))),\n   valid2 (fun p q => neg (neg (imp (imp (imp p q) p) p))),\n   valid2 (fun p q => imp (imp (imp p q) p) p))\n#eval output", "elo": 1880, "answer": "(true, true, false)", "explanation": "Glivenko's theorem: if a propositional formula is a classical tautology, then its double negation is intuitionistically valid. Here `¬¬(p ∨ ¬p)` and `¬¬Peirce` both always get the value `2`, while Peirce's law itself fails at `(p, q) = (1, 0)`.", "file": "RequestProject/Puzzles/Logic/L31.lean"}, {"n": 32, "title": "Lindenbaum Classes", "theme": "Goldblatt §6.5 Algebraic semantics (Lindenbaum algebra)", "code": "-- Elo 1900\n-- truth values of the topos Set→ : 0 = false, 1 = \"true only later\", 2 = true\nabbrev Omega := Fin 3\ndef imp (a b : Omega) : Omega := if a ≤ b then 2 else b\ndef neg (a : Omega) : Omega := imp a 0\n\ndef bTable (φ : Bool → Bool) : List Bool := [false, true].map φ\ndef hTable (φ : Omega → Omega) : List Omega := (List.finRange 3).map φ\n\ndef output :=\n  ([bTable id, bTable (fun p => !!p), bTable (fun p => p && p), bTable (fun p => p || !p),\n    bTable (fun p => !p || p), bTable (fun p => !p), bTable (fun p => p && !p)].eraseDups.length,\n   [hTable id, hTable (fun p => neg (neg p)), hTable (fun p => min p p), hTable (fun p => max p (neg p)),\n    hTable (fun p => imp p p), hTable neg, hTable (fun p => min p (neg p))].eraseDups.length)\n#eval output", "elo": 1900, "answer": "(4, 6)", "explanation": "Formulas that get the same truth table are identified in the Lindenbaum algebra. Classically the seven formulas `p, ¬¬p, p∧p, p∨¬p, p⇒p, ¬p, p∧¬p` collapse to the 4 truth functions of one variable. In the 3-valued Heyting algebra only `p` and `p ∧ p` coincide. `¬¬p` (`[0, 2, 2]`) and `p ∨ ¬p` (`[2, 1, 2]`) are new classes, so there are 6.", "file": "RequestProject/Puzzles/Logic/L32.lean"}, {"n": 33, "title": "Modus Ponens Preserves Truth", "theme": "Goldblatt §11.5 Substitution and soundness", "code": "-- Elo 1920\n-- truth values of the topos Set→ : 0 = false, 1 = \"true only later\", 2 = true\nabbrev Omega := Fin 3\ndef imp (a b : Omega) : Omega := if a ≤ b then 2 else b\ndef neg (a : Omega) : Omega := imp a 0\n\ndef pairs : List (Omega × Omega) :=\n  (List.finRange 3).flatMap (fun p => (List.finRange 3).map (fun q => (p, q)))\n\ndef output :=\n  ((pairs.filter (fun (p, q) => imp p q == 2)).length,\n   (pairs.filter (fun (p, q) => p == 2 && imp p q == 2)).length,\n   (pairs.filter (fun (p, q) => p == 2 && imp p q == 2 && q != 2)).length)\n#eval output", "elo": 1920, "answer": "(6, 1, 0)", "explanation": "`p ⇒ q` is true exactly when `p ≤ q`: there are 6 such pairs in the 3-chain (3 + 2 + 1). If also `p = 2`, then `q = 2`. Hence there is no counterexample to modus ponens. This is the key step in proving soundness: the rules preserve the designated value `true`.", "file": "RequestProject/Puzzles/Logic/L33.lean"}, {"n": 34, "title": "Quantifiers over the Empty Domain", "theme": "Goldblatt §11.8 Existence and free logic", "code": "-- Elo 1940\ndef forallD (D : List Nat) (φ : Nat → Bool) : Bool := D.all φ\ndef existsD (D : List Nat) (φ : Nat → Bool) : Bool := D.any φ\n\n-- the sentence ∀x φ ⇒ ∃x φ, evaluated in two domains\ndef output :=\n  ([[3], []].map (fun D => !forallD D (· > 5) || existsD D (· > 5)),\n   [[3], []].map (fun D => !forallD D (fun x => x == x) || existsD D (fun x => x == x)))\n#eval output", "elo": 1940, "answer": "([true, false], [true, false])", "explanation": "`List.all` on the empty list is `true` and `List.any` is `false`. So `∀x φ ⇒ ∃x φ` holds in every nonempty domain, but fails in the empty one, even for `φ = (x = x)`. Classical logic assumes nonempty domains; a topos can have objects with no global elements, which is why Goldblatt moves to a free logic with an existence predicate.", "file": "RequestProject/Puzzles/Logic/L34.lean"}, {"n": 35, "title": "x = x Can Fail", "theme": "Goldblatt §11.8 Existence and free logic", "code": "-- Elo 1960\ndef eqv : Option Nat → Option Nat → Bool\n  | some x, some y => x == y\n  | _, _ => false\n\ndef output :=\n  (eqv none none, (none : Option Nat) == none, eqv (some 2) (some (5 - 3)),\n   [some 1, none].map (fun x => eqv x x))\n#eval output", "elo": 1960, "answer": "(false, true, true, [true, false])", "explanation": "Treat `none` as an undefined (non-existing) individual. In free logic `x = x` holds exactly when `x` exists: `E(x)` can be *defined* as `x = x`. So `eqv x x` returns `false` for `none`. Lean's derived `==` on `Option` disagrees and treats two `none`s as equal. `5 - 3 = 2`, so the third test is true.", "file": "RequestProject/Puzzles/Logic/L35.lean"}, {"n": 36, "title": "Heyting-Valued Equality", "theme": "Goldblatt §11.9 Heyting-valued sets", "code": "-- Elo 1980\n-- truth values of the topos Set→ : 0 = false, 1 = \"true only later\", 2 = true\nabbrev Omega := Fin 3\ndef imp (a b : Omega) : Omega := if a ≤ b then 2 else b\ndef neg (a : Omega) : Omega := imp a 0\n\n-- an Ω-set: ⟦x = y⟧ is a truth value, and ⟦x = x⟧ measures how far x exists\ndef E (x : Nat) : Omega := Fin.ofNat 3 x * 2\ndef eqΩ (x y : Nat) : Omega := if x == y then E x else 0\n\ndef output := ((List.range 4).map E, eqΩ 4 4, eqΩ 3 6)\n#eval output", "elo": 1980, "answer": "([0, 2, 1, 0], 2, 0)", "explanation": "In a Heyting-valued set, equality takes truth values, and `E(x) = ⟦x = x⟧` measures how far `x` exists. `Fin.ofNat 3 x` reduces `x` mod 3 and multiplication in `Fin 3` is also mod 3, so `E 0 = 0`, `E 1 = 2`, `E 2 = 4 % 3 = 1` and `E 3 = 0`. `4` casts to `1`, so `⟦4 = 4⟧ = E 4 = 1 · 2 = 2`. Distinct elements get `⟦3 = 6⟧ = 0`.", "file": "RequestProject/Puzzles/Logic/L36.lean"}, {"n": 37, "title": "∀ and ∃ as Truth Arrows", "theme": "Goldblatt §11.4 Models in a topos (∀, ∃ : Ω^a → Ω)", "code": "-- Elo 2000\n-- ∀ as an arrow Ω^A → Ω in Set: it sends φ to true iff φ is constantly true\ndef countAll (n : Nat) : Nat := (Finset.univ.filter (fun φ : Fin n → Bool => ∀ x, φ x)).card\ndef countEx (n : Nat) : Nat := (Finset.univ.filter (fun φ : Fin n → Bool => ∃ x, φ x)).card\n\ndef output := (countAll 3, countEx 3, countAll 0, countEx 0)\n#eval output", "elo": 2000, "answer": "(1, 7, 1, 0)", "explanation": "Of the 8 predicates on a 3-element set, only the constantly true one satisfies `∀`, and all but the constantly false one satisfy `∃`. On the empty set there is one predicate (the empty function). It satisfies `∀x φ` vacuously and fails `∃x φ`.", "file": "RequestProject/Puzzles/Logic/L37.lean"}, {"n": 38, "title": "∃ Is the Image", "theme": "Goldblatt §15.4 Quantifiers", "code": "-- Elo 2020\ndef dom := List.range 6\ndef cod := List.range 3\ndef f (x : Nat) : Nat := x % 3\n\ndef existsF (A : List Nat) : List Nat := cod.filter (fun b => dom.any (fun a => f a == b && A.contains a))\ndef forallF (A : List Nat) : List Nat := cod.filter (fun b => dom.all (fun a => f a != b || A.contains a))\n\ndef output := (existsF [0, 4], forallF [0, 4], forallF [0, 3, 4])\n#eval output", "elo": 2020, "answer": "([0, 1], [], [0])", "explanation": "For `f : a → b` the quantifiers `∃_f, ∀_f : Sub(a) → Sub(b)` are the left and right adjoints of the inverse image `f⁻¹`. `∃_f A` is the image of `A`: `f 0 = 0`, `f 4 = 1`. `∀_f A` collects the `b` whose *whole* fibre lies in `A`. The fibres are `{0, 3}, {1, 4}, {2, 5}`, none of which lies in `{0, 4}`; adding `3` completes the fibre of `0`.", "file": "RequestProject/Puzzles/Logic/L38.lean"}, {"n": 39, "title": "∀ over an Empty Fibre", "theme": "Goldblatt §15.4 Quantifiers", "code": "-- Elo 2040\ndef dom := List.range 2\ndef cod := List.range 4\ndef f (x : Nat) : Nat := 2 * x\n\ndef existsF (A : List Nat) : List Nat := cod.filter (fun b => dom.any (fun a => f a == b && A.contains a))\ndef forallF (A : List Nat) : List Nat := cod.filter (fun b => dom.all (fun a => f a != b || A.contains a))\n\ndef output := (forallF [], existsF dom)\n#eval output", "elo": 2040, "answer": "([1, 3], [0, 2])", "explanation": "`f` hits only `0` and `2`. The fibres over `1` and `3` are empty, so \"every element of the fibre lies in `∅`\" is vacuously true for them: `∀_f ∅ = {1, 3}`, not `∅`. `∃_f` of the whole domain is the image `{0, 2}`.", "file": "RequestProject/Puzzles/Logic/L39.lean"}, {"n": 40, "title": "Checking an Adjunction", "theme": "Goldblatt §15.1 Adjunctions, §15.4 Quantifiers", "code": "-- Elo 2060\ndef dom := [0, 1, 2]\ndef cod := [0, 1]\ndef f (x : Nat) : Nat := x / 2\n\ndef existsF (A : List Nat) : List Nat := cod.filter (fun b => A.any (fun a => f a == b))\ndef preimage (B : List Nat) : List Nat := dom.filter (fun a => B.contains (f a))\ndef subset (X Y : List Nat) : Bool := X.all Y.contains\n\ndef pairs := dom.sublists.flatMap (fun A => cod.sublists.map (fun B => (A, B)))\n\ndef output :=\n  ((pairs.filter (fun (A, B) => subset (existsF A) B)).length,\n   (pairs.filter (fun (A, B) => subset A (preimage B))).length)\n#eval output", "elo": 2060, "answer": "(15, 15)", "explanation": "The adjunction `∃_f ⊣ f⁻¹` says `∃_f A ⊆ B ⟺ A ⊆ f⁻¹(B)`, so both counts must agree. The second count is easy: for each `B`, there are `2^|f⁻¹ B|` choices of `A`. The preimages of `∅, {0}, {1}, {0, 1}` have sizes `0, 2, 1, 3`, so the count is `1 + 4 + 2 + 8 = 15`.", "file": "RequestProject/Puzzles/Logic/L40.lean"}, {"n": 41, "title": "Growing Domains", "theme": "Goldblatt §11.6 Kripke models", "code": "-- Elo 2080\n-- a Kripke model with states 0 ≤ 1; the domain grows from [0] to [0, 1]\ndef domain (s : Nat) : List Nat := if s == 0 then [0] else [0, 1]\ndef P (_ : Nat) (d : Nat) : Bool := d == 0   -- P(d) holds at every state iff d = 0\n\ndef naive (s : Nat) : Bool := (domain s).all (P s)\ndef kripke (s : Nat) : Bool := ([0, 1].filter (· ≥ s)).all (fun t => (domain t).all (P t))\n\ndef output := (naive 0, kripke 0, kripke 1)\n#eval output", "elo": 2080, "answer": "(true, false, false)", "explanation": "In a Kripke model for first-order logic, `∀x P(x)` is forced at `s` only if `P(d)` holds at every *later* state `t` for every `d` in the (possibly larger) domain at `t`. At state 0 the only individual satisfies `P`, so the naive local check says true. But the new individual `1` at state 1 does not, so `∀x P(x)` fails at both states.", "file": "RequestProject/Puzzles/Logic/L41.lean"}, {"n": 42, "title": "Lawvere–Tierney ¬¬", "theme": "Goldblatt §14.5 Geometric modality", "code": "-- Elo 2100\n-- truth values of the topos Set→ : 0 = false, 1 = \"true only later\", 2 = true\nabbrev Omega := Fin 3\ndef imp (a b : Omega) : Omega := if a ≤ b then 2 else b\ndef neg (a : Omega) : Omega := imp a 0\n\ndef j (a : Omega) : Omega := neg (neg a)\n\ndef output :=\n  ((List.finRange 3).filter (fun a => j a == a), (List.finRange 3).all (fun a => j (j a) == j a),\n   (List.finRange 3).map j)\n#eval output", "elo": 2100, "answer": "([0, 2], true, [0, 2, 2])", "explanation": "`¬¬ : Ω → Ω` is a Lawvere–Tierney topology (a \"geometric modality\"): it is inflationary, idempotent and preserves `∧`. Its fixed points `0` and `2` form the truth values of the topos of `¬¬`-sheaves, which is the Boolean algebra `2`. The middle value `1` (\"true later\") becomes \"true\" after `¬¬`.", "file": "RequestProject/Puzzles/Logic/L42.lean"}, {"n": 43, "title": "Opens of a Space", "theme": "Goldblatt §8.3 Heyting algebras (topological interpretation)", "code": "-- Elo 2120\ndef X : List Nat := [0, 1, 2]\ndef opens : List (List Nat) := [[], [2], [1, 2], [0, 1, 2]]\n-- the opens form a chain, so the largest open inside S is the last one found\ndef interior (S : List Nat) : List Nat := (opens.filter (fun U => U.all S.contains)).getLast!\ndef neg (U : List Nat) : List Nat := interior (X.filter (fun x => !U.contains x))\n\ndef output := (neg [2], neg [1, 2], neg [], neg X)\n#eval output", "elo": 2120, "answer": "([], [], [0, 1, 2], [])", "explanation": "In the Heyting algebra of open sets, `¬U` is the *interior* of the complement. The complements of `{2}` and `{1, 2}` contain no nonempty open, so both pseudo-complements are `∅`. So `{2} ∪ ¬{2} = {2} ≠ X` and excluded middle fails. `¬∅ = X` and `¬X = ∅` as usual.", "file": "RequestProject/Puzzles/Logic/L43.lean"}, {"n": 44, "title": "The Character in Set→", "theme": "Goldblatt §10.3 The subobject classifier in Set^P", "code": "-- Elo 2140\n-- object f = id : A → A of Set→, with subobject A' ⊆ A, B' ⊆ A (where f(A') ⊆ B')\n-- character: 2 = \"in A' already\", 1 = \"lands in B' only after applying f\", 0 = \"never\"\ndef chi (f : Nat → Nat) (A' B' : List Nat) (a : Nat) : Fin 3 :=\n  if A'.contains a then 2 else if B'.contains (f a) then 1 else 0\n\ndef output := ([0, 1, 2].map (chi id [0] [0, 1]), [0, 1, 2].map (chi (· + 1) [] [1, 2, 3]))\n#eval output", "elo": 2140, "answer": "([2, 1, 0], [1, 1, 1])", "explanation": "In `Set→` an element `a` of the source can belong to the subobject now (value `2`), only after moving along `f` (value `1`), or never (value `0`). These are the three truth values. With `f = id`, `A' = {0}` and `B' = {0, 1}` we get `[2, 1, 0]`. With `f = (· + 1)` and `A' = ∅`, every `a ∈ {0, 1, 2}` lands in `B'` after one step, giving `[1, 1, 1]`.", "file": "RequestProject/Puzzles/Logic/L44.lean"}, {"n": 45, "title": "Not Well-Pointed", "theme": "Goldblatt §7.7 Extensionality revisited", "code": "-- Elo 2160\n-- arrows from f : A → B to g : C → D in Set→ are pairs (u, v) with v ∘ f = g ∘ u\ndef squares {A B C D : Type} [Fintype A] [Fintype B] [Fintype C] [Fintype D]\n    [DecidableEq A] [DecidableEq B] [DecidableEq C] [DecidableEq D]\n    (f : A → B) (g : C → D) : Nat :=\n  ((Finset.univ : Finset ((A → C) × (B → D))).filter\n    (fun uv => ∀ a, uv.2 (f a) = g (uv.1 a))).card\n\n-- the object e : ∅ → 2 and the terminal object t : 1 → 1\ndef e : Fin 0 → Fin 2 := Fin.elim0\ndef t : Fin 1 → Fin 1 := id\n\ndef output := (squares t e, squares e e)\n#eval output", "elo": 2160, "answer": "(0, 4)", "explanation": "A point of an object is an arrow from the terminal object. `∅ → 2` has *no* points, because `u : 1 → ∅` cannot exist. Yet it has `4` different endomorphisms: `u` is the empty function and `v : 2 → 2` is arbitrary. All 4 agree on all (zero) points, so arrows in `Set→` are not determined by their values on points. The topos is not well-pointed, which matches it being non-Boolean.", "file": "RequestProject/Puzzles/Logic/L45.lean"}, {"n": 46, "title": "Sections of an Epic", "theme": "Goldblatt §12.1 Axioms of choice", "code": "-- Elo 2180\ndef sections (f : Fin 4 → Fin 3) : Nat :=\n  (Finset.univ.filter (fun s : Fin 3 → Fin 4 => ∀ b, f (s b) = b)).card\n\ndef output := (sections ![0, 0, 1, 2], sections ![0, 1, 1, 1], sections ![2, 0, 2, 1])\n#eval output", "elo": 2180, "answer": "(2, 0, 2)", "explanation": "A section `s` of `f` picks one element in each fibre: the number of sections is the product of the fibre sizes. `![0, 0, 1, 2]` has fibres of sizes 2, 1, 1. `![0, 1, 1, 1]` is not epic (nothing maps to 2), so it has no section. `![2, 0, 2, 1]` has fibres of sizes 1, 1, 2. The axiom of choice says every epic has a section; by Diaconescu's theorem this forces a topos to be Boolean.", "file": "RequestProject/Puzzles/Logic/L46.lean"}, {"n": 47, "title": "The Natural Numbers Object", "theme": "Goldblatt §12.2 Natural numbers objects", "code": "-- Elo 2200\n-- the unique h : ℕ → A with h 0 = x and h (n + 1) = f (h n), here for A = Fin 5\ndef h (n : Nat) : Fin 5 := (· + 2)^[n] 3\n\ndef output := (List.range 6).map h\n#eval output", "elo": 2200, "answer": "[3, 0, 2, 4, 1, 3]", "explanation": "A natural numbers object `1 → N → N` is characterised by its universal property: for any `x : 1 → A` and `f : A → A` there is exactly one `h` with `h ∘ 0 = x` and `h ∘ s = f ∘ h`, namely `h n = f^[n] x`. Here `h n = 3 + 2n mod 5`: `3, 5 = 0, 2, 4, 6 = 1, 3`.", "file": "RequestProject/Puzzles/Logic/L47.lean"}, {"n": 48, "title": "Primitive Recursion", "theme": "Goldblatt §13.2 Primitive recursion", "code": "-- Elo 2220\ndef output :=\n  (Nat.rec (motive := fun _ => Nat) 3 (fun _ ih => ih + 2) 4, (· * 2)^[10] 1, (· - 1)^[5] 3)\n#eval output", "elo": 2220, "answer": "(11, 1024, 0)", "explanation": "`Nat.rec z s n` is defined by primitive recursion: start at `3` and add `2` four times, giving `11`. Iterating doubling ten times on `1` gives `2^10 = 1024`. Iterating predecessor five times on `3` gets stuck at `0`, because `Nat` subtraction is truncated.", "file": "RequestProject/Puzzles/Logic/L48.lean"}, {"n": 49, "title": "The Peano Postulates", "theme": "Goldblatt §13.3 Peano postulates", "code": "-- Elo 2240\ndef output :=\n  (Nat.pred 0, (0 : Nat) - 1 + 1, Nat.succ 3 == 3 + 1, ((List.range 5).map Nat.succ).contains 0)\n#eval output", "elo": 2240, "answer": "(0, 1, true, false)", "explanation": "Peano's axioms say `0` is not a successor and the successor is injective. Lean's `Nat.pred` is total and sets `pred 0 = 0`, so `pred` is only a left inverse of `succ`. Truncated subtraction gives `0 - 1 + 1 = 0 + 1 = 1`, not `0`. No successor equals `0`, so `contains 0` is false.", "file": "RequestProject/Puzzles/Logic/L49.lean"}, {"n": 50, "title": "The Equality Predicate", "theme": "Goldblatt §11.4 Models in a topos (interpreting =)", "code": "-- Elo 2260\ndef count (R : Fin 3 × Fin 3 → Prop) [DecidablePred R] : Nat := (Finset.univ.filter R).card\n\ndef output := (count (fun p => p.1 = p.2), count (fun p => p.1 ≤ p.2), count (fun p => p.1 + 1 = p.2))\n#eval output", "elo": 2260, "answer": "(3, 6, 3)", "explanation": "In a topos, `=` on `a` is interpreted by the diagonal `a → a × a`, whose character is the equality arrow `δ_a : a × a → Ω`. Its extension has 3 pairs. `≤` has `3 + 2 + 1 = 6`. In `Fin 3` addition wraps around, so `p.1 + 1 = p.2` is the graph of a cyclic permutation `0 ↦ 1 ↦ 2 ↦ 0`: 3 pairs, including `(2, 0)`.", "file": "RequestProject/Puzzles/Logic/L50.lean"}];
+
+/* ---------- pure logic (tested by game/test_logic.js) ---------- */
+const FLOORS = [
+  ["The Classifier's Cellar", "characters, Bool, counting subsets"],
+  ["Hall of Truth Arrows", "implication, bivalence, comprehension"],
+  ["Subobject Stairs", "images, subobjects, three truth values"],
+  ["Heyting Gallery", "relative complements, upsets, Set^n"],
+  ["Ω-Semantics Observatory", "Boolean topoi, valuations, monoid actions"],
+  ["Kripke Garden", "forcing, persistence, Dummett, De Morgan, Peirce"],
+  ["Free-Logic Library", "Glivenko, Lindenbaum, empty domains"],
+  ["Quantifier Bridge", "Heyting-valued sets, ∀ and ∃ as adjoints"],
+  ["Topology Terrace", "growing domains, ¬¬, opens, points"],
+  ["Peano Spire", "choice, natural numbers objects, recursion"]
+];
+const START_ELO = 1000;
+const POINTS = { type: 10, build: 5 };
+const RANKS = [
+  [0, "Apprentice of Ω"], [950, "Subobject Scout"], [1100, "Heyting Adept"],
+  [1250, "Kripke Ranger"], [1400, "Topos Master"]
+];
+
+function normalize(s) { return String(s).replace(/\s+/g, ""); }
+
+/* split an output like ([0, 2], true) into literal pieces and slots */
+function tokenize(answer) {
+  const re = /true|false|\d+|[\[\](){},]|\s+/y;
+  const out = [];
+  re.lastIndex = 0;
+  while (re.lastIndex < answer.length) {
+    const at = re.lastIndex;
+    const m = re.exec(answer);
+    if (!m) throw new Error("cannot tokenize answer at " + at + ": " + answer);
+    const t = m[0];
+    if (t === "true" || t === "false") out.push({ slot: "bool", value: t });
+    else if (/^\d+$/.test(t)) out.push({ slot: "num", value: t });
+    else out.push({ lit: t });
+  }
+  return out;
+}
+
+function assemble(tokens, fills) {
+  let k = 0;
+  return tokens.map(t => t.lit !== undefined ? t.lit : (fills[k++] ?? "?")).join("");
+}
+
+function newState() {
+  return { elo: START_ELO, streak: 0, best: 0, attempts: {}, journal: [] };
+}
+/* attempts[n] = {ok:boolean, mode:"type"|"build"|"reveal", delta:number, given:string} */
+function isUnlocked(st, n) { return n === 1 || !!st.attempts[n - 1]; }
+function floorUnlocked(st, f) { return isUnlocked(st, f * 5 + 1); }
+
+function grade(st, n, given, mode) {
+  const p = PUZZLES[n - 1];
+  const ok = mode !== "reveal" && normalize(given) === normalize(p.answer);
+  const first = !st.attempts[n];
+  let delta = 0;
+  if (first) {
+    const pts = mode === "build" ? POINTS.build : POINTS.type;
+    delta = ok ? pts : -pts;
+    st.elo += delta;
+    st.attempts[n] = { ok, mode, delta, given };
+    st.streak = ok ? st.streak + 1 : 0;
+    st.best = Math.max(st.best, st.streak);
+  }
+  return { ok, first, delta, answer: p.answer };
+}
+
+function solvedCount(st) { return Object.values(st.attempts).filter(a => a.ok).length; }
+function attemptedCount(st) { return Object.keys(st.attempts).length; }
+function rankOf(elo) { let r = RANKS[0][1]; for (const [e, name] of RANKS) if (elo >= e) r = name; return r; }
+
+/* ---------- formatting ---------- */
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function highlight(code) {
+  const re = /(--[^\n]*)|("(?:[^"\\]|\\.)*")|(#eval|#guard_msgs|\/-- info:|-\/)|\b(def|abbrev|instance|where|fun|match|with|if|then|else|let|in|structure|inductive|deriving|open|namespace|end|theorem|by|do|return|for|decide|partial)\b|\b(true|false)\b|\b(\d+)\b/g;
+  let out = "", last = 0, m;
+  while ((m = re.exec(code))) {
+    out += esc(code.slice(last, m.index));
+    const cls = m[1] ? "cm" : m[2] ? "st" : m[3] ? "ev" : m[4] ? "kw" : m[5] ? "bo" : "nu";
+    out += `<span class="${cls}">${esc(m[0])}</span>`;
+    last = re.lastIndex;
+  }
+  return out + esc(code.slice(last));
+}
+function inlineMd(s) {
+  return String(s).split("`").map((seg, i) => i % 2
+    ? `<code>${esc(seg)}</code>`
+    : esc(seg).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(\S(?:.*?\S)?)\*/g, "<em>$1</em>")
+  ).join("");
+}
+
+/* ---------- views (return HTML strings) ---------- */
+function viewMap(st) {
+  const done = attemptedCount(st);
+  let h = `<div class="card"><h2 style="margin-top:0">Climb the Topos Tower</h2>
+  <p>Each door hides a short Lean 4 snippet from <em>50 Lean 4 Code Puzzles on Categorial Logic</em>.
+  Predict <b>exactly</b> what <code>#eval output</code> prints. Every answer in this game was checked by Lean itself.</p>
+  <p class="dim">First try only: <b>Type it</b> scores ±${POINTS.type} Elo (as in the book), <b>Build it</b> (structure shown) scores ±${POINTS.build}.
+  Opening a door unlocks the next one. Later tries are free practice.</p>
+  <div class="bar"><div style="width:${done * 2}%"></div></div>
+  <p class="dim" style="margin-bottom:0">${done}/50 doors opened · Rank: <b>${rankOf(st.elo)}</b> · Best streak: ${st.best}</p>
+  <div class="row" style="margin-top:10px">
+   <button class="primary" data-act="next">${done ? "Continue climbing" : "Start at door 1"}</button>
+   <button data-act="random">Random practice</button>
+   <button data-act="stats">Scorecard</button>
+   <button data-act="reset">Reset progress</button></div></div>`;
+  for (let f = FLOORS.length - 1; f >= 0; f--) {
+    const open = floorUnlocked(st, f);
+    h += `<div class="floor ${open ? "" : "locked"}"><div><h3>Floor ${f + 1}: ${esc(FLOORS[f][0])}</h3><div class="dim" style="font-size:13px">${esc(FLOORS[f][1])}</div></div><div class="doors">`;
+    for (let n = f * 5 + 1; n <= f * 5 + 5; n++) {
+      const a = st.attempts[n], u = isUnlocked(st, n), p = PUZZLES[n - 1];
+      const cls = a ? (a.ok ? "ok" : "ko") : u ? "open" : "";
+      const icon = a ? (a.ok ? "✔" : "✘") : u ? "🚪" : "🔒";
+      h += `<button class="door ${cls}" ${u ? "" : "disabled"} data-act="open" data-n="${n}" title="${esc(p.title)}">
+        <span class="num">${icon} ${n}</span><span>${u ? esc(p.title) : "Elo " + p.elo}</span></button>`;
+    }
+    h += `</div></div>`;
+  }
+  return h;
+}
+
+function viewPuzzle(st, n, mode, result) {
+  const p = PUZZLES[n - 1], a = st.attempts[n];
+  let h = `<div class="card"><div class="row"><button data-act="map">← Tower</button>
+    <span class="pill">Floor ${Math.ceil(n / 5)} · Puzzle ${n}/50</span><span class="pill">Puzzle Elo <b>${p.elo}</b></span>
+    ${a ? `<span class="pill">${a.ok ? "✔ solved" : "✘ missed"} · practice mode</span>` : ""}</div>
+    <h2>Puzzle ${n}: ${esc(p.title)}</h2>
+    <div class="dim">Theme: ${inlineMd(p.theme)}</div>
+    <pre class="code">${highlight(p.code)}</pre>
+    <p><b>What's the output of <code>#eval output</code>?</b></p>`;
+  if (!result) {
+    h += `<div class="tabs"><button class="${mode === "type" ? "sel" : ""}" data-act="mode" data-mode="type">⌨ Type it (±${POINTS.type})</button>
+      <button class="${mode === "build" ? "sel" : ""}" data-act="mode" data-mode="build">🧩 Build it (±${POINTS.build})</button></div>`;
+    if (mode === "type") {
+      h += `<input class="typed" id="typed" autocomplete="off" spellcheck="false" placeholder="e.g. (true, [0, 2])">
+        <p class="dim" style="font-size:13px">Spaces are ignored; brackets, commas and values must match Lean's output exactly.</p>`;
+    } else {
+      let k = 0;
+      h += `<div class="builder" id="builder">` + tokenize(p.answer).map(t => {
+        if (t.lit !== undefined) return esc(t.lit);
+        const i = k++;
+        return t.slot === "bool"
+          ? `<button class="slot-b" data-act="cycle" data-i="${i}" data-v="?">?</button>`
+          : `<input data-i="${i}" inputmode="numeric" placeholder="?">`;
+      }).join("") + `</div><p class="dim" style="font-size:13px">Click a truth value to flip it; type each number.</p>`;
+    }
+    h += `<div class="row"><button class="primary" data-act="submit">Run #eval ▶</button>
+      <button data-act="reveal">${a ? "Show solution" : `Give up (−${POINTS.type})`}</button></div>`;
+  } else {
+    h += viewResult(st, n, result);
+  }
+  return h + `</div>`;
+}
+
+function viewResult(st, n, r) {
+  const p = PUZZLES[n - 1];
+  const head = r.revealed ? `<div class="verdict bad">Solution revealed</div>`
+    : r.ok ? `<div class="verdict good">Correct! ${r.first ? `+${r.delta} Elo` : "(practice)"}</div>`
+    : `<div class="verdict bad">Not quite. ${r.first ? `${r.delta} Elo` : "(practice)"}</div>`;
+  const check = `/-- info: ${p.answer} -/\n#guard_msgs in\n#eval output`;
+  return `${head}
+   ${r.given !== undefined && !r.revealed ? `<p>You answered: <code>${esc(r.given)}</code></p>` : ""}
+   <div class="lean"><p style="margin:6px 0">Lean prints:</p><pre class="code">${highlight(p.answer)}</pre>
+   <p class="dim" style="font-size:13px">Machine-checked in <code>${esc(p.file)}</code>:</p><pre class="code">${highlight(check)}</pre></div>
+   <h3>Why</h3><p>${inlineMd(p.explanation)}</p>
+   <div class="row"><button data-act="retry">Try again (practice)</button>
+   ${n < 50 ? `<button class="primary" data-act="open" data-n="${n + 1}">Next door →</button>` : `<button class="primary" data-act="stats">See scorecard</button>`}
+   <button data-act="map">Back to the tower</button></div>`;
+}
+
+function viewStats(st) {
+  const done = attemptedCount(st), ok = solvedCount(st);
+  let h = `<div class="card"><div class="row"><button data-act="map">← Tower</button></div>
+   <h2>Scorecard</h2>
+   <p style="font-size:20px">Elo <b style="color:var(--acc)">${st.elo}</b> — <b>${rankOf(st.elo)}</b></p>
+   <p>${ok} correct out of ${done} attempted${done === 50 ? " — you reached the top of the tower! 🎉" : ""}. Best streak: ${st.best}.</p>
+   <p class="dim">Ranks: ${RANKS.map(([e, r]) => `${r} (${e ? "≥ " + e : "below 950"})`).join(" · ")}. The maximum is ${START_ELO + 50 * POINTS.type}.</p>
+   <table><tr><th>#</th><th>Puzzle</th><th>Floor</th><th>Result</th><th>Elo</th></tr>`;
+  for (const p of PUZZLES) {
+    const a = st.attempts[p.n];
+    h += `<tr><td>${p.n}</td><td>${a ? `<a href="#" data-act="open" data-n="${p.n}" style="color:var(--blue)">${esc(p.title)}</a>` : esc(p.title)}</td><td>${Math.ceil(p.n / 5)}</td>
+     <td>${a ? (a.ok ? "✔ " : "✘ ") + a.mode : "—"}</td><td>${a ? (a.delta > 0 ? "+" : "") + a.delta : ""}</td></tr>`;
+  }
+  return h + `</table></div>`;
+}
+
+/* ---------- browser wiring ---------- */
+if (typeof document !== "undefined") {
+  const KEY = "toposTower.v1";
+  let st;
+  try { st = Object.assign(newState(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) { st = newState(); }
+  let cur = null, mode = "type", fills = [];
+  const app = document.getElementById("app");
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+  const hud = () => {
+    document.getElementById("elo").textContent = st.elo;
+    document.getElementById("streak").textContent = st.streak;
+    document.getElementById("solved").textContent = solvedCount(st);
+  };
+  const toast = msg => { const d = document.createElement("div"); d.className = "toast"; d.textContent = msg; document.body.appendChild(d); setTimeout(() => d.remove(), 2500); };
+  const show = html => { app.innerHTML = html; hud(); window.scrollTo(0, 0); };
+  const openPuzzle = n => {
+    if (!isUnlocked(st, n)) return;
+    cur = n; mode = mode || "type";
+    fills = tokenize(PUZZLES[n - 1].answer).filter(t => t.slot).map(() => "?");
+    show(viewPuzzle(st, n, mode, null));
+    const inp = document.getElementById("typed"); if (inp) inp.focus();
+  };
+  const submit = () => {
+    let given;
+    if (mode === "type") {
+      given = document.getElementById("typed").value;
+      if (!given.trim()) { document.getElementById("typed").classList.add("shake"); return; }
+    } else {
+      document.querySelectorAll("#builder input").forEach(i => { fills[+i.dataset.i] = i.value.trim() || "?"; });
+      if (fills.includes("?")) { const b = document.getElementById("builder"); b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake"); toast("Fill every slot first"); return; }
+      given = assemble(tokenize(PUZZLES[cur - 1].answer), fills);
+    }
+    const r = grade(st, cur, given, mode);
+    r.given = given; save();
+    if (r.ok && r.first && st.streak > 0 && st.streak % 5 === 0) toast(`🔥 ${st.streak} in a row!`);
+    if (r.first && attemptedCount(st) % 5 === 0 && cur % 5 === 0 && cur < 50) toast(`Floor ${cur / 5 + 1} unlocked`);
+    show(viewPuzzle(st, cur, mode, r));
+  };
+  app.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches("input")) submit(); });
+  document.body.addEventListener("click", e => {
+    const el = e.target.closest("[data-act]"); if (!el) return;
+    e.preventDefault();
+    const act = el.dataset.act;
+    if (act === "map") show(viewMap(st));
+    else if (act === "open") openPuzzle(+el.dataset.n);
+    else if (act === "next") { let n = 1; while (n < 50 && st.attempts[n]) n++; openPuzzle(n); }
+    else if (act === "random") { const open = PUZZLES.filter(p => isUnlocked(st, p.n)); openPuzzle(open[Math.floor(Math.random() * open.length)].n); }
+    else if (act === "stats") show(viewStats(st));
+    else if (act === "reset") { if (confirm("Erase all progress and start again at Elo 1000?")) { st = newState(); save(); show(viewMap(st)); } }
+    else if (act === "mode") { mode = el.dataset.mode; openPuzzle(cur); }
+    else if (act === "cycle") { const v = el.dataset.v === "true" ? "false" : "true"; el.dataset.v = v; el.textContent = v; el.className = "slot-b " + v[0]; fills[+el.dataset.i] = v; }
+    else if (act === "submit") submit();
+    else if (act === "retry") openPuzzle(cur);
+    else if (act === "reveal") {
+      const r = grade(st, cur, "", "reveal"); r.revealed = true; save();
+      show(viewPuzzle(st, cur, mode, r));
+    }
+  });
+  show(viewMap(st));
+}
+if (typeof module !== "undefined") module.exports = { PUZZLES, FLOORS, POINTS, START_ELO, normalize, tokenize, assemble, newState, isUnlocked, floorUnlocked, grade, solvedCount, attemptedCount, rankOf, highlight, inlineMd, viewMap, viewPuzzle, viewStats, esc };
+</script>
+</body>
+</html>

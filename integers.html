@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zero to Z: numbers and arithmetic in lambda-D</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #eef7ff; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    width: min(96vw, calc(96vh * 240 / 180));
+    aspect-ratio: 240 / 180;
+    touch-action: manipulation;
+    box-shadow: 0 0 0 4px #1e4a8c, 0 8px 32px #0002;
+    cursor: pointer;
+    outline: none;
+  }
+  canvas:focus-visible { box-shadow: 0 0 0 4px #f2c14e, 0 8px 32px #0002; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+             clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+</style>
+</head>
+<body>
+<main>
+<h1 class="sr-only">Zero to Z: numbers and arithmetic in lambda-D</h1>
+<p id="help-text" class="sr-only">A game about chapter 14 of Type Theory and Formal Proof: the integers built from zero,
+  the successor s and the predecessor p. Space on the title screen opens the level menu: up and down arrows choose, space plays,
+  keys 1 to 7 jump to a level. Levels 1 and 2: left and right arrows walk, space stops. Level 3: left and right arrows pick a point,
+  space marks it, enter checks; then Z or X judges the axiom. Level 4: arrows move, Z: breaks going up, X: breaks going down,
+  B: P of 0 fails, V: P holds everywhere. Levels 5 and 6: keys 1 to 5 apply a rule. Level 7: Z true, X false.
+  Escape: level menu. H: rules. O: accessibility. C: high contrast. R: calm mode. L: read aloud. A: repeat. P: pause. M: sound.
+  There is no timer and no game over.</p>
+<canvas id="screen" tabindex="0" role="application" aria-roledescription="game"
+        aria-label="Zero to Z game screen" aria-describedby="help-text"></canvas>
+<div id="sr" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+</main>
+<script>
+"use strict";
+const W = 240, H = 180;
+const cv = document.getElementById("screen");
+cv.width = W; cv.height = H;
+const ctx = cv.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+const SX = 0, SY = 0;          // no screen shake: the picture never moves
+let TL = null;
+let muted = false;
+
+const COL = {
+  sky: "#eef7ff", sky2: "#dcefd0", ink: "#1d1a2a", grey: "#5d6b7c", dim: "#b4c0ce",
+  gold: "#9a6400", cyan: "#0e7f99", red: "#d1343f", green: "#2e9b55", navy: "#bcd6f2",
+  card: "#ffffff", cardInk: "#16234a", panel: "#ffffff",
+  planets: [["#3f7fdc", "#7fb0f0", "#244e94"], ["#3fb77a", "#86e0ac", "#22704a"],
+            ["#9a62d8", "#c79cf2", "#5d3790"], ["#e08a3c", "#f4bb7d", "#9a5520"]],
+};
+const COL_BASE = Object.assign({}, COL);
+const COL_HIGH = Object.assign({}, COL, {
+  sky: "#ffffff", sky2: "#ffffff", ink: "#000000", grey: "#222222", dim: "#666666",
+  gold: "#7a4f00", cyan: "#005a70", red: "#b00010", green: "#006a20", navy: "#ffe680",
+  card: "#ffffff", cardInk: "#000000", panel: "#ffffff",
+});
+
+// ---- accessibility options (saved in the browser) ----
+//   timer: 0 normal, 1 slow (half speed), 2 off (no time limit)
+//   contrast: high-contrast colours;  calm: no flashing, blinking or bobbing;  speak: read aloud
+const TIMER_NAMES = ["NORMAL", "SLOW", "OFF"], TIMER_RATE = [1, 0.5, 0];
+const opt = { timer: 0, contrast: false, calm: false, speak: false };
+try { opt.calm = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) { /* ignore */ }
+try { opt.contrast = !!(window.matchMedia && window.matchMedia("(prefers-contrast: more)").matches); } catch (e) { /* ignore */ }
+try { Object.assign(opt, JSON.parse(localStorage.getItem("zerotoz.opt") || "{}")); } catch (e) { /* ignore */ }
+function saveOpt() { try { localStorage.setItem("zerotoz.opt", JSON.stringify(opt)); } catch (e) { /* ignore */ } }
+function applyPalette() { Object.assign(COL, opt.contrast ? COL_HIGH : COL_BASE); }
+applyPalette();
+function blinkOn() { return opt.calm || Math.floor(clock * 2) % 2 === 1; }
+
+const FONT = {
+  A:"010101111101101", B:"110101110101110", C:"011100100100011", D:"110101101101110",
+  E:"111100110100111", F:"111100110100100", G:"011100101101011", H:"101101111101101",
+  I:"111010010010111", J:"001001001101010", K:"101101110101101", L:"100100100100111",
+  M:"101111111101101", N:"110101101101101", O:"010101101101010", P:"110101110100100",
+  Q:"010101101110011", R:"110101110101101", S:"011100010001110", T:"111010010010010",
+  U:"101101101101111", V:"101101101101010", W:"101101111111101", X:"101101010101101",
+  Y:"101101010010010", Z:"111001010100111",
+  "0":"111101101101111", "1":"010110010010111", "2":"110001010100111", "3":"110001010001110",
+  "4":"101101111001001", "5":"111100110001110", "6":"011100111101111", "7":"111001010010010",
+  "8":"111101111101111", "9":"111101111001110",
+  " ":"000000000000000", ":":"000010000010000", "-":"000000111000000", ">":"100010001010100",
+  "<":"001010100010001", "!":"010010010000010", ".":"000000000000010", ",":"000000000010100",
+  "(":"001010010010001", ")":"100010010010100", "/":"001001010100100", "?":"110001010000010",
+  "=":"000111000111000", "+":"000010111010000", "'":"010010000000000", "|":"010010010010010",
+  "*":"101010101000000", "·":"000000010000000", "{":"011010110010011", "}":"110010011010110",
+  "a":"000011101101011", "b":"100110101101110", "f":"011010111010010", "i":"010000010010010",
+  "x":"000000101010101", "y":"000101101011110",
+  "Σ":"111100010100111", "Π":"111101101101101", "∃":"111001111001111", "∀":"101101111101010",
+  "σ":"000111101101010", "↓":"0010000100101010111000100", "∘":"000010101010000", "⊆":"011100011000111",
+  "⊣":"001001111001001", "⁻":"000111000000000", "¹":"010110010000000", "∈":"011100111100011",
+  "≠":"001111010111100", "✓":"000001001101010",
+  "→":"0010000010111110001000100", "←":"0010001000111110100000100",
+  "ℰ":"0111010000111001000001111",
+};
+Object.assign(FONT, {
+  "g":"011101011001110", "h":"100100110101101", "e":"000011111100011",
+  "ε":"011100110100011", "[":"110100100100110", "]":"011001001001011",
+  "≅":"0110110010111110000011111", "⇒":"0010011110000011111000100",
+  "↦":"1010010010111111001010100",
+  "≤":"0011011000001100000011110", "≥":"0110000011011000000001111",
+  "⇄":"0001011111000001111101000", "⇉":"0001011111000001111100010",
+  "⇐":"0010001111100000111100100", "×":"000101010101000",
+  "Ω":"0111010001100010101011011", "∅":"0000101110101010111010000",
+  "§":"011110101011110",
+});
+Object.assign(FONT, {
+  "□": "1111110001100011000111111", "◇": "0010001010100010101000100",
+  "¬": "000000111001000", "∧": "000010101101000", "∨": "000101101010000",
+  "↔": "0000001010111110101000000", "⊤": "1111100100001000010000100",
+  "⊥": "0010000100001000010011111", "⊨": "100111100111100",
+  "α": "000011101101011", "β": "010101110101110", "γ": "000101101010010",
+  "δ": "011010101101010", "♥": "0101011111111110111000100",
+  "∞": "0000011011101011101100000",
+  "↑": "0010001110101010010000100",
+});
+function glyph(ch) {
+  if (FONT[ch]) return FONT[ch];
+  return FONT[ch.toUpperCase()] || FONT["?"];
+}
+function glyphW(ch) { return glyph(ch).length === 25 ? 5 : 3; }
+function textWidth(s, k) { k = k || 1; let w = 0; for (const ch of s) w += glyphW(ch) + 1; return Math.max(0, w - 1) * k; }
+function text(s, x, y, color, align, k) {
+  k = k || 1;
+  if (align === "center") x = Math.round(x - textWidth(s, k) / 2);
+  else if (align === "right") x = Math.round(x - textWidth(s, k));
+  x = Math.round(x); y = Math.round(y);
+  if (TL) TL.push({ s, x, y, w: textWidth(s, k), h: 5 * k, c: color });
+  ctx.fillStyle = color;
+  for (const ch of s) {
+    const g = glyph(ch), gw = g.length === 25 ? 5 : 3;
+    for (let p = 0; p < g.length; p++)
+      if (g[p] === "1") ctx.fillRect(x + SX + (p % gw) * k, y + SY + ((p / gw) | 0) * k, k, k);
+    x += (gw + 1) * k;
+  }
+}
+function rect(x, y, w, h, c) {
+  ctx.fillStyle = c; ctx.fillRect(Math.round(x) + SX, Math.round(y) + SY, Math.round(w), Math.round(h));
+}
+function frameBox(x, y, w, h, c) { rect(x, y, w, 1, c); rect(x, y + h - 1, w, 1, c); rect(x, y, 1, h, c); rect(x + w - 1, y, 1, h, c); }
+function disc(cx, cy, r, c) {
+  for (let dy = -r; dy <= r; dy++) {
+    const dx = Math.floor(Math.sqrt(r * r - dy * dy + r * 0.8));
+    rect(cx - dx, cy + dy, 2 * dx + 1, 1, c);
+  }
+}
+
+// ---- random numbers (seedable, for the tests) ----
+let seed = (Date.now() ^ 0x5eed) >>> 0;
+function rnd() { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+function ri(n) { return Math.floor(rnd() * n); }
+function pick(a) { return a[ri(a.length)]; }
+
+// ---- sound ----
+let AC = null;
+function beep(f, d, type) {
+  if (muted) return;
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || "square"; o.frequency.value = f; g.gain.value = 0.05;
+    o.connect(g); g.connect(AC.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + d); o.stop(AC.currentTime + d);
+  } catch (e) { /* no audio */ }
+}
+
+// ---- screen reader and read-aloud ----
+const SR = document.getElementById("sr");
+let lastSaid = "";
+
+Object.assign(FONT, {
+  "s": "000011100001110", "p": "000110101110100", "q": "000011101011001", "m": "000110111101101",
+  "n": "000110101101101", "z": "000111010100111", "k": "100101110101101", "c": "000011100100011",
+  "d": "001011101101011", "o": "000010101101010", "r": "000101110100100", "t": "010111010010011",
+  "u": "000101101101011", "v": "000101101101010", "l": "110010010010111", "w": "000101101111111",
+  "ℤ": "1111100011010101100011111", "∉": "0011101000111111010000111",
+  "…": "000000000000101", "λ": "0100000100001000101010001", "●": "000111111111000", "♥": "0101011111111110111000100", "∞": "0000011011101011101100000",
+});
+
+const WORDS = { "ε": " in ", "∉": " not in ", "ℤ": " Z ", "≤": " at most ", "≥": " at least ", "≠": " not equal to ",
+  "·": " times ", "+": " plus ", "|": " divides ", "∀": " for all ", "∃": " there is ", "⇒": " implies ", "∧": " and ",
+  "¬": " not ", "(": " ", ")": " ", "→": " goes to ", "←": " left arrow ", "✓": " correct ", "♥": " heart ",
+  "∞": " unlimited ", "=": " equals ", "…": " and so on ", "[": " ", "]": " " };
+function speakable(x) {
+  let o = "";
+  const s = String(x).replace(/(^|[\s(=+·])-(\d)/g, "$1minus $2").replace(/ - /g, " minus ");
+  for (const ch of s) o += WORDS[ch] || ch;
+  return o.replace(/\s+/g, " ").trim().toLowerCase();
+}
+function say(x, raw) {
+  const t = raw ? x : speakable(x);
+  lastSaid = t;
+  if (SR) { SR.textContent = ""; SR.textContent = t; }
+  if (opt.speak) {
+    try {
+      const sp = window.speechSynthesis;
+      if (sp) { sp.cancel(); sp.speak(new window.SpeechSynthesisUtterance(t)); }
+    } catch (e) { /* no speech */ }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ZERO TO Z  -  Nederpelt & Geuvers, "Type Theory and Formal Proof",
+// chapter 14 "Numbers and arithmetic in lambda-D".
+// Everything is built from 0, the successor s and the predecessor p.
+// ---------------------------------------------------------------------------
+
+// ---- terms built from s, p and 0: an array of "s"/"p", outermost first ----
+function termStr(ops, inner) {
+  let o = "", c = "";
+  for (const f of ops) { o += f + "("; c += ")"; }
+  return o + (inner === undefined ? "0" : String(inner)) + c;
+}
+function termVal(ops, base) { let v = base || 0; for (let i = ops.length - 1; i >= 0; i--) v += ops[i] === "s" ? 1 : -1; return v; }
+// cancel neighbouring s(p(..)) and p(s(..)) (s-p-ann and p-s-ann, figure 14.3, lines (15) and (17))
+function annihilate(ops) {
+  const st = [];
+  for (let i = ops.length - 1; i >= 0; i--) {
+    const f = ops[i];
+    if (st.length && st[st.length - 1] !== f) st.pop(); else st.push(f);
+  }
+  return st.reverse();
+}
+const NUM = v => (v < 0 ? "-" + (-v) : String(v));
+const PAR = v => (v < 0 ? "(" + NUM(v) + ")" : NUM(v));
+
+// ---- predicates for symmetric induction (figure 14.4) ----
+// each: name shown, f: Z -> bool, total: holds for every integer
+function predicates() {
+  const a = ri(13) - 6, b = a + 2 + ri(5), e = 1 + ri(5);
+  return [
+    { name: "x ≥ " + NUM(a), f: x => x >= a },
+    { name: "x ≤ " + NUM(a), f: x => x <= a },
+    { name: NUM(a) + " ≤ x ≤ " + NUM(b), f: x => x >= a && x <= b },
+    { name: "x ≠ " + NUM(a), f: x => x !== a },
+    { name: "|x| ≤ " + e, f: x => Math.abs(x) <= e },
+    { name: "x IS EVEN", f: x => x % 2 === 0 },
+    { name: "x IS ODD", f: x => Math.abs(x % 2) === 1 },
+    { name: "x < " + NUM(a) + " OR x > " + NUM(b), f: x => x < a || x > b },
+    { name: "0 + x = x", f: () => true, total: true, why: "LEMMA 14.6.1 (A)" },
+    { name: "s(p(x)) = x", f: () => true, total: true, why: "s-p-ANN, FIG. 14.3 (15)" },
+    { name: "p(s(x)) = x", f: () => true, total: true, why: "p-s-ANN, FIG. 14.3 (17)" },
+    { name: "x + 1 = s(x)", f: () => true, total: true, why: "LEMMA 14.8.8 (A)" },
+    { name: "x ≤ x", f: () => true, total: true, why: "LEMMA 14.10.1 (A)" },
+    { name: "x ε N ⇒ x = 0 OR p(x) ε N", f: () => true, total: true, why: "nat-split, LEMMA 14.3.1" },
+  ];
+}
+function genPredicate() {
+  for (;;) {
+    const ps = predicates();
+    const P = ri(10) < 7 ? pick(ps.filter(q => !q.total)) : pick(ps.filter(q => q.total));
+    if (P.total || breakInWindow(P)) return P;
+  }
+}
+const LO = -9, HI = 9;
+// a break the player can see on the street (both x and its neighbour inside -9..9)
+function breakInWindow(P) {
+  if (!P.f(0)) return true;
+  for (let x = LO; x <= HI; x++) {
+    if (P.f(x) && x + 1 <= HI && !P.f(x + 1)) return true;
+    if (P.f(x) && x - 1 >= LO && !P.f(x - 1)) return true;
+  }
+  return false;
+}
+function checkBreak(P, kindOf, x) {
+  if (kindOf === "all") return !!P.total;
+  if (kindOf === "base") return !P.f(0);
+  if (kindOf === "up") return P.f(x) && !P.f(x + 1);
+  if (kindOf === "down") return P.f(x) && !P.f(x - 1);
+  return false;
+}
+function someBreak(P) {
+  if (P.total) return null;
+  if (!P.f(0)) return { k: "base", x: 0 };
+  for (let x = 0; x <= HI; x++) if (P.f(x) && !P.f(x + 1)) return { k: "up", x };
+  for (let x = 0; x >= LO; x--) if (P.f(x) && !P.f(x - 1)) return { k: "down", x };
+  for (let x = LO; x <= HI; x++) { if (P.f(x) && !P.f(x + 1)) return { k: "up", x }; if (P.f(x) && !P.f(x - 1)) return { k: "down", x }; }
+  return null;
+}
+function runs(P) {
+  const out = []; let st = null;
+  for (let x = LO; x <= HI + 1; x++) {
+    const v = x <= HI && P.f(x);
+    if (v && st === null) st = x;
+    if (!v && st !== null) { out.push(st === x - 1 ? NUM(st) : NUM(st) + " to " + NUM(x - 1)); st = null; }
+  }
+  return out.length ? out.join(", ") : "nowhere";
+}
+
+// ---- models for "FIND N" (figures 14.5 and 14.6, and the finite model of section 14.2) ----
+const LET = "abcdefghi";
+function makeModel(kindOf, n, lo) {
+  const nodes = [];
+  if (kindOf === "cycle") {
+    const r = n <= 4 ? 26 : 30;
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + 2 * Math.PI * i / n;
+      nodes.push({ x: Math.round(120 + r * 1.6 * Math.cos(a)), y: Math.round(90 + r * Math.sin(a)), s: (i + 1) % n, lab: LET[i] });
+    }
+    return { kind: "cycle", n, nodes, zero: 0, N: nodes.map(() => true), p0: n - 1 };
+  }
+  // a stretch of the integers lo .. lo+8 (the street goes on both ways)
+  for (let i = 0; i < 9; i++) nodes.push({ x: 24 + i * 24, y: 92, s: i < 8 ? i + 1 : -1, lab: LET[i], v: lo + i });
+  return { kind: "line", n: 9, nodes, zero: -lo, N: nodes.map(o => o.v >= 0), p0: -lo - 1 };
+}
+function genModel(first) {
+  if (first) return makeModel("cycle", 4);
+  const r = ri(7);
+  if (r < 4) return makeModel("cycle", 2 + ri(6));
+  return makeModel("line", 9, -(1 + ri(7)));
+}
+// the smallest set containing 0 and closed under s, computed by following s from 0
+function closureN(Mo) {
+  const inN = Mo.nodes.map(() => false);
+  let i = Mo.zero;
+  while (i >= 0 && !inN[i]) { inN[i] = true; i = Mo.nodes[i].s; }
+  return inN;
+}
+
+// ---- rewriting sums (figure 14.12) and products (figure 14.22) ----
+// sum state:  out (s/p applied outside, outermost first), m, r = { pre: s/p ops, n } or null (then value is m)
+function addStart(m, n) { return { out: [], m, r: { pre: [], n } }; }
+const rhsStr = r => termStr(r.pre, r.n < 0 && !r.pre.length ? "(" + NUM(r.n) + ")" : NUM(r.n));
+function addStr(S) {
+  if (!S.r) return termStr(S.out, NUM(S.m));
+  return termStr(S.out, NUM(S.m) + " + " + rhsStr(S.r));
+}
+const ADD_RULES = [
+  { key: "1", name: "UNFOLD", law: "n := s(n-1), -n := p(1-n)", ok: S => S.r && !S.r.pre.length && S.r.n !== 0,
+    go: S => { const n = S.r.n; S.r.pre = [n > 0 ? "s" : "p"]; S.r.n = n > 0 ? n - 1 : n + 1; } },
+  { key: "2", name: "PLUS-II", law: "x + s(y) = s(x + y)", ok: S => S.r && S.r.pre[0] === "s", go: S => { S.r.pre.shift(); S.out.push("s"); } },
+  { key: "3", name: "PLUS-III", law: "x + p(y) = p(x + y)", ok: S => S.r && S.r.pre[0] === "p", go: S => { S.r.pre.shift(); S.out.push("p"); } },
+  { key: "4", name: "PLUS-I", law: "x + 0 = x", ok: S => S.r && !S.r.pre.length && S.r.n === 0, go: S => { S.r = null; } },
+  { key: "5", name: "FOLD", law: "s(n) = n+1, p(n) = n-1", ok: S => !S.r && S.out.length > 0,
+    go: S => { const f = S.out.pop(); S.m += f === "s" ? 1 : -1; } },
+];
+// product state: m, r = { pre, n } or null, acc (value once r is gone), tail: list of "+"/"-" (innermost first)
+function mulStart(m, n) { return { m, r: { pre: [], n }, acc: null, tail: [] }; }
+function mulStr(S) {
+  let core = S.r ? NUM(S.m) + " · " + rhsStr(S.r) : NUM(S.acc);
+  const mm = S.m < 0 ? "(" + NUM(S.m) + ")" : NUM(S.m);
+  for (let i = 0; i < S.tail.length; i++) core = (i > 0 || S.r ? "(" + core + ")" : core) + " " + S.tail[i] + " " + mm;
+  return core;
+}
+const MUL_RULES = [
+  ADD_RULES[0],
+  { key: "2", name: "TIMES-II", law: "x · s(y) = (x · y) + x", ok: S => S.r && S.r.pre[0] === "s", go: S => { S.r.pre.shift(); S.tail.unshift("+"); } },
+  { key: "3", name: "TIMES-III", law: "x · p(y) = (x · y) - x", ok: S => S.r && S.r.pre[0] === "p", go: S => { S.r.pre.shift(); S.tail.unshift("-"); } },
+  { key: "4", name: "TIMES-I", law: "x · 0 = 0", ok: S => S.r && !S.r.pre.length && S.r.n === 0, go: S => { S.r = null; S.acc = 0; } },
+  { key: "5", name: "ADD", law: "SUMS AS IN LEVEL 5", ok: S => !S.r && S.tail.length > 0,
+    go: S => { const t = S.tail.shift(); S.acc += t === "+" ? S.m : -S.m; } },
+];
+function rulesFor(k) { return k === "add" ? ADD_RULES : MUL_RULES; }
+function strFor(k, S) { return k === "add" ? addStr(S) : mulStr(S); }
+function isDone(k, S) { return k === "add" ? !S.r && !S.out.length : !S.r && !S.tail.length; }
+function valueOf(k, S) { return k === "add" ? S.m : S.acc; }
+function parSteps(n) { return 3 * Math.abs(n) + 1; }
+
+// ---- order and divisibility claims (figures 14.9, 14.18 and 14.23) ----
+function genClaim() {
+  const r = ri(7);
+  if (r <= 1) {
+    const x = ri(13) - 6, y = ri(13) - 6, d = y - x;
+    if (r === 0) return { s: NUM(x) + " ≤ " + NUM(y), ans: d >= 0, def: "x ≤ y := y - x ε N", x, y,
+      why: NUM(y) + " - " + PAR(x) + " = " + NUM(d) + (d >= 0 ? " ε N" : " ∉ N") };
+    return { s: NUM(x) + " < " + NUM(y), ans: d > 0, def: "x < y := x ≤ y ∧ x ≠ y", x, y,
+      why: d < 0 ? NUM(y) + " - " + PAR(x) + " = " + NUM(d) + " ∉ N" : d === 0 ? "x = y, SO NOT x ≠ y" : NUM(y) + " - " + PAR(x) + " = " + NUM(d) + " ε N AND x ≠ y" };
+  }
+  if (r <= 3) {
+    const m = ri(9) - 4;
+    let n;
+    if (m === 0) n = ri(3) ? 0 : ri(13) - 6;
+    else n = ri(2) ? m * (ri(7) - 3) : ri(25) - 12;
+    const ans = m === 0 ? n === 0 : n % m === 0;
+    let why;
+    if (m === 0) why = n === 0 ? "0 · q = 0 FOR EVERY q (LEMMA 14.12.1)" : "0 · q = 0 ≠ " + NUM(n) + " FOR EVERY q";
+    else if (ans) { const q = n / m; why = "q = " + NUM(q === 0 ? 0 : q) + ": " + NUM(m) + " · " + (q < 0 ? "(" + NUM(q) + ")" : NUM(q === 0 ? 0 : q)) + " = " + NUM(n); }
+    else why = "NO q: " + NUM(n) + " IS NOT A MULTIPLE OF " + NUM(m);
+    return { s: NUM(m) + " | " + NUM(n), ans, def: "m | n := ∃q (m · q = n)", why, y: n };
+  }
+  const x = ri(15) - 7, w = ri(3);
+  if (w === 0) return { s: NUM(x) + " ε N", ans: x >= 0, def: "N: 0 AND ITS s-SUCCESSORS", why: x >= 0 ? NUM(x) + " = s(…s(0)…)" : NUM(x) + " < 0", x };
+  if (w === 1) return { s: "pos(" + NUM(x) + ")", ans: x - 1 >= 0, def: "pos(x) := p(x) ε N", why: "p(" + NUM(x) + ") = " + NUM(x - 1) + (x - 1 >= 0 ? " ε N" : " ∉ N"), x };
+  return { s: "neg(" + NUM(x) + ")", ans: x < 0, def: "neg(x) := ¬(x ε N)", why: NUM(x) + (x >= 0 ? " ε N" : " ∉ N"), x };
+}
+
+// ---------------------------------------------------------------------------
+// Levels
+// ---------------------------------------------------------------------------
+const LEVELS = [
+  { name: "COUNT UP", sec: "§14.1 THE PEANO AXIOMS", kind: "walk", short: "s(s(0))",
+    lines: ["PEANO: A SET N WITH 0 AND A SUCCESSOR s.", "1 := s(0), 2 := s(1), 3 := s(2), …",
+            "WALK TO THE NUMBER THAT THE TERM NAMES."], keys: "←/→ WALK   SPACE: STOP HERE" },
+  { name: "BOTH WAYS", sec: "§14.2 INTEGERS: s IS A BIJECTION", kind: "walk", short: "s(p(0))",
+    lines: ["IN ℤ, s IS A BIJECTION (AX-INT 1), WITH", "INVERSE p: s(p(y)) = y AND p(s(y)) = y.",
+            "s STEPS RIGHT, p STEPS LEFT. WHERE IS IT?"], keys: "←/→ WALK   SPACE: STOP HERE" },
+  { name: "FIND N", sec: "§14.2 N AS A SUBSET OF ℤ", kind: "findN", short: "nat-cond",
+    lines: ["x ε N IF EVERY P WITH P(0) AND", "P(y) ⇒ P(s(y)) HOLDS AT x: THE SMALLEST", "SUCH SET. MARK IT, THEN JUDGE AX-INT 3."],
+    keys: "←/→ PICK  SPACE: MARK  ENTER: CHECK" },
+  { name: "BROKEN DOMINO", sec: "§14.2 SYMMETRIC INDUCTION", kind: "domino", short: "AX-INT 2",
+    lines: ["P(0) ∧ ∀x (P(x) ⇒ P(s(x)) ∧ P(p(x)))", "⇒ ∀x P(x). IF P IS NOT EVERYWHERE,", "FIND WHERE THE DOMINOES BREAK."],
+    keys: "←/→ MOVE  Z: UP  X: DOWN  B: P(0)  V: ∀" },
+  { name: "ADD BY RULES", sec: "§14.4-14.5 INTEGER ADDITION", kind: "add", short: "PLUS-I,II",
+    lines: ["PLUS-I: x + 0 = x", "PLUS-II: x + s(y) = s(x + y)", "PLUS-III: x + p(y) = p(x + y)"],
+    keys: "1-5: APPLY A RULE" },
+  { name: "TIMES BY RULES", sec: "§14.11 MULTIPLICATION", kind: "mul", short: "TIMES-I,II",
+    lines: ["TIMES-I: x · 0 = 0", "TIMES-II: x · s(y) = (x · y) + x", "TIMES-III: x · p(y) = (x · y) - x"],
+    keys: "1-5: APPLY A RULE" },
+  { name: "ORDER AND DIVIDE", sec: "§14.3, 14.10, 14.12", kind: "tf", short: "≤  |  pos",
+    lines: ["x ≤ y := y - x ε N", "m | n := ∃q (m · q = n)", "pos(x) := p(x) ε N, neg(x) := ¬(x ε N)"],
+    keys: "Z/←: TRUE   X/→: FALSE" },
+];
+const NL = LEVELS.length, GOAL = 5;
+const RULES = [
+  "ZERO TO ℤ: NUMBERS FROM 0, s AND p",
+  "1 COUNT UP: s(s(0)) IS 2. WALK THERE.",
+  "2 BOTH WAYS: s(p(y)) = y = p(s(y)).",
+  "3 FIND N: 0 AND WHAT s REACHES FROM IT.",
+  "  AX-INT 3: p(0) IS NOT IN N.",
+  "4 BROKEN DOMINO: P(x) BUT NOT P(s(x)),",
+  "  P(x) BUT NOT P(p(x)), OR NOT P(0).",
+  "5-6 RULES: PICK THE LAW THAT MATCHES.",
+  "7 TRUE OR FALSE BY THE DEFINITIONS.",
+  "GET 5 RIGHT TO CLEAR A LEVEL. ♥∞",
+  "ESC: LEVELS  P: PAUSE  M: SOUND",
+];
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let state = "title", prevState = "title", helpPage = 0;
+let L = 0, hits = 0, score = 0, misses = 0, combo = 0, hi = 0, clock = 0, flash = 0, flashC = "#fff";
+let selL = 0, cleared = [];
+let R = null;             // the current round
+let res = null, msg = "", msgT = 0, msgC = "#fff", roundNo = 0;
+const stars = []; for (let k = 0; k < 40; k++) stars.push([ri(W), ri(60), ri(3)]);
+try { hi = +(localStorage.getItem("zerotoz.hi") || 0); } catch (e) { hi = 0; }
+try { cleared = JSON.parse(localStorage.getItem("zerotoz.cleared") || "[]"); } catch (e) { cleared = []; }
+if (!Array.isArray(cleared)) cleared = [];
+function markCleared(i) {
+  if (cleared.includes(i)) return;
+  cleared.push(i);
+  try { localStorage.setItem("zerotoz.cleared", JSON.stringify(cleared)); } catch (e) { /* ignore */ }
+}
+function levelSaying(i) { return "Level " + (i + 1) + ", " + LEVELS[i].name + (cleared.includes(i) ? ", cleared" : ""); }
+function openMenu() {
+  paused = false; state = "menu";
+  say("Choose a level. Up and down arrows move, space or enter plays, keys 1 to " + NL + " jump to a level. " + levelSaying(selL) + ".");
+}
+function moveSel(d) { selL = (selL + d + NL) % NL; beep(500 + 30 * selL, 0.04); say(levelSaying(selL)); }
+function menuRow(i) { return [24, 30 + i * 16, 192, 13]; }
+function newGame(start) {
+  L = start === undefined ? 0 : start; selL = L;
+  hits = 0; combo = 0; roundNo = 0; state = "intro"; announceIntro();
+}
+function announceIntro() {
+  const sp = LEVELS[L];
+  say("Level " + (L + 1) + ", " + sp.name + ". " + sp.sec + ". " + sp.lines.join(" ") + " Keys: " + sp.keys + ". Get " + GOAL + " right to clear the level. Press space to begin.");
+}
+
+// ---------------------------------------------------------------------------
+// Rounds
+// ---------------------------------------------------------------------------
+function startRound() {
+  const sp = LEVELS[L];
+  res = null; msg = ""; msgT = 0;
+  const first = roundNo === 0;
+  roundNo++;
+  if (sp.kind === "walk") {
+    let ops;
+    if (L === 0) { const k = first ? 3 : 1 + ri(8); ops = Array(k).fill("s"); }
+    else {
+      for (;;) {
+        const len = 3 + ri(6); ops = [];
+        for (let i = 0; i < len; i++) ops.push(ri(2) ? "s" : "p");
+        const v = termVal(ops);
+        if (ops.includes("s") && ops.includes("p") && v >= LO && v <= HI && v !== 0 || (v === 0 && ri(4) === 0 && ops.includes("s") && ops.includes("p"))) break;
+      }
+    }
+    R = { kind: "walk", ops, ans: termVal(ops), cur: 0 };
+    say("Where is " + termStr(R.ops) + "? You stand at 0. Left and right arrows walk, space stops.");
+  } else if (sp.kind === "findN") {
+    const Mo = genModel(first);
+    R = { kind: "findN", Mo, mark: Mo.nodes.map((_, i) => i === Mo.zero), cur: Mo.zero, phase: 0, N: closureN(Mo) };
+    say(describeModelSpeech(Mo) + " Mark every point of N, then press enter. 0 is already marked.");
+  } else if (sp.kind === "domino") {
+    const P = genPredicate();
+    R = { kind: "domino", P, cur: 0 };
+    say("P of x is: " + P.name + ". It holds at " + runs(P) + ". Show where symmetric induction breaks: Z, P x but not P of s x. X, P x but not P of p x. B, P of 0 fails. Or V, induction proves P everywhere.");
+  } else if (sp.kind === "add" || sp.kind === "mul") {
+    let m, n;
+    if (sp.kind === "add") { if (first) { m = 1; n = 2; } else { m = ri(10) - 3; n = ri(7) - 3; if (n === 0 && ri(2)) n = 1 + ri(3); } }
+    else { if (first) { m = 3; n = 2; } else { m = ri(8) - 3; n = ri(6) - 2; if (n === 0 && ri(2)) n = 2; } }
+    const S = sp.kind === "add" ? addStart(m, n) : mulStart(m, n);
+    R = { kind: sp.kind, m, n, S, chain: [{ e: strFor(sp.kind, S), rule: "" }], wrong: 0 };
+    say("Compute " + strFor(sp.kind, S) + " by rules. " + rulesSaying(sp.kind) + " Now: " + strFor(sp.kind, S));
+  } else {
+    const C = genClaim();
+    R = { kind: "tf", C };
+    say("True or false: " + C.s + ". Definition: " + C.def + ". Z true, X false.");
+  }
+  state = "play";
+}
+function rulesSaying(k) { return rulesFor(k).map(r => "key " + r.key + ", " + r.name + ": " + r.law).join(". ") + "."; }
+function describeModelSpeech(Mo) {
+  if (Mo.kind === "cycle") return "A finite model with " + Mo.n + " points " + LET.slice(0, Mo.n).split("").join(", ") +
+    ". 0 is a. s goes round: " + Mo.nodes.map(o => o.lab + " to " + Mo.nodes[o.s].lab).join(", ") + ".";
+  return "A stretch of the integers from " + NUM(Mo.nodes[0].v) + " to " + NUM(Mo.nodes[8].v) + ", going on both ways. s steps right. 0 is point " + Mo.nodes[Mo.zero].lab + ".";
+}
+function finishRound(ok, lines, gainBase) {
+  if (ok) {
+    combo++; hits++;
+    const gain = (gainBase === undefined ? 10 * (L + 1) : gainBase) + 5 * (combo - 1);
+    score += gain; flash = 0.3; flashC = COL.green; beep(660 + 40 * Math.min(combo, 8), 0.12);
+    lines.unshift("+" + gain + (combo > 1 ? "  COMBO X" + combo : ""));
+    if (score > hi) { hi = score; try { localStorage.setItem("zerotoz.hi", String(hi)); } catch (e) { /* ignore */ } }
+  } else {
+    misses++; combo = 0; flash = 0.3; flashC = COL.red; beep(220, 0.15, "triangle");
+  }
+  res = { ok, lines, age: 0 };
+  state = "result";
+  say(lines.join(". ") + ". Press space to go on.");
+}
+function next() {
+  if (state !== "result" || res.age < 0.25) return;
+  if (hits >= GOAL) {
+    markCleared(L); beep(880, 0.2);
+    if (L + 1 >= NL) { state = "done"; say("You built the integers! Final score " + score + ". Press space for the level menu."); return; }
+    L++; selL = L; hits = 0; roundNo = 0; state = "intro"; announceIntro(); return;
+  }
+  startRound();
+}
+
+// ---- player actions ----
+function walk(d) {
+  if (state !== "play" || !R) return;
+  if (R.kind === "walk" || R.kind === "domino") {
+    R.cur = Math.max(LO, Math.min(HI, R.cur + d)); beep(300 + 20 * (R.cur + 9), 0.03);
+    say(NUM(R.cur) + (R.kind === "domino" ? (R.P.f(R.cur) ? ", P holds" : ", P fails") : ""));
+  } else if (R.kind === "findN" && R.phase === 0) {
+    R.cur = (R.cur + d + R.Mo.n) % R.Mo.n; beep(400 + 30 * R.cur, 0.03);
+    say("point " + R.Mo.nodes[R.cur].lab + (R.mark[R.cur] ? ", marked" : ", not marked"));
+  }
+}
+function land(x) {
+  if (state !== "play" || !R || R.kind !== "walk") return;
+  if (x !== undefined) R.cur = x;
+  const ok = R.cur === R.ans;
+  const red = annihilate(R.ops);
+  const lines = [(ok ? "RIGHT! " : "NO: ") + termStr(R.ops) + " = " + NUM(R.ans)];
+  if (L === 0) lines.push(R.ans + " STEPS OF s FROM 0");
+  else lines.push(red.length < R.ops.length ? "CANCEL s(p(..)), p(s(..)): " + termStr(red) : "COUNT: " + R.ops.filter(f => f === "s").length + " s, " + R.ops.filter(f => f === "p").length + " p");
+  finishRound(ok, lines);
+}
+function toggleNode(i) {
+  if (state !== "play" || !R || R.kind !== "findN" || R.phase !== 0 || i < 0 || i >= R.Mo.n) return;
+  R.cur = i;
+  R.mark[i] = !R.mark[i]; beep(R.mark[i] ? 520 : 360, 0.05);
+  say("point " + R.Mo.nodes[i].lab + (R.mark[i] ? " marked" : " unmarked"));
+}
+function checkN() {
+  if (state !== "play" || !R || R.kind !== "findN" || R.phase !== 0) return;
+  const Mo = R.Mo;
+  const ok = R.mark.every((v, i) => v === R.N[i]);
+  if (!ok) {
+    const extra = R.mark.findIndex((v, i) => v && !R.N[i]), miss = R.mark.findIndex((v, i) => !v && R.N[i]);
+    R.mark = R.N.slice();
+    finishRound(false, ["NO: N IS 0 AND ALL ITS s-SUCCESSORS",
+      miss >= 0 ? Mo.nodes[miss].lab + " IS REACHED FROM 0 BY s" : Mo.nodes[extra].lab + " IS NOT: TAKE P := THE MARKED SET"]);
+    return;
+  }
+  R.phase = 1; beep(700, 0.08);
+  msg = "RIGHT, THAT IS N!"; msgT = 2; msgC = COL.green;
+  say("Right, that is N. Now: does ax-int 3 hold here, that p of 0 is not in N? p of 0 is point " + Mo.nodes[Mo.p0].lab + ". Z yes, X no.");
+}
+function judgeAx3(v) {
+  if (state !== "play" || !R || R.kind !== "findN" || R.phase !== 1) return;
+  const holds = !R.N[R.Mo.p0];
+  const ok = v === holds, Mo = R.Mo;
+  const lines = [(ok ? "RIGHT! " : "NO: ") + "p(0) = " + Mo.nodes[Mo.p0].lab + (holds ? " ∉ N: AX-INT 3 HOLDS" : " ε N: AX-INT 3 FAILS")];
+  lines.push(Mo.kind === "cycle" ? "HERE N = EVERYTHING: A LOOP, NOT ℤ" : "N = 0, 1, 2, …: LIKE THE REAL ℤ");
+  finishRound(ok, lines, 10 * (L + 1) + 10);
+}
+function domino(kindOf) {
+  if (state !== "play" || !R || R.kind !== "domino") return;
+  const P = R.P, x = R.cur, ok = checkBreak(P, kindOf, x);
+  const lines = [];
+  if (ok) {
+    if (kindOf === "all") lines.push("RIGHT! P(0) AND BOTH STEPS HOLD: ∀x P(x)", P.why);
+    else if (kindOf === "base") lines.push("RIGHT! P(0) FAILS: " + P.name + " IS FALSE AT 0", "SO INDUCTION CANNOT START");
+    else lines.push("RIGHT! P(" + NUM(x) + ") BUT NOT P(" + NUM(kindOf === "up" ? x + 1 : x - 1) + ")",
+      kindOf === "up" ? "s(" + NUM(x) + ") = " + NUM(x + 1) + ": THE UP STEP FAILS" : "p(" + NUM(x) + ") = " + NUM(x - 1) + ": THE DOWN STEP FAILS");
+  } else {
+    const b = someBreak(P);
+    if (kindOf === "all") lines.push("NO: P IS NOT TRUE EVERYWHERE");
+    else if (kindOf === "base") lines.push("NO: P(0) HOLDS (0 IS LIT)");
+    else if (!P.f(x)) lines.push("NO: P(" + NUM(x) + ") IS FALSE, START ON A LIT CELL");
+    else lines.push("NO: P(" + NUM(kindOf === "up" ? x + 1 : x - 1) + ") HOLDS TOO");
+    if (!b) lines.push("IT HOLDS EVERYWHERE: CLAIM ∀ WITH V. " + P.why);
+    else if (b.k === "base") lines.push("ONE BREAK: P(0) FAILS");
+    else lines.push("ONE BREAK: P(" + NUM(b.x) + ") BUT NOT P(" + NUM(b.k === "up" ? b.x + 1 : b.x - 1) + ")");
+  }
+  finishRound(ok, lines);
+}
+function applyRule(i) {
+  if (state !== "play" || !R || (R.kind !== "add" && R.kind !== "mul")) return;
+  const rules = rulesFor(R.kind), rule = rules[i];
+  if (!rule) return;
+  if (!rule.ok(R.S)) {
+    R.wrong++; combo = 0; beep(200, 0.08, "triangle");
+    msg = rule.name + " DOES NOT MATCH " + strFor(R.kind, R.S); msgT = 2.5; msgC = COL.red;
+    say(rule.name + " does not match. " + rule.law + ". Now: " + strFor(R.kind, R.S));
+    return;
+  }
+  rule.go(R.S); beep(500 + 40 * R.chain.length, 0.05);
+  R.chain.push({ e: strFor(R.kind, R.S), rule: rule.name });
+  if (isDone(R.kind, R.S)) {
+    const v = valueOf(R.kind, R.S), steps = R.chain.length - 1;
+    const op = R.kind === "add" ? " + " : " · ";
+    const lines = [(R.wrong ? "DONE: " : "PERFECT! ") + NUM(R.m) + op + (R.n < 0 ? "(" + NUM(R.n) + ")" : NUM(R.n)) + " = " + NUM(v),
+      steps + " STEPS, " + Math.max(0, steps - 1) + " USES OF eq-trans" + (R.wrong ? ", " + R.wrong + " MISMATCH" + (R.wrong > 1 ? "ES" : "") : "")];
+    finishRound(true, lines, Math.max(10, 10 * (L + 1) + 2 * steps - 10 * R.wrong));
+  } else say(rule.name + ". Now: " + strFor(R.kind, R.S));
+}
+function answerTF(v) {
+  if (state !== "play" || !R || R.kind !== "tf") return;
+  const C = R.C, ok = v === C.ans;
+  finishRound(ok, [(ok ? "RIGHT! " : "NO: ") + C.s + " IS " + (C.ans ? "TRUE" : "FALSE"), C.why]);
+}
+
+// ---------------------------------------------------------------------------
+// Update and draw
+// ---------------------------------------------------------------------------
+function update(dt) {
+  clock += dt;
+  if (flash > 0) flash -= dt;
+  if (msgT > 0) { msgT -= dt; if (msgT <= 0) msg = ""; }
+  if (state === "result") res.age += dt;
+}
+const cellX = v => 6 + (v - LO) * 12;
+const STREET_Y = 132;
+function cellAt(x, y) {
+  if (y < STREET_Y - 4 || y > STREET_Y + 22) return null;
+  const v = Math.floor((x - 6) / 12) + LO;
+  return v >= LO && v <= HI ? v : null;
+}
+function buttons() {
+  if (state !== "play" || !R) return [];
+  const B = (x, w, label, act, c) => ({ x, y: 164, w, h: 14, label, act, c });
+  if (R.kind === "walk") return [B(70, 100, "STOP HERE [SPACE]", () => land(), COL.gold)];
+  if (R.kind === "findN") return R.phase === 0 ? [B(70, 100, "CHECK N [ENTER]", checkN, COL.gold)]
+    : [B(8, 108, "AX-INT 3 HOLDS [Z]", () => judgeAx3(true), COL.green), B(124, 108, "IT FAILS [X]", () => judgeAx3(false), COL.red)];
+  if (R.kind === "domino") return [B(2, 58, "UP s [Z]", () => domino("up"), COL.cyan), B(62, 58, "DOWN p [X]", () => domino("down"), COL.cyan),
+    B(122, 58, "NOT P(0) [B]", () => domino("base"), COL.red), B(182, 56, "∀x P(x) [V]", () => domino("all"), COL.green)];
+  if (R.kind === "add" || R.kind === "mul") return rulesFor(R.kind).map((r, i) => B(2 + i * 47.6, 45, r.key + " " + r.name, () => applyRule(i), COL.cyan));
+  return [B(8, 108, "TRUE [Z/←]", () => answerTF(true), COL.green), B(124, 108, "FALSE [X/→]", () => answerTF(false), COL.red)];
+}
+function drawSky(noStars) {
+  rect(0, 0, W, H, COL.sky);
+  rect(0, 120, W, 60, COL.sky2);
+  if (!noStars) for (const [x, y, b] of stars) if (opt.calm || ((clock * 2 + x) | 0) % 7 || b) rect(x, y + 14, 1, 1, b ? COL.grey : COL.dim);
+}
+function drawHUD() {
+  text("LV" + (L + 1) + " " + LEVELS[L].name, 3, 3, COL.ink);
+  text("SCORE " + score, 160, 3, COL.gold, "center");
+  text("♥", 222, 3, COL.red); text("∞", 237, 3, COL.red, "right");
+  for (let k = 0; k < GOAL; k++) rect(3 + k * 7, 10, 6, 2, k < hits ? COL.gold : COL.dim);
+  if (combo > 1) text("COMBO X" + combo, 237, 10, COL.cyan, "right");
+}
+// a small walker
+function drawWalker(x, y, c) {
+  const f = opt.calm ? 0 : Math.floor(clock * 4) % 2;
+  rect(x - 2, y - 11 - f, 5, 4, c);
+  rect(x - 3, y - 7 - f, 7, 4, COL.ink);
+  rect(x - 3, y - 3, 2, 3, c); rect(x + 2, y - 3, 2, 3, c);
+}
+// the street of integers -9 .. 9
+function drawStreet(lit, mark) {
+  for (let v = LO; v <= HI; v++) {
+    const x = cellX(v), on = lit ? lit(v) : false;
+    rect(x + 1, STREET_Y, 10, 9, on ? COL.gold : (v === 0 ? COL.navy : COL.dim));
+    if (on) rect(x + 2, STREET_Y + 1, 8, 2, COL.ink);
+    const lab = NUM(v);
+    text(lab, x + 6, STREET_Y + 12, v === 0 ? COL.gold : COL.grey, "center");
+    if (mark && mark(v)) frameBox(x, STREET_Y - 1, 12, 11, COL.cyan);
+  }
+}
+function wrapText(s, maxW) {
+  const words = s.split(" "), out = []; let cur = "";
+  for (const w of words) {
+    const t = cur ? cur + " " + w : w;
+    if (textWidth(t) > maxW && cur) { out.push(cur); cur = w; } else cur = t;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+function card(lines, y, colors) {
+  const h = lines.length * 9 + 6;
+  rect(6, y, 228, h, COL.card); frameBox(6, y, 228, h, COL.navy);
+  lines.forEach((l, i) => text(l, 120, y + 4 + i * 9, (colors && colors[i]) || COL.cardInk, "center"));
+  return h;
+}
+function drawButtons() {
+  for (const b of buttons()) {
+    rect(b.x, b.y, b.w, b.h, COL.panel); frameBox(b.x, b.y, b.w, b.h, b.c);
+    text(b.label, b.x + b.w / 2, b.y + 5, b.c, "center");
+  }
+}
+function drawModel(Mo, mark, cur, showP0) {
+  const nodes = Mo.nodes;
+  // arrows of s
+  for (let i = 0; i < Mo.n; i++) {
+    const a = nodes[i];
+    if (a.s < 0) { for (let k = 0; k < 3; k++) rect(a.x + 7 + k * 3, a.y, 1, 1, COL.grey); continue; }
+    const b = nodes[a.s], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+    const steps = Math.floor(len);
+    for (let k = 8; k < steps - 8; k += 2) rect(a.x + dx * k / len, a.y + dy * k / len, 1, 1, COL.cyan);
+    const hx = a.x + dx * (len - 9) / len, hy = a.y + dy * (len - 9) / len;
+    rect(hx - 1, hy - 1, 3, 3, COL.cyan);
+  }
+  if (Mo.kind === "line") for (let k = 0; k < 3; k++) rect(nodes[0].x - 13 + k * 3, nodes[0].y, 1, 1, COL.grey);
+  for (let i = 0; i < Mo.n; i++) {
+    const o = nodes[i], on = mark[i];
+    disc(o.x, o.y, 6, on ? COL.gold : COL.dim);
+    text(o.lab, o.x, o.y - 2, on ? COL.cardInk : COL.ink, "center");
+    if (i === cur) frameBox(o.x - 8, o.y - 8, 17, 17, COL.cyan);
+    let lab = Mo.kind === "line" ? NUM(o.v) : (i === Mo.zero ? "0" : "");
+    if (lab) text(lab, o.x, o.y + 9, i === Mo.zero ? COL.gold : COL.grey, "center");
+    if (showP0 && i === Mo.p0) text("p(0)", o.x, o.y - 15, COL.red, "center");
+  }
+}
+function drawPlay() {
+  drawSky(true); drawHUD();
+  if (!R) return;
+  const showRes = state === "result";
+  if (R.kind === "walk") {
+    card(["WHERE IS", termStr(R.ops)], 18);
+    text("s: ONE STEP RIGHT    p: ONE STEP LEFT", 120, 46, COL.grey, "center");
+    text("YOU STAND AT " + NUM(R.cur) + " = " + termStr(Array(Math.abs(R.cur)).fill(R.cur >= 0 ? "s" : "p")), 120, 60, COL.cyan, "center");
+    drawStreet(v => showRes && v === R.ans, null);
+    drawWalker(cellX(R.cur) + 6, STREET_Y - 1, COL.cyan);
+    if (showRes && !res.ok) text("↓", cellX(R.ans) + 4, STREET_Y - 9, COL.green);
+  } else if (R.kind === "domino") {
+    card(["P(x) := " + R.P.name, "SYMMETRIC INDUCTION: WHERE DOES IT BREAK?"], 18);
+    text("P(0)  ∧  P(x) ⇒ P(s(x))  ∧  P(x) ⇒ P(p(x))", 120, 46, COL.grey, "center");
+    text("LIT CELL = P HOLDS THERE", 120, 56, COL.grey, "center");
+    drawStreet(v => R.P.f(v), v => v === R.cur);
+    drawWalker(cellX(R.cur) + 6, STREET_Y - 1, COL.cyan);
+    text("… ", 2, STREET_Y + 2, COL.grey); text("…", 237, STREET_Y + 2, COL.grey, "right");
+  } else if (R.kind === "findN") {
+    const Mo = R.Mo;
+    card(R.phase === 0 ? ["MARK N: CONTAINS 0, CLOSED UNDER s,", "AND THE SMALLEST SUCH SET"] :
+      ["AX-INT 3:  ¬(p(0) ε N)", "DOES IT HOLD IN THIS MODEL?"], 18);
+    text(Mo.kind === "cycle" ? "A FINITE MODEL: s ROTATES (§14.2)" : "A STRETCH OF ℤ: IT GOES ON BOTH WAYS", 120, 44, COL.grey, "center");
+    drawModel(Mo, R.mark, showRes || R.phase === 1 ? -1 : R.cur, R.phase === 1 || showRes);
+  } else if (R.kind === "add" || R.kind === "mul") {
+    const lines = R.chain.slice(-6);
+    rect(6, 18, 228, 78, COL.panel); frameBox(6, 18, 228, 78, COL.dim);
+    lines.forEach((c, i) => {
+      const last = i === lines.length - 1;
+      text((i === 0 && R.chain.length <= 6 ? "  " : "= ") + c.e, 10, 22 + i * 12, last ? COL.gold : COL.ink);
+      if (c.rule) text(c.rule, 230, 22 + i * 12, COL.cyan, "right");
+    });
+    const rules = rulesFor(R.kind);
+    rules.forEach((r, i) => {
+      text(r.key + " " + r.name + ": " + r.law, 10, 100 + i * 8, COL.grey);
+    });
+  } else if (R.kind === "tf") {
+    card(["TRUE OR FALSE?", R.C.s], 18);
+    text("DEFINITION: " + R.C.def, 120, 46, COL.grey, "center");
+    drawStreet(v => R.C.x !== undefined && v === R.C.x || R.C.y !== undefined && R.C.x !== undefined && v === R.C.y, null);
+  }
+  if (state === "play") drawButtons();
+  if (msg && state === "play") {
+    const ls = wrapText(msg, 220);
+    rect(6, 150 - ls.length * 9, 228, ls.length * 9 + 2, COL.panel);
+    ls.forEach((l, i) => text(l, 120, 151 - ls.length * 9 + i * 9, msgC, "center"));
+  }
+  if (showRes) {
+    const ls = [];
+    res.lines.forEach(l => ls.push(...wrapText(l, 220)));
+    const h = ls.length * 9 + 14, y = R.kind === "walk" || R.kind === "domino" || R.kind === "tf" ? 70 : H - h - 2;
+    rect(4, y, 232, h, COL.panel); frameBox(4, y, 232, h, res.ok ? COL.green : COL.red);
+    ls.forEach((l, i) => text(l, 120, y + 4 + i * 9, i === 0 ? (res.ok ? COL.green : COL.red) : COL.ink, "center"));
+    if (blinkOn()) text("SPACE: NEXT", 120, y + h - 8, COL.grey, "center");
+  }
+  if (flash > 0 && !opt.calm) { ctx.globalAlpha = Math.min(0.25, flash); rect(0, 0, W, H, flashC); ctx.globalAlpha = 1; }
+}
+function drawTitle() {
+  drawSky();
+  text("ZERO TO ℤ", 120, 26, COL.gold, "center", 3);
+  text("NUMBERS AND ARITHMETIC IN λD", 120, 50, COL.ink, "center");
+  text("TYPE THEORY AND FORMAL PROOF, CH. 14", 120, 60, COL.grey, "center");
+  drawStreet(v => v >= 0 && v <= Math.floor(clock * 3) % 10, null);
+  drawWalker(cellX(Math.floor(clock * 3) % 10) + 6, STREET_Y - 1, COL.cyan);
+  text("0, s(0), s(s(0)), …  AND p GOES BACK", 120, 82, COL.cyan, "center");
+  if (blinkOn()) text("SPACE: CHOOSE A LEVEL", 120, 100, COL.ink, "center");
+  text("H: RULES   O: ACCESSIBILITY   HI " + hi, 120, 112, COL.grey, "center");
+  text("TYPE THEORY BY NEDERPELT AND GEUVERS", 120, 168, COL.dim, "center");
+}
+function drawMenu() {
+  drawSky();
+  text("CHOOSE A LEVEL", 120, 8, COL.gold, "center", 2);
+  for (let i = 0; i < NL; i++) {
+    const [x, y, w, h] = menuRow(i), sel = i === selL;
+    rect(x, y, w, h, sel ? COL.navy : COL.panel); frameBox(x, y, w, h, sel ? COL.gold : COL.dim);
+    text((i + 1) + " " + LEVELS[i].name, x + 5, y + 4, sel ? COL.gold : COL.ink);
+    text(LEVELS[i].short, x + w - 16, y + 4, COL.grey, "right");
+    if (cleared.includes(i)) text("✓", x + w - 8, y + 4, COL.green);
+  }
+  text("↑/↓  SPACE   1-" + NL + "   ESC: TITLE", 120, 172, COL.grey, "center");
+}
+function drawIntro() {
+  drawSky();
+  const sp = LEVELS[L];
+  text("LEVEL " + (L + 1), 120, 14, COL.grey, "center");
+  text(sp.name, 120, 24, COL.gold, "center", 2);
+  text(sp.sec, 120, 42, COL.cyan, "center");
+  rect(10, 54, 220, 40, COL.panel); frameBox(10, 54, 220, 40, COL.dim);
+  sp.lines.forEach((l, i) => text(l, 120, 59 + i * 11, COL.ink, "center"));
+  text(sp.keys, 120, 104, COL.ink, "center");
+  text("GET " + GOAL + " RIGHT TO CLEAR. MISTAKES ONLY", 120, 118, COL.grey, "center");
+  text("RESET THE COMBO.", 120, 127, COL.grey, "center");
+  if (blinkOn()) text("SPACE: START", 120, 150, COL.gold, "center");
+}
+function drawDone() {
+  drawSky();
+  text("YOU BUILT ℤ!", 120, 30, COL.gold, "center", 2);
+  text("0, s, p, N, INDUCTION, +, ·, ≤, |", 120, 56, COL.ink, "center");
+  text("ALL FROM FIVE PRIMITIVE DEFINITIONS", 120, 68, COL.grey, "center");
+  text("SCORE " + score + "   HI " + hi, 120, 86, COL.cyan, "center");
+  drawStreet(v => true, null);
+  if (blinkOn()) text("SPACE: LEVEL MENU", 120, 106, COL.ink, "center");
+}
+function optLines() {
+  return [
+    ["C", "HIGH CONTRAST: " + (opt.contrast ? "ON" : "OFF")],
+    ["R", "CALM (NO FLASH OR BLINK): " + (opt.calm ? "ON" : "OFF")],
+    ["L", "READ ALOUD: " + (opt.speak ? "ON" : "OFF")],
+    ["M", "SOUND: " + (muted ? "OFF" : "ON")],
+    ["A", "REPEAT LAST ANNOUNCEMENT"],
+  ];
+}
+function drawHelp() {
+  drawSky();
+  rect(6, 4, 228, 164, COL.panel); frameBox(6, 4, 228, 164, COL.dim);
+  if (helpPage === 0) {
+    RULES.forEach((l, k) => text(l, 12, 9 + k * 13, k === 0 ? COL.gold : COL.ink));
+    text("O: ACCESSIBILITY   OTHER KEY: BACK", 120, 172, COL.grey, "center");
+  } else {
+    text("ACCESSIBILITY", 120, 12, COL.gold, "center");
+    optLines().forEach(([k, l], i) => { text(k, 20, 30 + i * 13, COL.cyan); text(l, 32, 30 + i * 13, COL.ink); });
+    text("THERE IS NO TIMER: TAKE YOUR TIME.", 120, 104, COL.ink, "center");
+    text("HEARTS ARE UNLIMITED: NO GAME OVER.", 120, 116, COL.ink, "center");
+    text("SCREEN READERS HEAR EVERY TERM,", 120, 132, COL.grey, "center");
+    text("MODEL, PREDICATE AND RESULT.", 120, 142, COL.grey, "center");
+    text("PRESS A KEY ABOVE, OTHER KEY: BACK", 120, 172, COL.grey, "center");
+  }
+}
+let paused = false;
+function draw() {
+  ctx.globalAlpha = 1;
+  if (state === "title") drawTitle();
+  else if (state === "intro") drawIntro();
+  else if (state === "help") drawHelp();
+  else if (state === "menu") drawMenu();
+  else if (state === "done") drawDone();
+  else drawPlay();
+  if (paused && state === "play") { rect(80, 70, 80, 20, COL.panel); frameBox(80, 70, 80, 20, COL.gold); text("PAUSED", 120, 77, COL.gold, "center"); }
+  if (CV_LABEL[state] && cv.getAttribute && cv.getAttribute("aria-label") !== CV_LABEL[state]) cv.setAttribute("aria-label", CV_LABEL[state]);
+}
+
+// ---------------------------------------------------------------------------
+// Input
+// ---------------------------------------------------------------------------
+const CV_LABEL = { title: "Zero to Z, title screen", intro: "Zero to Z, level introduction", play: "Zero to Z, playing",
+  result: "Zero to Z, answer", help: "Zero to Z, rules and options", menu: "Zero to Z, choose a level", done: "Zero to Z, all levels done" };
+function openHelp(page) {
+  if (state === "play") paused = true;
+  if (state !== "help") prevState = state;
+  state = "help"; helpPage = page;
+  if (page === 0) say(RULES.join(". ") + ". Press O for accessibility options, any other key to go back.");
+  else say("Accessibility options. " + optLines().map(([k, l]) => k + ": " + l).join(". ") + ". There is no timer and no game over. Any other key goes back.");
+}
+function setOption(code) {
+  if (code === "KeyC") { opt.contrast = !opt.contrast; applyPalette(); say("High contrast " + (opt.contrast ? "on" : "off")); }
+  else if (code === "KeyR") { opt.calm = !opt.calm; say("Calm mode " + (opt.calm ? "on" : "off")); }
+  else if (code === "KeyL") { opt.speak = !opt.speak; if (!opt.speak) { try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { /* ignore */ } }
+                              say("Read aloud " + (opt.speak ? "on" : "off")); }
+  else if (code === "KeyM") { muted = !muted; say("Sound " + (muted ? "off" : "on")); }
+  else if (code === "KeyA") { say(lastSaid || "Zero to Z", true); }
+  else return false;
+  saveOpt();
+  return true;
+}
+function primary() {
+  if (state === "title" || state === "done") openMenu();
+  else if (state === "menu") newGame(selL);
+  else if (state === "intro") startRound();
+  else if (state === "result") next();
+}
+function closeHelp() { state = prevState; say(state === "play" ? "Back to the game, paused. Press any key to go on." : "Back."); }
+function onKey(code) {
+  if (state === "help") {
+    if (code === "KeyO" && helpPage === 0) { openHelp(1); return; }
+    if (helpPage === 1 && setOption(code)) return;
+    closeHelp(); return;
+  }
+  if (code === "KeyH" || code === "Slash") { openHelp(0); return; }
+  if (code === "KeyO") { openHelp(1); return; }
+  if (setOption(code)) return;
+  if (code === "Escape") {
+    if (state === "menu") { state = "title"; say("Title screen. Press space to choose a level."); }
+    else openMenu();
+    return;
+  }
+  if (state === "menu") {
+    const d = /^(?:Digit|Numpad)([1-9])$/.exec(code);
+    if (d && +d[1] <= NL) { selL = +d[1] - 1; newGame(selL); }
+    else if (code === "ArrowUp" || code === "ArrowLeft") moveSel(-1);
+    else if (code === "ArrowDown" || code === "ArrowRight") moveSel(1);
+    else if (code === "Space" || code === "Enter") newGame(selL);
+    return;
+  }
+  if (code === "KeyP" && state === "play") { paused = !paused; say(paused ? "Paused" : "Go on"); return; }
+  if (paused && state === "play") { paused = false; say("Go on"); return; }
+  if (state !== "play") { if (code === "Space" || code === "Enter") primary(); return; }
+  const k = R.kind;
+  const digit = /^(?:Digit|Numpad)([0-9])$/.exec(code);
+  if (k === "walk") {
+    if (code === "ArrowLeft") walk(-1);
+    else if (code === "ArrowRight") walk(1);
+    else if (code === "Space" || code === "Enter") land();
+  } else if (k === "domino") {
+    if (code === "ArrowLeft") walk(-1);
+    else if (code === "ArrowRight") walk(1);
+    else if (code === "KeyZ" || code === "ArrowUp") domino("up");
+    else if (code === "KeyX" || code === "ArrowDown") domino("down");
+    else if (code === "KeyB" || code === "Digit0" || code === "Numpad0") domino("base");
+    else if (code === "KeyV") domino("all");
+  } else if (k === "findN") {
+    if (R.phase === 0) {
+      if (code === "ArrowLeft") walk(-1);
+      else if (code === "ArrowRight") walk(1);
+      else if (code === "Space") toggleNode(R.cur);
+      else if (code === "Enter") checkN();
+      else if (digit && +digit[1] >= 1) toggleNode(+digit[1] - 1);
+    } else {
+      if (code === "KeyZ" || code === "ArrowLeft" || code === "KeyY") judgeAx3(true);
+      else if (code === "KeyX" || code === "ArrowRight" || code === "KeyN") judgeAx3(false);
+    }
+  } else if (k === "add" || k === "mul") {
+    if (digit && +digit[1] >= 1 && +digit[1] <= 5) applyRule(+digit[1] - 1);
+  } else if (k === "tf") {
+    if (code === "KeyZ" || code === "ArrowLeft" || code === "KeyT") answerTF(true);
+    else if (code === "KeyX" || code === "ArrowRight" || code === "KeyF") answerTF(false);
+  }
+}
+function onClick(x, y) {
+  if (state === "help") { closeHelp(); return; }
+  if (paused && state === "play") { paused = false; return; }
+  if (state === "menu") {
+    for (let i = 0; i < NL; i++) { const [rx, ry, rw, rh] = menuRow(i); if (x >= rx && x < rx + rw && y >= ry && y < ry + rh) { selL = i; newGame(i); return; } }
+    return;
+  }
+  if (state !== "play") { primary(); return; }
+  for (const b of buttons()) if (x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) { b.act(); return; }
+  if (R.kind === "walk") { const v = cellAt(x, y); if (v !== null) land(v); }
+  else if (R.kind === "domino") { const v = cellAt(x, y); if (v !== null) { R.cur = v; say(NUM(v) + (R.P.f(v) ? ", P holds" : ", P fails")); } }
+  else if (R.kind === "findN" && R.phase === 0) {
+    R.Mo.nodes.forEach((o, i) => { if (Math.abs(x - o.x) <= 8 && Math.abs(y - o.y) <= 8) toggleNode(i); });
+  }
+}
+window.addEventListener("keydown", e => {
+  if (e.repeat) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;   // leave browser and screen-reader shortcuts alone
+  if (["Space", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.code)) e.preventDefault();
+  onKey(e.code);
+});
+window.addEventListener("blur", () => { if (state === "play" && !paused) { paused = true; say("Paused"); } });
+try { cv.focus && cv.focus(); } catch (e) { /* ignore */ }
+say("Zero to Z. Press space to choose a level, H for rules, O for accessibility options.");
+cv.addEventListener("pointerdown", e => {
+  const r = cv.getBoundingClientRect();
+  onClick((e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height);
+});
+
+let last = null;
+function frame(ts) {
+  const dt = last === null ? 0 : Math.min(0.1, (ts - last) / 1000); last = ts;
+  if (!(paused && state === "play")) update(dt); else clock += dt;
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// hooks for the automated tests
+window.__zz = {
+  FONT, LEVELS, NL, GOAL, LO, HI, termStr, termVal, annihilate, predicates, genPredicate, breakInWindow, checkBreak, someBreak,
+  makeModel, genModel, closureN, ADD_RULES, MUL_RULES, addStart, mulStart, addStr, mulStr, isDone, valueOf, genClaim,
+  update, draw, onKey, onClick, buttons, cellX, menuRow, newGame, startRound, land, walk, toggleNode, checkN, judgeAx3,
+  domino, applyRule, answerTF, STREET_Y, speakable,
+  setSeed: v => { seed = v >>> 0; }, setTL: v => { TL = v; },
+  get state() { return state; }, get R() { return R; }, get L() { return L; }, get hits() { return hits; },
+  get score() { return score; }, get misses() { return misses; }, get combo() { return combo; }, get res() { return res; },
+  get selL() { return selL; }, get cleared() { return cleared; }, get paused() { return paused; }, get hi() { return hi; },
+  get opt() { return opt; }, get helpPage() { return helpPage; }, get lastSaid() { return lastSaid; }, get msg() { return msg; }, COL,
+};
+</script>
+</body>
+</html>
